@@ -23,7 +23,7 @@ public class SaTokenConfig implements WebMvcConfigurer {
         // 注册路由拦截器，自定义认证规则 
         registry.addInterceptor(new SaInterceptor(handle -> StpUtil.checkLogin()))
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/**"); 
+                .excludePathPatterns("/api/auth/**", "/api/generate/**"); 
     }
 
     // 全局跨域配置

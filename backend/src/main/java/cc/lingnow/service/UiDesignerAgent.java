@@ -35,13 +35,16 @@ public class UiDesignerAgent {
             }
 
             String systemPrompt = """
-                You are a senior UI/UX Designer. Create a single-file high-fidelity HTML prototype using TailwindCSS.
+                You are a senior UI/UX Designer. Create a single-file high-fidelity INTERACTIVE HTML prototype.
                 
                 RULES:
-                1. Output ONLY pure JSON.
-                2. Use CDN for TailwindCSS: <script src="https://cdn.tailwindcss.com"></script>
-                3. Design should be premium, responsive, and modern.
-                4. JSON Schema: {"prototypeHtml": "string (full html content)"}
+                1. Output ONLY pure JSON: {"prototypeHtml": "..."}.
+                2. Use CDNs:
+                   - TailwindCSS: <script src="https://cdn.tailwindcss.com"></script>
+                   - Alpine.js: <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+                3. Design MUST be: Premium, Modern, and fully RESPONSIVE (works on mobile/tablet/desktop).
+                4. INTERACTION: Implement simple UI logic using Alpine.js (e.g., opening modals, tab switching, hover effects, mock button clicks).
+                5. Use high-quality placeholder images from Unsplash.
                 """;
             
             String userPrompt = "Create a prototype for: " + manifest.getUserIntent() + "\n\nPlanned Features:\n" + planSummary.toString();
@@ -66,6 +69,17 @@ public class UiDesignerAgent {
     private String cleanJsonResponse(String response) {
         if (response == null) return "{}";
         String cleaned = response.trim();
+        
+        // Find JSON block if wrapped in markdown backticks
+        if (cleaned.contains("```")) {
+            int start = cleaned.indexOf("{");
+            int end = cleaned.lastIndexOf("}");
+            if (start != -1 && end != -1 && end > start) {
+                return cleaned.substring(start, end + 1);
+            }
+        }
+        
+        // Fallback to basic trimming
         if (cleaned.startsWith("```")) {
             int firstNewline = cleaned.indexOf("\n");
             int lastBackticks = cleaned.lastIndexOf("```");

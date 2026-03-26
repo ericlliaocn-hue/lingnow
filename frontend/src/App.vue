@@ -18,6 +18,7 @@ const activeTab = ref('design') // 默认进入设计视图
  */
 const isWorkbenchMode = computed(() => !!result.value && !error.value)
 const isSidebarOpen = ref(true)
+const deviceType = ref('desktop') // 'desktop' | 'tablet' | 'mobile'
 
 /**
  * Computed files for Sandpack
@@ -33,7 +34,7 @@ const sandpackFiles = computed(() => {
 })
 
 const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
-const authData = ref({ username: '', password: '' })
+const authData = ref({ username: 'eric', password: 'anbs,23t' })
 const isLoginMode = ref(true)
 
 // Axios configuration
@@ -141,55 +142,30 @@ const resetProject = () => {
 </script>
 
 <template>
-  <!-- Login Overlay -->
-  <div v-if="!user" class="min-h-screen bg-black flex items-center justify-center p-4">
-    <div class="max-w-md w-full bg-gray-900 rounded-3xl p-8 border border-gray-800 shadow-2xl">
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 text-blue-400 mb-4 border border-blue-500/20">
-          <Zap class="w-8 h-8 font-bold"/>
-        </div>
-        <h2 class="text-2xl font-bold text-white">LingNow 工厂</h2>
-        <p class="text-gray-500 text-sm mt-2">身份识别以开启数字军团</p>
-      </div>
-      <div class="space-y-4">
-        <input v-model="authData.username" type="text" placeholder="用户名" class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none" />
-        <input v-model="authData.password" type="password" placeholder="密码" class="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-blue-500 outline-none" />
-        <button @click="handleAuth" :disabled="loading" class="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl font-bold text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.02]">
-          <Loader2 v-if="loading" class="w-5 h-5 animate-spin" />
-          <span>{{ isLoginMode ? '进入实验室' : '创建身份' }}</span>
-        </button>
-        <p class="text-center text-xs text-gray-500">
-          <button @click="isLoginMode = !isLoginMode" class="text-blue-400 hover:underline">点击进行{{ isLoginMode ? '注册' : '登录' }}</button>
-        </p>
-        <div v-if="error" class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-xs text-center">{{ error }}</div>
-      </div>
-    </div>
-  </div>
-
-  <div v-else class="h-screen bg-[#050505] text-gray-100 flex flex-col overflow-hidden">
-    <!-- Navigation Bar -->
-    <nav class="h-16 border-b border-white/5 bg-black/40 backdrop-blur-xl flex items-center justify-between px-6 z-50 shrink-0">
+  <div class="h-full flex flex-col bg-black text-gray-300 select-none overflow-hidden">
+    <!-- Top Global Navigation -->
+    <nav class="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-black/40 backdrop-blur-3xl z-40 shrink-0">
       <div class="flex items-center gap-6">
         <div @click="resetProject" class="flex items-center gap-3 cursor-pointer group">
-          <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:rotate-12 transition-all">
-            <Zap class="w-5 h-5 text-white fill-current" />
+          <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-500/20 transition-all">
+            <Zap class="w-6 h-6 text-white fill-current" />
           </div>
-          <span class="font-black tracking-tighter text-xl">LINGNOW</span>
+          <h1 class="text-xl font-black text-white tracking-tighter uppercase italic">LingNow</h1>
         </div>
         
-        <!-- View Tabs (Visible in Workbench Mode) -->
-        <div v-if="isWorkbenchMode" class="flex items-center bg-white/5 rounded-full p-1 ml-4 border border-white/5">
+        <!-- Mode Tabs -->
+        <div v-if="isWorkbenchMode" class="flex bg-white/5 p-1 rounded-xl border border-white/5">
           <button 
             v-for="t in [
-              {id: 'design', label: 'Canvas', icon: Layout},
-              {id: 'plan', label: 'Logic', icon: Layers},
-              {id: 'code', label: 'Source', icon: Terminal},
-              {id: 'preview', label: 'Sandbox', icon: Monitor}
+              {id: 'design', icon: Layout, label: 'Canvas'},
+              {id: 'plan', icon: Layers, label: 'Logic'},
+              {id: 'code', icon: Terminal, label: 'Source'},
+              {id: 'preview', icon: Box, label: 'Sandbox'}
             ]"
             :key="t.id"
             @click="activeTab = t.id"
-            :class="[activeTab === t.id ? 'bg-white/10 text-white shadow-sm' : 'text-gray-500 hover:text-gray-300']"
-            class="px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2"
+            :class="[activeTab === t.id ? 'bg-white/10 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300']"
+            class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
           >
             <component :is="t.icon" class="w-3.5 h-3.5" />
             {{ t.label }}
@@ -197,14 +173,14 @@ const resetProject = () => {
         </div>
       </div>
 
-      <div class="flex items-center gap-4">
-        <div class="flex flex-col items-end mr-2">
-            <span class="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none">Developer</span>
-            <span class="text-xs font-medium text-gray-300">{{ user.username }}</span>
+      <div class="flex items-center gap-6">
+        <div v-if="user" class="flex items-center gap-3 px-4 py-1.5 rounded-xl bg-white/5 border border-white/5">
+          <div class="text-right">
+             <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest leading-none">Developer</p>
+             <p class="text-xs font-bold text-gray-200 mt-0.5">{{ user.username }}</p>
+          </div>
+          <button @click="handleLogout" class="text-gray-600 hover:text-white transition-colors ml-2"><LogOut class="w-4 h-4" /></button>
         </div>
-        <button @click="handleLogout" class="p-2 hover:bg-white/5 rounded-lg transition-colors text-gray-500">
-          <LogOut class="w-5 h-5"/>
-        </button>
       </div>
     </nav>
 
@@ -213,7 +189,7 @@ const resetProject = () => {
       
       <!-- LEFT: Canvas Area (Prototype/Preview/Code) -->
       <main 
-        class="relative transition-all duration-500 ease-in-out overflow-hidden"
+        class="relative transition-all duration-500 ease-in-out overflow-hidden flex flex-col bg-[#111]"
         :class="[isWorkbenchMode ? (isSidebarOpen ? 'w-[75%]' : 'w-full') : 'w-full flex items-center justify-center']"
       >
         <!-- Initial Welcome Screen -->
@@ -221,19 +197,19 @@ const resetProject = () => {
           <div class="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[2rem] mx-auto mb-8 shadow-2xl flex items-center justify-center rotate-6 scale-110">
              <Sparkles class="w-12 h-12 text-white" />
           </div>
-          <h2 class="text-5xl font-black mb-4 tracking-tighter">你想建造什么？</h2>
+          <h2 class="text-5xl font-black mb-4 tracking-tighter text-white">你想建造什么？</h2>
           <p class="text-gray-500 text-lg mb-12">告诉数字军团你的创意，我们将实时为您构建全栈应用。</p>
           
           <div class="relative group max-w-xl mx-auto">
             <textarea 
               v-model="prompt"
               placeholder="我想做一个宠物社交 APP，用户可以晒自家宠物..."
-              class="w-full h-40 bg-white/5 border border-white/10 rounded-3xl p-6 text-lg focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none transition-all placeholder:text-gray-700 shadow-2xl"
+              class="w-full h-40 bg-white/5 border border-white/10 rounded-3xl p-6 text-lg text-white focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none transition-all placeholder:text-gray-700 shadow-2xl"
               @keydown.enter.exact.prevent="handleGenerate"
             ></textarea>
             <button 
               @click="handleGenerate"
-              :disabled="!prompt.trim()"
+              :disabled="!prompt.trim() || loading"
               class="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 shadow-xl transition-all hover:translate-y-[-2px] active:scale-95"
             >
               <Send class="w-5 h-5" />
@@ -242,24 +218,52 @@ const resetProject = () => {
           </div>
         </div>
 
-        <!-- Workbench Canvas -->
-        <div v-if="isWorkbenchMode" class="h-full w-full bg-[#111] relative overflow-hidden">
+        <!-- Workbench Canvas Header (Device Switcher) -->
+        <div v-if="isWorkbenchMode" class="h-12 bg-black/40 border-b border-white/5 flex items-center justify-center gap-4 shrink-0 px-4">
+           <div class="flex items-center bg-white/5 rounded-lg p-1 border border-white/5 shadow-inner">
+              <button 
+                v-for="d in [
+                  {id: 'desktop', icon: Monitor, label: 'Desktop'},
+                  {id: 'tablet', icon: Layout, label: 'Tablet'},
+                  {id: 'mobile', icon: Monitor, label: 'Mobile'}
+                ]"
+                :key="d.id"
+                @click="deviceType = d.id"
+                :class="[deviceType === d.id ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300']"
+                class="p-1.5 rounded-md transition-all flex items-center gap-2"
+              >
+                <component :is="d.icon" class="w-4 h-4" />
+              </button>
+           </div>
+           <div class="h-4 w-[1px] bg-white/10 mx-2"></div>
+           <span class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+              Viewport: {{ deviceType === 'desktop' ? 'Fluid' : (deviceType === 'tablet' ? '768px' : '375px') }}
+           </span>
+        </div>
+
+        <div v-if="isWorkbenchMode" class="flex-1 relative overflow-hidden p-8 flex justify-center bg-[#0d0d0d] scrollbar-hide">
           <transition name="fade" mode="out-in">
-            <!-- Prototype View -->
-            <div v-if="activeTab === 'design'" class="h-full bg-white relative">
-               <div class="absolute inset-0 z-0 bg-slate-50 flex items-center justify-center opacity-10">
-                  <div class="grid grid-cols-12 w-full h-full">
-                    <div v-for="i in 144" :key="i" class="border-[0.5px] border-black/20"></div>
+            <!-- Prototype View with Mock Device -->
+            <div 
+              v-if="activeTab === 'design'" 
+              :key="'design'"
+              class="h-full transition-all duration-500 ease-in-out relative origin-top shadow-[0_0_100px_rgba(0,0,0,0.5)] flex justify-center"
+              :style="{ width: deviceType === 'desktop' ? '100%' : (deviceType === 'tablet' ? '768px' : '375px') }"
+            >
+               <div class="h-full w-full bg-white relative rounded-[2rem] overflow-hidden border border-white/10 group/canvas">
+                  <!-- Mock Mobile/Tablet Frame if not desktop -->
+                  <div v-if="deviceType !== 'desktop'" class="absolute -inset-4 border-[12px] border-[#1a1a1a] rounded-[3rem] pointer-events-none z-30 shadow-2xl">
+                     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl"></div>
                   </div>
+                  <iframe 
+                    :srcdoc="result.manifest?.prototypeHtml"
+                    class="w-full h-full border-none relative z-10"
+                  ></iframe>
                </div>
-               <iframe 
-                 :srcdoc="result.manifest?.prototypeHtml"
-                 class="w-full h-full border-none relative z-10"
-               ></iframe>
             </div>
 
             <!-- Code Sandbox -->
-            <div v-else-if="activeTab === 'preview'" class="h-full">
+            <div v-else-if="activeTab === 'preview'" :key="'preview'" class="h-full w-full">
               <Sandpack 
                 template="vue3"
                 theme="dark"
@@ -273,7 +277,7 @@ const resetProject = () => {
             </div>
 
             <!-- Source Tree -->
-            <div v-else-if="activeTab === 'code'" class="h-full p-6 overflow-auto bg-[#0a0a0a]">
+            <div v-else-if="activeTab === 'code'" :key="'code'" class="h-full w-full p-6 overflow-auto bg-[#0a0a0a]">
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div v-for="(content, path) in result.files" :key="path" class="group bg-white/5 border border-white/5 rounded-xl overflow-hidden hover:border-white/20 transition-all">
                   <div class="px-4 py-2 bg-white/5 border-b border-white/5 flex justify-between items-center">
@@ -286,7 +290,7 @@ const resetProject = () => {
             </div>
 
             <!-- Logic View -->
-            <div v-else-if="activeTab === 'plan'" class="h-full p-12 overflow-auto bg-[#050505]">
+            <div v-else-if="activeTab === 'plan'" :key="'plan'" class="h-full w-full p-12 overflow-auto bg-[#050505]">
                <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
                   <section class="space-y-6">
                     <h3 class="text-xl font-black text-white flex items-center gap-3">
@@ -295,7 +299,7 @@ const resetProject = () => {
                     </h3>
                     <div v-for="f in result.manifest?.features" :key="f.name" class="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-all">
                       <div class="flex justify-between items-start mb-2">
-                        <h4 class="font-bold text-gray-100">{{ f.name }}</h4>
+                        <h4 class="font-bold text-white">{{ f.name }}</h4>
                         <span class="text-[9px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase font-black">P{{ f.priority }}</span>
                       </div>
                       <p class="text-xs text-gray-500 leading-relaxed">{{ f.description }}</p>
@@ -332,18 +336,18 @@ const resetProject = () => {
       <!-- RIGHT: Copilot Sidebar -->
       <aside 
         v-if="isWorkbenchMode"
-        class="border-l border-white/5 bg-black/40 backdrop-blur-3xl flex flex-col transition-all duration-500"
+        class="border-l border-white/5 bg-black/40 backdrop-blur-3xl flex flex-col transition-all duration-500 overflow-hidden"
         :class="[isSidebarOpen ? 'w-[25%]' : 'w-0 opacity-0 invisible']"
       >
         <!-- Sidebar Header (Status) -->
         <div class="p-6 border-b border-white/5 bg-white/5">
           <div class="flex items-center justify-between mb-6">
             <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">任务指挥部</span>
-            <button @click="isSidebarOpen = false" class="text-gray-600 hover:text-white"><PanelRight class="w-4 h-4" /></button>
+            <button @click="isSidebarOpen = false" class="text-gray-600 hover:text-white transition-colors"><PanelRight class="w-4 h-4" /></button>
           </div>
           
           <div class="space-y-4">
-            <div v-for="(label, state) in { PLANNING: '需求分析', DESIGNING: '视觉对标', CODING: '代码合成', DONE: '资产交付' }" :key="state" class="flex items-center gap-3 group">
+            <div v-for="(label, state) in { PLANNING: '需求分析', DESIGNING: '视觉对标', CODING: '代码合成', DONE: '资产交付' }" :key="state" class="flex items-center gap-3">
                <div 
                  :class="[
                    (result?.manifest?.status === state) ? 'bg-blue-500 scale-125 shadow-blue-500/50' : 
@@ -357,11 +361,11 @@ const resetProject = () => {
           </div>
         </div>
 
-        <!-- Sidebar Actions Section -->
+        <!-- Sidebar Actions -->
         <div v-if="generationPhase === 'awaiting_confirmation'" class="p-6 bg-blue-600/10 border-b border-blue-500/20">
            <h4 class="text-sm font-black text-white mb-2 italic">√ 原型已就绪</h4>
-           <p class="text-[10px] text-gray-400 mb-4">当前展示的是视觉原型草案。如果您满意，请点击下方开启“全量编码”；如需调整，请在此对话。</p>
-           <button @click="handleConfirm" class="w-full py-3 bg-white text-black font-black text-xs rounded-xl hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-2">
+           <p class="text-[10px] text-gray-400 mb-4 leading-relaxed">当前展示的是视觉原型草案。如果您满意，请点击下方开启“全量编码”；如需调整，请在此对话。</p>
+           <button @click="handleConfirm" class="w-full py-3 bg-white text-black font-black text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2">
               <Zap class="w-4 h-4 fill-current" />
               立即开始编码
            </button>
@@ -371,32 +375,32 @@ const resetProject = () => {
         <div class="flex-1 flex flex-col overflow-hidden">
           <div class="flex-1 p-6 overflow-y-auto space-y-4 no-scrollbar">
             <!-- Project Brief -->
-            <div class="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <span class="text-[9px] font-black text-blue-500 uppercase">当前目标</span>
-              <p class="text-xs text-gray-300 mt-1 leading-relaxed">{{ result.manifest?.userIntent }}</p>
+            <div v-if="result?.manifest" class="bg-white/5 rounded-2xl p-4 border border-white/5">
+              <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">当前目标</span>
+              <p class="text-xs text-gray-300 mt-1 leading-relaxed">{{ result.manifest.userIntent }}</p>
             </div>
           </div>
 
           <!-- Bottom Prompt Panel -->
-          <div class="p-6 bg-black/60 border-t border-white/5 space-y-3">
+          <div class="p-6 bg-black/60 border-t border-white/5 space-y-3 shrink-0">
             <div class="relative">
               <textarea 
                 v-model="prompt"
                 placeholder="在此输入新的需求或修改..."
-                class="w-full h-24 bg-white/10 border border-white/10 rounded-2xl p-4 text-xs focus:ring-2 focus:ring-blue-500/40 outline-none resize-none no-scrollbar transition-all"
+                class="w-full h-24 bg-white/10 border border-white/10 rounded-2xl p-4 text-xs text-white focus:ring-2 focus:ring-blue-500/40 outline-none resize-none no-scrollbar transition-all"
                 @keydown.enter.exact.prevent="handleGenerate"
               ></textarea>
               <button 
                 @click="handleGenerate"
                 :disabled="!prompt.trim() || loading"
-                class="absolute bottom-3 right-3 p-2 bg-blue-600 rounded-lg disabled:opacity-50 text-white transition-all scale-90 hover:scale-100"
+                class="absolute bottom-3 right-3 p-2 bg-blue-600 rounded-lg disabled:opacity-50 text-white transition-all scale-90 hover:scale-100 active:scale-95"
               >
                 <Send class="w-4 h-4" />
               </button>
             </div>
             <div class="flex justify-between items-center px-1">
               <span class="text-[9px] text-gray-600 italic">由 LingNow AI 全程驱动</span>
-              <button @click="resetProject" class="text-[9px] text-gray-400 hover:text-white flex items-center gap-1">
+              <button @click="resetProject" class="text-[9px] text-gray-400 hover:text-white flex items-center gap-1 transition-colors">
                  <Plus class="w-2.5 h-2.5"/> New Project
               </button>
             </div>
@@ -408,11 +412,41 @@ const resetProject = () => {
       <button 
         v-if="isWorkbenchMode && !isSidebarOpen"
         @click="isSidebarOpen = true"
-        class="absolute right-6 bottom-6 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-all z-50 text-white"
+        class="absolute right-6 bottom-6 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-90 transition-all z-50 text-white shadow-blue-500/20"
         title="展开侧边栏"
       >
         <PanelRight class="w-6 h-6 rotate-180" />
       </button>
+
+      <!-- Registration Overlay -->
+      <div v-if="!user" class="absolute inset-0 bg-black z-50 flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-gray-900 rounded-3xl p-8 border border-gray-800 shadow-2xl">
+          <div class="text-center mb-8">
+            <Zap class="w-12 h-12 text-blue-500 mx-auto mb-4" />
+            <h2 class="text-2xl font-black text-white italic tracking-tighter">{{ isLoginMode ? '欢迎回来' : '加入数字军团' }}</h2>
+            <p class="text-gray-500 text-sm mt-1">登录以访问您的 AI 软件工厂</p>
+          </div>
+          <div class="space-y-4">
+            <div>
+              <label class="text-[10px] font-black text-gray-600 uppercase mb-1 block">用户名</label>
+              <input v-model="authData.username" type="text" class="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div>
+              <label class="text-[10px] font-black text-gray-600 uppercase mb-1 block">密码</label>
+              <input v-model="authData.password" type="password" class="w-full bg-black border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <button @click="handleAuth" :disabled="loading" class="w-full py-4 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-2">
+              <Loader2 v-if="loading" class="w-4 h-4 animate-spin" />
+              {{ isLoginMode ? '立即登录' : '创建一个' }}
+            </button>
+            <p class="text-center text-xs text-gray-600 mt-6">
+              {{ isLoginMode ? '还没有账户?' : '已经有账户?' }}
+              <button @click="isLoginMode = !isLoginMode" class="text-blue-500 font-bold ml-1 hover:underline decoration-2">切换</button>
+            </p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
