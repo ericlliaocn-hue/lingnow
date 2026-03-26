@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * UI Designer Agent - Responsible for creating high-fidelity prototypes (HTML/Tailwind).
+ * UI Designer Agent - Responsible for creating and refining high-fidelity prototypes (HTML/Tailwind).
  */
 @Slf4j
 @Service
@@ -23,46 +23,69 @@ public class UiDesignerAgent {
      * Generate a high-fidelity HTML prototype based on the manifest.
      */
     public void design(ProjectManifest manifest) {
-        log.info("Designer is creating prototype for: {}", manifest.getUserIntent());
+        log.info("Designer is creating initial prototype for: {}", manifest.getUserIntent());
         
-        try {
-            StringBuilder planSummary = new StringBuilder();
-            if (manifest.getFeatures() != null) {
-                manifest.getFeatures().forEach(f -> planSummary.append("- ").append(f.getName()).append(": ").append(f.getDescription()).append("\n"));
-            }
-            if (manifest.getPages() != null) {
-                manifest.getPages().forEach(p -> planSummary.append("- Page: ").append(p.getRoute()).append(" (").append(p.getDescription()).append(")\n"));
-            }
-
-            String systemPrompt = """
-                You are a senior UI/UX Designer. Create a single-file high-fidelity INTERACTIVE HTML prototype.
+        String systemPrompt = "You are an expert UI/UX Designer. Create a premium, interactive HTML prototype based on requirements. "
+                + "Use Tailwind CSS for styling and Alpine.js for interactive logic (modals, tabs, likes, states). "
+                + "Ensure it looks polished (glassmorphism, gradients, modern typography). "
+                + "Respond with a single JSON object: {\"prototypeHtml\": \"...\"}. "
+                + "IMPORTANT: All HTML must follow responsive design and include Desktop, Tablet, and Mobile layouts. ";
+        
+        // Language awareness
+        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+        if ("ZH".equalsIgnoreCase(lang)) {
+            systemPrompt += "CRITICAL: The user interface content (texts, labels, descriptions) MUST BE IN CHINESE.";
+        } else {
+            systemPrompt += "The user interface content MUST BE IN ENGLISH.";
+        }
+        
+        String userPrompt = String.format("User Intent: %s\nPlanned Features: %s\nPlanned Pages: %s", 
+                manifest.getUserIntent(), manifest.getFeatures(), manifest.getPages());
                 
-                RULES:
-                1. Output ONLY pure JSON: {"prototypeHtml": "..."}.
-                2. Use CDNs:
-                   - TailwindCSS: <script src="https://cdn.tailwindcss.com"></script>
-                   - Alpine.js: <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-                3. Design MUST be: Premium, Modern, and fully RESPONSIVE (works on mobile/tablet/desktop).
-                4. INTERACTION: Implement simple UI logic using Alpine.js (e.g., opening modals, tab switching, hover effects, mock button clicks).
-                5. Use high-quality placeholder images from Unsplash.
-                """;
-            
-            String userPrompt = "Create a prototype for: " + manifest.getUserIntent() + "\n\nPlanned Features:\n" + planSummary.toString();
-            
+        try {
             String response = llmClient.chat(systemPrompt, userPrompt);
-            JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
-
-            String prototype = root.path("prototypeHtml").asText();
-            if (prototype == null || prototype.isEmpty()) {
-                throw new RuntimeException("Designer produced empty prototype.");
-            }
-            
-            manifest.setPrototypeHtml(prototype);
-            log.info("Designer prototype generation complete. Length: {} chars.", prototype.length());
-
+            String jsonStr = cleanJsonResponse(response);
+            JsonNode node = objectMapper.readTree(jsonStr);
+            String html = node.get("prototypeHtml").asText();
+            manifest.setPrototypeHtml(html);
+            log.info("Initial prototype created ({} chars).", html.length());
         } catch (Exception e) {
-            log.error("Designer phase failed", e);
-            throw new RuntimeException("Designer phase failed: " + e.getMessage());
+            log.error("Prototype design failed", e);
+            throw new RuntimeException("UI Design phase failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * M6: Iterative Redesign - Refines the existing prototype based on user instructions.
+     */
+    public void redesign(ProjectManifest manifest, String instructions) {
+        log.info("Designer is refining prototype based on instructions: {}", instructions);
+        String existingHtml = manifest.getPrototypeHtml();
+        
+        String systemPrompt = "You are an expert UI/UX Refinement Agent. You will receive an existing HTML prototype and modification instructions. "
+                + "Your goal is to EVOLVE the existing design without breaking current styles or Alpine.js logic, unless requested. "
+                + "Maintain consistency with the existing design language. "
+                + "Respond ONLY with a single JSON object: {\"prototypeHtml\": \"... updated html ...\"}. ";
+
+        // Language awareness
+        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+        if ("ZH".equalsIgnoreCase(lang)) {
+            systemPrompt += "CRITICAL: If you add new UI elements or update texts, USE CHINESE.";
+        }
+        
+        String userPrompt = String.format("Existing HTML: \n%s\n\nModification Instructions: %s", 
+                existingHtml, instructions);
+                
+        try {
+            String response = llmClient.chat(systemPrompt, userPrompt);
+            String jsonStr = cleanJsonResponse(response);
+            JsonNode node = objectMapper.readTree(jsonStr);
+            String html = node.get("prototypeHtml").asText();
+            manifest.setPrototypeHtml(html);
+            log.info("Prototype refinement complete ({} chars).", html.length());
+        } catch (Exception e) {
+            log.error("Prototype refinement failed", e);
+            throw new RuntimeException("UI Redesign phase failed: " + e.getMessage());
         }
     }
 
@@ -79,14 +102,12 @@ public class UiDesignerAgent {
             }
         }
         
-        // Fallback to basic trimming
-        if (cleaned.startsWith("```")) {
-            int firstNewline = cleaned.indexOf("\n");
-            int lastBackticks = cleaned.lastIndexOf("```");
-            if (firstNewline != -1 && lastBackticks > firstNewline) {
-                cleaned = cleaned.substring(firstNewline, lastBackticks).trim();
-            }
+        // Fallback for non-JSON responses
+        if (!cleaned.startsWith("{")) {
+            int start = cleaned.indexOf("{");
+            if (start != -1) return cleaned.substring(start);
         }
+        
         return cleaned;
     }
 }

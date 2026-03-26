@@ -35,6 +35,9 @@ public class ProjectManifest {
     private String version;        // e.g. "v1.2.0"
     private List<String> changeLog; // Evolution history
     
+    // M8/v1.4: Context & Meta
+    private Map<String, String> metaData; 
+
     // Deployment (New for M7)
     private String deploymentConfig;
 

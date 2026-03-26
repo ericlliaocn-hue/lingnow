@@ -1,9 +1,8 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { 
-  Sparkles, Code2, Zap, Send, Loader2, Monitor, Terminal, 
-  Box, Info, History, Plus, LogOut, Layout, PanelRight, Fullscreen, Maximize2, Layers
+  Sparkles, Code2, Box, Monitor, Tablet, Smartphone, Layout, Layers, Terminal, LogOut, Zap, Send, PanelRight, Fullscreen, Maximize2, Loader2, Plus, Globe, History, ChevronRight
 } from 'lucide-vue-next'
 import { Sandpack } from 'sandpack-vue3'
 
@@ -12,6 +11,85 @@ const loading = ref(false)
 const result = ref(null)
 const error = ref(null)
 const activeTab = ref('design') // 默认进入设计视图
+
+/**
+ * i18n & History
+ */
+const locale = ref(localStorage.getItem('lingnow_lang') || 'ZH')
+const history = ref([])
+const isHistoryOpen = ref(false)
+
+const i18n = computed(() => ({
+  ZH: {
+    welcome: '你想建造什么？',
+    subtitle: '告诉数字军团你的创意，我们将实时为您构建全栈应用。',
+    placeholder: '在这里描述您的增量需求或新愿景...',
+    action: '开启任务',
+    tab_canvas: '视觉画板',
+    tab_logic: '逻辑矩阵',
+    tab_source: '源码视图',
+    tab_sandbox: '实时沙盒',
+    history: '历史记录',
+    planning: '需求分析',
+    designing: '视觉对标',
+    coding: '代码合成',
+    done: '资产交付',
+    loading_subtitle: '正在调度全球算力，请稍候...',
+    new_project: '开启新灵感',
+    history_title: '历史记录',
+    history_empty: '暂无存档记录',
+    switch_lang: 'English'
+  },
+  EN: {
+    welcome: 'What do you want to build?',
+    subtitle: 'Tell the digital legion your ideas, we build full-stack apps in real-time.',
+    placeholder: 'Describe your incremental redesign or new vision here...',
+    action: 'Generate',
+    tab_canvas: 'Canvas',
+    tab_logic: 'Logic',
+    tab_source: 'Source',
+    tab_sandbox: 'Sandbox',
+    history: 'History',
+    planning: 'Planning',
+    designing: 'Designing',
+    coding: 'Coding',
+    done: 'Done',
+    loading_subtitle: 'Orchestrating worldwide computing power...',
+    new_project: 'New Project',
+    history_title: 'Project Archive',
+    history_empty: 'No archives yet',
+    switch_lang: '中文'
+  }
+}[locale.value]))
+
+const toggleLang = () => {
+  locale.value = locale.value === 'ZH' ? 'EN' : 'ZH'
+  localStorage.setItem('lingnow_lang', locale.value)
+}
+
+const fetchHistory = async () => {
+  try {
+    const res = await axios.get('/api/projects/all')
+    history.value = res.data
+  } catch (err) {
+    console.error('Failed to fetch history', err)
+  }
+}
+
+const loadProject = async (id) => {
+  loading.value = true
+  try {
+    const res = await axios.get(`/api/projects/${id}`)
+    result.value = res.data
+    currentSessionId.value = id
+    isHistoryOpen.value = false
+    activeTab.value = 'design'
+  } catch (err) {
+    error.value = '加载项目失败'
+  } finally {
+    loading.value = false
+  }
+}
 
 /**
  * Workbench Mode Logic
@@ -63,43 +141,92 @@ const handleAuth = async () => {
 }
 
 const handleLogout = () => {
-  localStorage.removeItem('user')
   user.value = null
+  localStorage.removeItem('user')
   window.location.reload()
 }
+
+/**
+ * M6: State Recovery & Persistence
+ */
+onMounted(async () => {
+  if (!user.value) return
+  
+  const lastSessionId = localStorage.getItem('lastSessionId')
+  if (lastSessionId) {
+    loading.value = true
+    try {
+      const res = await axios.get(`/api/projects/${lastSessionId}`)
+      if (res.data && res.data.prototypeHtml) {
+        result.value = res.data
+        currentSessionId.value = lastSessionId
+      }
+    } catch (err) {
+      console.warn('Failed to restore session', err)
+    } finally {
+      loading.value = false
+    }
+  }
+})
 
 const currentSessionId = ref(`session-${Date.now()}`)
 const generationPhase = ref('idle') 
 
 const handleGenerate = async () => {
-  if (!prompt.value.trim()) {
-    error.value = '请输入描述内容'
-    return
-  }
+  if (!prompt.value.trim() || loading.value) return
+  
   loading.value = true
   error.value = null
-  generationPhase.value = 'planning'
   
+  // Detection for Iterative Redesign Mode
+  const isRedesignMode = !!(result.value && result.value.prototypeHtml);
+  
+  if (isRedesignMode) {
+    generationPhase.value = 'designing'
+    try {
+      const res = await axios.post('/api/generate/redesign', {
+        sessionId: currentSessionId.value,
+        prompt: prompt.value
+      }, { timeout: 1800000 })
+      
+      result.value = res.data
+      prompt.value = ''
+      generationPhase.value = 'done'
+    } catch (err) {
+      error.value = err.response?.data?.description || err.message || '迭演修改失败'
+      generationPhase.value = 'done'
+    } finally {
+      loading.value = false
+    }
+    return
+  }
+
+  // Standard Initial Generation Flow
+  generationPhase.value = 'planning'
   try {
-    const isMod = !!result.value;
     const planRes = await axios.post('/api/generate/plan', {
       prompt: prompt.value,
-      sessionId: currentSessionId.value,
-      isModification: isMod
+      sessionId: currentSessionId.value
     }, { timeout: 1800000 })
     
-    result.value = { manifest: planRes.data }
+    result.value = planRes.data
     generationPhase.value = 'designing'
 
     const designRes = await axios.post('/api/generate/design', {
-      sessionId: currentSessionId.value
+      sessionId: currentSessionId.value,
+      lang: locale.value // Pass language context to AI
     }, { timeout: 1800000 })
 
-    result.value = { manifest: designRes.data }
-    generationPhase.value = 'awaiting_confirmation'
-    if (activeTab.value === 'plan') activeTab.value = 'design'
+    result.value = designRes.data
+    generationPhase.value = 'done'
+    activeTab.value = 'design'
+    prompt.value = ''
+    
+    // Perspective Persistence: Save session to local storage
+    localStorage.setItem('lastSessionId', currentSessionId.value)
+    fetchHistory() // Refresh history list
   } catch (err) {
-    error.value = err.response?.data?.description || err.message || '生成失败，请稍后重试'
+    error.value = err.response?.data?.description || err.message || '生成中断，请检查设置'
     generationPhase.value = 'idle'
   } finally {
     loading.value = false
@@ -127,7 +254,7 @@ const handleConfirm = async () => {
 
 const isPastState = (state) => {
   const states = ['PLANNING', 'DESIGNING', 'CODING', 'DONE']
-  const currentStatus = result.value?.manifest?.status || 'PLANNING'
+  const currentStatus = result.value?.status || 'PLANNING'
   return states.indexOf(state) < states.indexOf(currentStatus)
 }
 
@@ -154,13 +281,13 @@ const resetProject = () => {
         </div>
         
         <!-- Mode Tabs -->
-        <div v-if="isWorkbenchMode" class="flex bg-white/5 p-1 rounded-xl border border-white/5">
+        <div v-if="isWorkbenchMode" class="flex bg-white/5 p-1 rounded-xl border border-white/5 ml-4">
           <button 
             v-for="t in [
-              {id: 'design', icon: Layout, label: 'Canvas'},
-              {id: 'plan', icon: Layers, label: 'Logic'},
-              {id: 'code', icon: Terminal, label: 'Source'},
-              {id: 'preview', icon: Box, label: 'Sandbox'}
+              {id: 'design', icon: Layout, label: i18n.tab_canvas},
+              {id: 'plan', icon: Layers, label: i18n.tab_logic},
+              {id: 'code', icon: Terminal, label: i18n.tab_source},
+              {id: 'preview', icon: Box, label: i18n.tab_sandbox}
             ]"
             :key="t.id"
             @click="activeTab = t.id"
@@ -173,7 +300,26 @@ const resetProject = () => {
         </div>
       </div>
 
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-4">
+        <!-- History Trigger (Moved to Right) -->
+        <button 
+          @click="isHistoryOpen = !isHistoryOpen; if(isHistoryOpen) fetchHistory()"
+          class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 text-gray-400 hover:text-white transition-all group"
+          :title="i18n.history"
+        >
+          <History class="w-4 h-4 group-hover:text-blue-400 transition-colors" />
+          <span class="text-[10px] font-black uppercase tracking-widest">{{ i18n.history }}</span>
+        </button>
+
+        <!-- Language Switcher -->
+        <button 
+          @click="toggleLang"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 transition-all group"
+        >
+          <Globe class="w-3.5 h-3.5 text-gray-500 group-hover:text-blue-400 transition-colors" />
+          <span class="text-[10px] font-black text-gray-400 group-hover:text-white">{{ i18n.switch_lang }}</span>
+        </button>
+
         <div v-if="user" class="flex items-center gap-3 px-4 py-1.5 rounded-xl bg-white/5 border border-white/5">
           <div class="text-right">
              <p class="text-[10px] font-black text-blue-400 uppercase tracking-widest leading-none">Developer</p>
@@ -197,13 +343,13 @@ const resetProject = () => {
           <div class="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-[2rem] mx-auto mb-8 shadow-2xl flex items-center justify-center rotate-6 scale-110">
              <Sparkles class="w-12 h-12 text-white" />
           </div>
-          <h2 class="text-5xl font-black mb-4 tracking-tighter text-white">你想建造什么？</h2>
-          <p class="text-gray-500 text-lg mb-12">告诉数字军团你的创意，我们将实时为您构建全栈应用。</p>
+          <h2 class="text-5xl font-black mb-4 tracking-tighter text-white">{{ i18n.welcome }}</h2>
+          <p class="text-gray-500 text-lg mb-12">{{ i18n.subtitle }}</p>
           
           <div class="relative group max-w-xl mx-auto">
             <textarea 
               v-model="prompt"
-              placeholder="我想做一个宠物社交 APP，用户可以晒自家宠物..."
+              :placeholder="i18n.placeholder"
               class="w-full h-40 bg-white/5 border border-white/10 rounded-3xl p-6 text-lg text-white focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none transition-all placeholder:text-gray-700 shadow-2xl"
               @keydown.enter.exact.prevent="handleGenerate"
             ></textarea>
@@ -213,7 +359,7 @@ const resetProject = () => {
               class="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 shadow-xl transition-all hover:translate-y-[-2px] active:scale-95"
             >
               <Send class="w-5 h-5" />
-              <span>开启任务</span>
+              <span>{{ i18n.action }}</span>
             </button>
           </div>
         </div>
@@ -224,8 +370,8 @@ const resetProject = () => {
               <button 
                 v-for="d in [
                   {id: 'desktop', icon: Monitor, label: 'Desktop'},
-                  {id: 'tablet', icon: Layout, label: 'Tablet'},
-                  {id: 'mobile', icon: Monitor, label: 'Mobile'}
+                  {id: 'tablet', icon: Tablet, label: 'Tablet'},
+                  {id: 'mobile', icon: Smartphone, label: 'Mobile'}
                 ]"
                 :key="d.id"
                 @click="deviceType = d.id"
@@ -256,7 +402,7 @@ const resetProject = () => {
                      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl"></div>
                   </div>
                   <iframe 
-                    :srcdoc="result.manifest?.prototypeHtml"
+                    :srcdoc="result?.prototypeHtml"
                     class="w-full h-full border-none relative z-10"
                   ></iframe>
                </div>
@@ -279,7 +425,7 @@ const resetProject = () => {
             <!-- Source Tree -->
             <div v-else-if="activeTab === 'code'" :key="'code'" class="h-full w-full p-6 overflow-auto bg-[#0a0a0a]">
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div v-for="(content, path) in result.files" :key="path" class="group bg-white/5 border border-white/5 rounded-xl overflow-hidden hover:border-white/20 transition-all">
+                <div v-for="(content, path) in result?.generatedFiles" :key="path" class="group bg-white/5 border border-white/5 rounded-xl overflow-hidden hover:border-white/20 transition-all">
                   <div class="px-4 py-2 bg-white/5 border-b border-white/5 flex justify-between items-center">
                     <span class="text-[10px] font-mono text-blue-400 opacity-60">{{ path }}</span>
                     <button class="opacity-0 group-hover:opacity-100 transition-opacity"><Code2 class="w-3.5 h-3.5 text-gray-500" /></button>
@@ -297,7 +443,7 @@ const resetProject = () => {
                       <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400"><Layers class="w-5 h-5"/></div>
                       功能矩阵
                     </h3>
-                    <div v-for="f in result.manifest?.features" :key="f.name" class="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-all">
+                    <div v-for="f in result?.features" :key="f.name" class="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-all">
                       <div class="flex justify-between items-start mb-2">
                         <h4 class="font-bold text-white">{{ f.name }}</h4>
                         <span class="text-[9px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase font-black">P{{ f.priority }}</span>
@@ -310,7 +456,7 @@ const resetProject = () => {
                       <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400"><Layout class="w-5 h-5"/></div>
                       页面图谱
                     </h3>
-                    <div v-for="p in result.manifest?.pages" :key="p.route" class="flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-all">
+                    <div v-for="p in result?.pages" :key="p.route" class="flex gap-4 items-start p-4 rounded-xl hover:bg-white/5 transition-all">
                       <div class="text-purple-500 font-mono text-sm pt-0.5">/{{ p.route }}</div>
                       <div class="text-xs text-gray-500">{{ p.description }}</div>
                     </div>
@@ -327,8 +473,8 @@ const resetProject = () => {
             <Zap class="absolute inset-0 m-auto w-6 h-6 text-white animate-pulse" />
           </div>
           <div class="text-center">
-            <h3 class="text-xl font-bold tracking-widest text-white uppercase">{{ generationPhase }} IN PROGRESS...</h3>
-            <p class="text-gray-500 text-sm mt-1 italic">正在调度全球算力，请稍候...</p>
+            <h3 class="text-xl font-bold tracking-widest text-white uppercase">{{ i18n[generationPhase] || generationPhase }} IN PROGRESS...</h3>
+            <p class="text-gray-500 text-sm mt-1 italic">{{ i18n.loading_subtitle }}</p>
           </div>
         </div>
       </main>
@@ -350,13 +496,13 @@ const resetProject = () => {
             <div v-for="(label, state) in { PLANNING: '需求分析', DESIGNING: '视觉对标', CODING: '代码合成', DONE: '资产交付' }" :key="state" class="flex items-center gap-3">
                <div 
                  :class="[
-                   (result?.manifest?.status === state) ? 'bg-blue-500 scale-125 shadow-blue-500/50' : 
+                   (result?.status === state) ? 'bg-blue-500 scale-125 shadow-blue-500/50' : 
                    (isPastState(state) ? 'bg-green-500 opacity-40' : 'bg-gray-800')
                  ]"
                  class="w-2 h-2 rounded-full transition-all duration-700"
                ></div>
-               <span :class="result?.manifest?.status === state ? 'text-white font-bold' : 'text-gray-600'" class="text-xs uppercase tracking-tighter">{{ label }}</span>
-               <Loader2 v-if="result?.manifest?.status === state" class="w-3 h-3 text-blue-500 animate-spin ml-auto" />
+               <span :class="result?.status === state ? 'text-white font-bold' : 'text-gray-600'" class="text-xs uppercase tracking-tighter">{{ label }}</span>
+               <Loader2 v-if="result?.status === state" class="w-3 h-3 text-blue-500 animate-spin ml-auto" />
             </div>
           </div>
         </div>
@@ -375,9 +521,9 @@ const resetProject = () => {
         <div class="flex-1 flex flex-col overflow-hidden">
           <div class="flex-1 p-6 overflow-y-auto space-y-4 no-scrollbar">
             <!-- Project Brief -->
-            <div v-if="result?.manifest" class="bg-white/5 rounded-2xl p-4 border border-white/5">
-              <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">当前目标</span>
-              <p class="text-xs text-gray-300 mt-1 leading-relaxed">{{ result.manifest.userIntent }}</p>
+            <div v-if="result" class="bg-white/5 rounded-2xl p-4 border border-white/5">
+              <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">{{ locale === 'ZH' ? '当前目标' : 'CURRENT GOAL' }}</span>
+              <p class="text-xs text-gray-300 mt-1 leading-relaxed">{{ result.userIntent }}</p>
             </div>
           </div>
 
@@ -386,7 +532,7 @@ const resetProject = () => {
             <div class="relative">
               <textarea 
                 v-model="prompt"
-                placeholder="在此输入新的需求或修改..."
+                :placeholder="i18n.placeholder"
                 class="w-full h-24 bg-white/10 border border-white/10 rounded-2xl p-4 text-xs text-white focus:ring-2 focus:ring-blue-500/40 outline-none resize-none no-scrollbar transition-all"
                 @keydown.enter.exact.prevent="handleGenerate"
               ></textarea>
@@ -401,12 +547,57 @@ const resetProject = () => {
             <div class="flex justify-between items-center px-1">
               <span class="text-[9px] text-gray-600 italic">由 LingNow AI 全程驱动</span>
               <button @click="resetProject" class="text-[9px] text-gray-400 hover:text-white flex items-center gap-1 transition-colors">
-                 <Plus class="w-2.5 h-2.5"/> New Project
+                 <Plus class="w-2.5 h-2.5"/> {{ i18n.new_project }}
               </button>
             </div>
           </div>
         </div>
       </aside>
+
+      <!-- HISTORY DRAWER OVERLAY -->
+      <transition name="drawer">
+        <div v-if="isHistoryOpen" class="absolute inset-0 z-[100] pointer-events-none">
+          <!-- Removed the dim/blur overlay per user request for a cleaner slide-out -->
+          <div class="absolute inset-y-0 right-0 w-96 bg-[#0a0a0a]/90 backdrop-blur-2xl border-l border-white/10 shadow-[-50px_0_100px_rgba(0,0,0,0.8)] pointer-events-auto flex flex-col overflow-hidden">
+            <div class="p-8 border-b border-white/5 flex items-center justify-between bg-white/5">
+              <div class="flex items-center gap-3">
+                <History class="w-6 h-6 text-blue-500" />
+                <h2 class="text-xl font-black text-white italic tracking-tighter">{{ i18n.history_title }}</h2>
+              </div>
+              <button @click="isHistoryOpen = false" class="p-2 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-all">
+                <ChevronRight class="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+              <div 
+                v-for="proj in history" 
+                :key="proj.id"
+                @click="loadProject(proj.id)"
+                class="group p-4 bg-white/5 border border-white/5 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/30 transition-all relative overflow-hidden"
+              >
+                <div class="absolute right-0 top-0 w-1 h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-all"></div>
+                <div class="flex justify-between items-start mb-2">
+                   <div class="text-[9px] font-black text-gray-600 uppercase tracking-widest">
+                     {{ proj.createdAt > 0 ? new Date(proj.createdAt).toLocaleString() : 'JUST NOW' }}
+                   </div>
+                   <div class="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/20 font-black">{{ proj.version }}</div>
+                </div>
+                <p class="text-xs text-white font-bold line-clamp-2 leading-relaxed mb-1">{{ proj.userIntent }}</p>
+                <div class="flex items-center gap-2">
+                   <div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                   <span class="text-[9px] text-gray-500 uppercase font-black tracking-tighter">{{ proj.status }}</span>
+                </div>
+              </div>
+              
+              <div v-if="history.length === 0" class="text-center py-20">
+                 <History class="w-12 h-12 text-gray-800 mx-auto mb-4" />
+                 <p class="text-xs text-gray-600 font-bold uppercase tracking-widest">{{ i18n.history_empty }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
 
       <!-- Sidebar Toggle Badge -->
       <button 
@@ -480,6 +671,18 @@ const resetProject = () => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Drawer Animation: Real Industrial Slide from Right */
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  transform: translateX(105%); /* Ensure it hides completely */
+  opacity: 0.5;
 }
 
 /* Tailwind Base Styles Injection */

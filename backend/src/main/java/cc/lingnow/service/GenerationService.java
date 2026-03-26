@@ -2,6 +2,7 @@ package cc.lingnow.service;
 
 import cc.lingnow.dto.GenerateRequest;
 import cc.lingnow.dto.GenerateResponse;
+import cc.lingnow.dto.ProjectHistoryDto;
 import cc.lingnow.model.ProjectManifest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -55,10 +57,26 @@ public class GenerationService {
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
         manifestRegistry.save(manifest);
 
-        
         designerAgent.design(manifest);
         manifestRegistry.save(manifest);
         
+        return manifest;
+    }
+
+    /**
+     * M6: Iterative Redesign
+     */
+    public ProjectManifest redesignPrototype(String sessionId, String instructions) {
+        log.info("Iterative Design for session: {} with instructions: {}", sessionId, instructions);
+        ProjectManifest manifest = manifestRegistry.get(sessionId);
+        if (manifest == null) throw new RuntimeException("Manifest not found for session: " + sessionId);
+
+        manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
+        manifestRegistry.save(manifest);
+
+        designerAgent.redesign(manifest, instructions);
+        manifestRegistry.save(manifest);
+
         return manifest;
     }
 
@@ -142,5 +160,13 @@ public class GenerationService {
             }
             throw new RuntimeException("AI Full-Stack Generation failed: " + e.getMessage(), e);
         }
+    }
+
+    public ProjectManifest getManifest(String sessionId) {
+        return manifestRegistry.get(sessionId);
+    }
+
+    public List<ProjectHistoryDto> getHistory() {
+        return manifestRegistry.listHistory();
     }
 }

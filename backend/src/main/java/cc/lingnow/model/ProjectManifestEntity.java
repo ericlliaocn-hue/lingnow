@@ -3,11 +3,15 @@ package cc.lingnow.model;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
  * Persistable Project Manifest for M8
  */
 @Entity
+@EntityListeners(AuditingEntityListener.class)
 @Table(name = "projects")
 @Data
 @Builder
@@ -49,7 +53,12 @@ public class ProjectManifestEntity {
 
     private String owner; // Username for isolation
 
+    @CreatedDate
+    @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
+
+    @LastModifiedDate
+    @Temporal(TemporalType.TIMESTAMP)
     private Date updatedAt;
 
     @PrePersist

@@ -2,6 +2,8 @@ package cc.lingnow.controller;
 
 import cc.lingnow.dto.GenerateRequest;
 import cc.lingnow.dto.GenerateResponse;
+import cc.lingnow.dto.ProjectHistoryDto;
+import cc.lingnow.model.ProjectManifest;
 import cc.lingnow.service.GenerationService;
 import cn.dev33.satoken.stp.StpUtil;
 import lombok.RequiredArgsConstructor;
@@ -9,12 +11,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
  * Generation Controller
- * Handle code generation requests
- * LingNow.cc - AI Powered Code Generator
+ * Handle code generation and prototype evolution requests
  */
 @Slf4j
 @RestController
@@ -28,14 +30,13 @@ public class GenerationController {
      * Phase 1: Planning
      */
     @PostMapping("/generate/plan")
-    public ResponseEntity<cc.lingnow.model.ProjectManifest> handlePlan(@RequestBody GenerateRequest request) {
+    public ResponseEntity<ProjectManifest> handlePlan(@RequestBody GenerateRequest request) {
         log.info("Received planning request for session: {}", request.sessionId());
         try {
-            // StpUtil.checkLogin();
             return ResponseEntity.ok(generationService.planRequirements(request.sessionId(), request.prompt()));
         } catch (Exception e) {
             log.error("Planning failed", e);
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "PLANNING").header("X-Error-Message", e.getMessage()).build();
         }
     }
 
@@ -43,15 +44,30 @@ public class GenerationController {
      * Phase 2: Designing
      */
     @PostMapping("/generate/design")
-    public ResponseEntity<cc.lingnow.model.ProjectManifest> handleDesign(@RequestBody Map<String, String> body) {
+    public ResponseEntity<ProjectManifest> handleDesign(@RequestBody Map<String, String> body) {
         String sessionId = body.get("sessionId");
         log.info("Received design request for session: {}", sessionId);
         try {
-            // StpUtil.checkLogin();
             return ResponseEntity.ok(generationService.generatePrototype(sessionId));
         } catch (Exception e) {
             log.error("Design failed", e);
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "DESIGNING").header("X-Error-Message", e.getMessage()).build();
+        }
+    }
+
+    /**
+     * M6: Iterative Redesign
+     */
+    @PostMapping("/generate/redesign")
+    public ResponseEntity<ProjectManifest> handleRedesign(@RequestBody Map<String, String> body) {
+        String sessionId = body.get("sessionId");
+        String instructions = body.get("prompt"); 
+        log.info("Received redesign request for session: {}", sessionId);
+        try {
+            return ResponseEntity.ok(generationService.redesignPrototype(sessionId, instructions));
+        } catch (Exception e) {
+            log.error("Redesign failed", e);
+            return ResponseEntity.status(500).header("X-Error-Phase", "REDESIGN").header("X-Error-Message", e.getMessage()).build();
         }
     }
 
@@ -63,51 +79,41 @@ public class GenerationController {
         String sessionId = body.get("sessionId");
         log.info("Received development request for session: {}", sessionId);
         try {
-            // StpUtil.checkLogin();
             return ResponseEntity.ok(generationService.developFullStack(sessionId));
         } catch (Exception e) {
             log.error("Development failed", e);
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "DEVELOPING").header("X-Error-Message", e.getMessage()).build();
         }
     }
 
     /**
-     * Orchestrated generation (Legacy/All-in-one)
+     * Legacy Orchestrator
      */
     @PostMapping("/generate")
     public ResponseEntity<GenerateResponse> handleGenerate(@RequestBody GenerateRequest request) {
-        log.info("Received generation request for session: {}", request.sessionId());
-
+        log.info("Orchestrated generation for: {}", request.sessionId());
         try {
-            // Get current user from Sa-Token (M8.5)
-            String userId = StpUtil.getLoginIdAsString();
-            log.debug("Generation triggered by user ID: {}", userId);
-
-            // Call the service to generate code using LLM
-            GenerateResponse response = generationService.generateCode(request);
-            
-            log.info("Successfully generated code for session: {}", request.sessionId());
-            return ResponseEntity.ok(response);
-            
+            return ResponseEntity.ok(generationService.generateCode(request));
         } catch (Exception e) {
-            log.error("Error generating code for session: {}", request.sessionId(), e);
-            
-            // Return error response
-            GenerateResponse errorResponse = new GenerateResponse(
-                "Generation Error",
-                "Failed to generate code: " + e.getMessage(),
-                Map.of(),
-                Map.of(),
-                null
-            );
-            
-            return ResponseEntity.internalServerError().body(errorResponse);
+            log.error("Generation failed", e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 
     @GetMapping("/projects/{sessionId}")
-    public ResponseEntity<cc.lingnow.model.ProjectManifest> getProject(@PathVariable String sessionId) {
+    public ResponseEntity<ProjectManifest> getProject(@PathVariable String sessionId) {
         log.info("Fetching project details for session: {}", sessionId);
-        return ResponseEntity.ok(generationService.planRequirements(sessionId, "")); // 简单复用逻辑获取 Manifest
+        ProjectManifest manifest = generationService.getManifest(sessionId);
+        if (manifest == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(manifest);
+    }
+
+    /**
+     * Get all persistent projects for history drawer
+     */
+    @GetMapping("/projects/all")
+    public ResponseEntity<List<ProjectHistoryDto>> listAllProjects() {
+        log.info("Fetching all projects for current user history");
+        return ResponseEntity.ok(generationService.getHistory());
     }
 }

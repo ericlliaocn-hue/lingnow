@@ -42,6 +42,12 @@ public class ProductArchitectAgent {
                 context.append(planSummary);
             }
 
+            // Language awareness
+            String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+            String langInstruction = "ZH".equalsIgnoreCase(lang) 
+                ? "CRITICAL: All content (features names, descriptions, page descriptions) MUST BE IN CHINESE."
+                : "All content MUST BE IN ENGLISH.";
+
             String systemPrompt = """
                 You are a senior Product Architect.
                 
@@ -49,11 +55,12 @@ public class ProductArchitectAgent {
                 1. Output ONLY pure JSON.
                 2. Identify key features and pages.
                 3. If EXISTING PRD is provided, update it with the new requirements. Return the FULL updated list.
-                4. JSON Schema: {
+                4. %s
+                5. JSON Schema: {
                     "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
                     "pages": [{"route": "string", "description": "string", "components": ["string"]}]
                 }
-                """;
+                """.formatted(langInstruction);
             
             String userPrompt = isMod 
                 ? "Update the PRD based on this new requirement: " + manifest.getUserIntent()
