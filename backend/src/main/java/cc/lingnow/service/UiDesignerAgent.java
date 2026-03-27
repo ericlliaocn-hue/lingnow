@@ -39,9 +39,10 @@ public class UiDesignerAgent {
         
         // Language awareness for content
         if ("ZH".equalsIgnoreCase(lang)) {
-            systemPrompt += "CRITICAL: The user interface content (texts, labels, descriptions) MUST BE IN CHINESE.";
+            systemPrompt += "\nCRITICAL: The entire user interface including all texts, navigation labels, button captions, headings, and placeholder contents MUST BE IN CHINESE. "
+                    + "DO NOT use English placeholder text if the target language is Chinese.";
         } else {
-            systemPrompt += "The user interface content MUST BE IN ENGLISH.";
+            systemPrompt += "\nThe entire user interface content MUST BE IN ENGLISH.";
         }
         
         String userPrompt = String.format("User Intent: %s\nPlanned Features: %s\nPlanned Pages: %s", 
