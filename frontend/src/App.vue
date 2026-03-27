@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { 
-  Sparkles, Code2, Box, Monitor, Tablet, Smartphone, Layout, Layers, Terminal, LogOut, Zap, Send, PanelRight, Fullscreen, Maximize2, Loader2, Plus, Globe, History, ChevronRight
+  Sparkles, Code2, Box, Monitor, Tablet, Smartphone, Layout, Layers, Terminal, LogOut, Zap, Send, PanelRight, Fullscreen, Maximize2, Loader2, Plus, Globe, History, ChevronRight, X
 } from 'lucide-vue-next'
 import { Sandpack } from 'sandpack-vue3'
 
@@ -24,41 +24,35 @@ const i18n = computed(() => ({
     welcome: '你想建造什么？',
     subtitle: '告诉数字军团你的创意，我们将实时为您构建全栈应用。',
     placeholder: '在这里描述您的增量需求或新愿景...',
-    action: '开启任务',
-    tab_canvas: '视觉画板',
-    tab_logic: '逻辑矩阵',
+    tab_canvas: '视觉样机',
+    tab_logic: '排期逻辑',
     tab_source: '源码视图',
-    tab_sandbox: '实时沙盒',
-    history: '历史记录',
-    planning: '需求分析',
-    designing: '视觉对标',
-    coding: '代码合成',
-    done: '资产交付',
-    loading_subtitle: '正在调度全球算力，请稍候...',
-    new_project: '开启新灵感',
-    history_title: '历史记录',
+    tab_sandbox: '在线沙盒',
+    history_title: '项目档案管理',
     history_empty: '暂无存档记录',
-    switch_lang: 'English'
+    new_project: '新建项目',
+    loading_subtitle: '正在调度全球算力，请稍候...',
+    PLANNING: '需求分析',
+    DESIGNING: '视觉对标',
+    CODING: '代码合成',
+    DONE: '资产交付'
   },
   EN: {
     welcome: 'What do you want to build?',
-    subtitle: 'Tell the digital legion your ideas, we build full-stack apps in real-time.',
-    placeholder: 'Describe your incremental redesign or new vision here...',
-    action: 'Generate',
+    subtitle: 'Build full-stack apps in real-time.',
+    placeholder: 'Describe your vision here...',
     tab_canvas: 'Canvas',
     tab_logic: 'Logic',
     tab_source: 'Source',
     tab_sandbox: 'Sandbox',
-    history: 'History',
-    planning: 'Planning',
-    designing: 'Designing',
-    coding: 'Coding',
-    done: 'Done',
-    loading_subtitle: 'Orchestrating worldwide computing power...',
-    new_project: 'New Project',
     history_title: 'Project Archive',
     history_empty: 'No archives yet',
-    switch_lang: '中文'
+    new_project: 'New Project',
+    loading_subtitle: 'Orchestrating computing power...',
+    PLANNING: 'Planning',
+    DESIGNING: 'Designing',
+    CODING: 'Coding',
+    DONE: 'Done'
   }
 }[locale.value]))
 
@@ -95,8 +89,10 @@ const loadProject = async (id) => {
  * Workbench Mode Logic
  */
 const isWorkbenchMode = computed(() => !!result.value && !error.value)
-const isSidebarOpen = ref(true)
 const deviceType = ref('desktop') // 'desktop' | 'tablet' | 'mobile'
+const isMirrorMode = ref(false)
+const mirrorDevices = ref(['desktop', 'mobile']) // 默认对比项
+const isInspectEnabled = ref(true)
 
 /**
  * Computed files for Sandpack
@@ -149,9 +145,19 @@ const handleLogout = () => {
 /**
  * M6: State Recovery & Persistence
  */
+const inspectedId = ref(null)
+
 onMounted(async () => {
   if (!user.value) return
   
+  // Listen for Inspect messages from the Prototype Iframe
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'lingnow-inspect') {
+      inspectedId.value = event.data.id
+      console.log('Inspecting component:', event.data.id)
+    }
+  })
+
   const lastSessionId = localStorage.getItem('lastSessionId')
   if (lastSessionId) {
     loading.value = true
@@ -256,6 +262,59 @@ const isPastState = (state) => {
   const states = ['PLANNING', 'DESIGNING', 'CODING', 'DONE']
   const currentStatus = result.value?.status || 'PLANNING'
   return states.indexOf(state) < states.indexOf(currentStatus)
+}
+
+const toggleMirrorDevice = (id) => {
+  if (mirrorDevices.value.includes(id)) {
+    if (mirrorDevices.value.length > 1) {
+      mirrorDevices.value = mirrorDevices.value.filter(d => d !== id)
+    }
+  } else {
+    if (mirrorDevices.value.length < 2) {
+      mirrorDevices.value.push(id)
+    } else {
+      mirrorDevices.value = [mirrorDevices.value[1], id]
+    }
+  }
+}
+
+const injectInspectScript = (html) => {
+  if (!html) return html
+  const script = `
+    <script>
+      document.addEventListener('click', (e) => {
+        const component = e.target.closest('[data-lingnow-id]')
+        if (component) {
+          window.parent.postMessage({
+            type: 'lingnow-inspect',
+            id: component.getAttribute('data-lingnow-id')
+          }, '*')
+          // Real-time Spec Overlay inside iframe
+          let badge = document.getElementById('lingnow-spec-badge')
+          if (!badge) {
+            badge = document.createElement('div')
+            badge.id = 'lingnow-spec-badge'
+            badge.style.position = 'absolute'
+            badge.style.background = '#3b82f6'
+            badge.style.color = 'white'
+            badge.style.padding = '2px 6px'
+            badge.style.borderRadius = '4px'
+            badge.style.fontSize = '10px'
+            badge.style.fontWeight = 'bold'
+            badge.style.zIndex = '9999'
+            badge.style.pointerEvents = 'none'
+            document.body.appendChild(badge)
+          }
+          const rect = component.getBoundingClientRect()
+          badge.innerText = Math.round(rect.width) + ' x ' + Math.round(rect.height)
+          badge.style.top = (rect.top + window.scrollY - 20) + 'px'
+          badge.style.left = (rect.left + window.scrollX) + 'px'
+          badge.style.display = 'block'
+        }
+      }, true)
+    <\/script>
+  `
+  return html.replace('</body>', script + '</body>')
 }
 
 const resetProject = () => {
@@ -369,44 +428,92 @@ const resetProject = () => {
            <div class="flex items-center bg-white/5 rounded-lg p-1 border border-white/5 shadow-inner">
               <button 
                 v-for="d in [
-                  {id: 'desktop', icon: Monitor, label: 'Desktop'},
-                  {id: 'tablet', icon: Tablet, label: 'Tablet'},
-                  {id: 'mobile', icon: Smartphone, label: 'Mobile'}
+                  {id: 'desktop', icon: Monitor, label: 'WEB视窗'},
+                  {id: 'tablet', icon: Tablet, label: '平板视窗'},
+                  {id: 'mobile', icon: Smartphone, label: '手机视窗'}
                 ]"
                 :key="d.id"
-                @click="deviceType = d.id"
-                :class="[deviceType === d.id ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300']"
+                @click="isMirrorMode ? toggleMirrorDevice(d.id) : deviceType = d.id"
+                :class="[
+                  isMirrorMode ? (mirrorDevices.includes(d.id) ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300') :
+                  (deviceType === d.id ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300')
+                ]"
                 class="p-1.5 rounded-md transition-all flex items-center gap-2"
               >
                 <component :is="d.icon" class="w-4 h-4" />
+                <span class="text-[9px] font-bold uppercase">{{ d.label }}</span>
               </button>
            </div>
+           
            <div class="h-4 w-[1px] bg-white/10 mx-2"></div>
+           
+           <button 
+             @click="isMirrorMode = !isMirrorMode"
+             :class="[isMirrorMode ? 'bg-blue-600 text-white shadow-lg border-blue-500' : 'text-gray-500 border-white/10 hover:border-white/20']"
+             class="px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-tighter transition-all flex items-center gap-2"
+           >
+             <Fullscreen class="w-3.5 h-3.5" />
+             {{ isMirrorMode ? '关闭同屏比对' : '开启同屏比对' }}
+           </button>
+
+           <div class="h-4 w-[1px] bg-white/10 mx-2"></div>
+           
            <span class="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
-              Viewport: {{ deviceType === 'desktop' ? 'Fluid' : (deviceType === 'tablet' ? '768px' : '375px') }}
+              Viewport: {{ isMirrorMode ? mirrorDevices.join(' + ') : (deviceType === 'desktop' ? 'Fluid' : (deviceType === 'tablet' ? '768px' : '375px')) }}
            </span>
         </div>
 
-        <div v-if="isWorkbenchMode" class="flex-1 relative overflow-hidden p-8 flex justify-center bg-[#0d0d0d] scrollbar-hide">
+        <div v-if="isWorkbenchMode" class="flex-1 relative overflow-hidden flex justify-center bg-[#0d0d0d] no-scrollbar">
           <transition name="fade" mode="out-in">
-            <!-- Prototype View with Mock Device -->
+            <!-- Prototype Design View -->
             <div 
               v-if="activeTab === 'design'" 
               :key="'design'"
-              class="h-full transition-all duration-500 ease-in-out relative origin-top shadow-[0_0_100px_rgba(0,0,0,0.5)] flex justify-center"
-              :style="{ width: deviceType === 'desktop' ? '100%' : (deviceType === 'tablet' ? '768px' : '375px') }"
+              class="h-full w-full transition-all duration-500 ease-in-out relative origin-top flex gap-8 justify-center items-center overflow-y-auto no-scrollbar scroll-smooth p-12 bg-[#0d0d0d]"
             >
-               <div class="h-full w-full bg-white relative rounded-[2rem] overflow-hidden border border-white/10 group/canvas">
-                  <!-- Mock Mobile/Tablet Frame if not desktop -->
-                  <div v-if="deviceType !== 'desktop'" class="absolute -inset-4 border-[12px] border-[#1a1a1a] rounded-[3rem] pointer-events-none z-30 shadow-2xl">
-                     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl"></div>
+               <!-- Dynamic Devices based on Mode -->
+               <template v-if="isMirrorMode">
+                  <div 
+                    v-for="dev in mirrorDevices" 
+                    :key="dev"
+                    class="shrink-0 transition-all duration-700"
+                    :style="{ width: dev === 'desktop' ? '800px' : (dev === 'tablet' ? '600px' : '375px'), opacity: 1, transform: 'scale(1)' }"
+                  >
+                     <span class="text-[9px] font-black text-gray-500 block mb-4 uppercase tracking-widest text-center">{{ dev }} Preview</span>
+                     <div 
+                       class="w-full bg-white relative rounded-[2rem] overflow-hidden border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.5)]"
+                       :style="{ aspectRatio: dev === 'desktop' ? '16/10' : (dev === 'tablet' ? '3/4' : '9/19'), height: dev === 'desktop' ? '500px' : '667px' }"
+                     >
+                        <iframe 
+                          :srcdoc="injectInspectScript(result?.prototypeHtml)"
+                          class="w-full h-full border-none"
+                        ></iframe>
+                     </div>
                   </div>
-                  <iframe 
-                    :srcdoc="result?.prototypeHtml"
-                    class="w-full h-full border-none relative z-10"
-                  ></iframe>
-               </div>
+               </template>
+
+               <template v-else>
+                  <div 
+                    class="transition-all duration-700 relative origin-top shadow-[0_50px_120px_rgba(0,0,0,0.6)] flex justify-center shrink-0"
+                    :style="{ width: deviceType === 'desktop' ? '1000px' : (deviceType === 'tablet' ? '768px' : '375px') }"
+                  >
+                     <div 
+                        class="w-full bg-white relative rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden shadow-2xl"
+                        :style="{ aspectRatio: deviceType === 'desktop' ? '16/10' : (deviceType === 'tablet' ? '3/4' : '9/19'), height: deviceType === 'desktop' ? '600px' : '750px' }"
+                     >
+                        <!-- Top Notch for mobile/tablet -->
+                        <div v-if="deviceType !== 'desktop'" class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1a1a1a] rounded-b-2xl z-30"></div>
+                        <iframe 
+                          id="prototype-iframe"
+                          :srcdoc="injectInspectScript(result?.prototypeHtml)"
+                          class="w-full h-full border-none relative z-10"
+                        ></iframe>
+                     </div>
+                  </div>
+               </template>
             </div>
+
+            <!-- Code Sandbox -->
 
             <!-- Code Sandbox -->
             <div v-else-if="activeTab === 'preview'" :key="'preview'" class="h-full w-full">
@@ -443,7 +550,13 @@ const resetProject = () => {
                       <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400"><Layers class="w-5 h-5"/></div>
                       功能矩阵
                     </h3>
-                    <div v-for="f in result?.features" :key="f.name" class="p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-all">
+                    <div 
+                      v-for="f in result?.features" 
+                      :key="f.name" 
+                      :class="[inspectedId === f.name ? 'border-blue-500 bg-blue-500/10 scale-[1.02] shadow-2xl z-10' : 'bg-white/5 border-white/5']"
+                      class="p-5 rounded-2xl border hover:bg-white/[0.07] transition-all duration-500 relative scroll-mt-20"
+                      :id="'feature-' + f.name"
+                    >
                       <div class="flex justify-between items-start mb-2">
                         <h4 class="font-bold text-white">{{ f.name }}</h4>
                         <span class="text-[9px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase font-black">P{{ f.priority }}</span>
@@ -554,59 +667,57 @@ const resetProject = () => {
         </div>
       </aside>
 
-      <!-- HISTORY DRAWER OVERLAY -->
+      <!-- HISTORY DRAWER (Right Side, Lean Mode) -->
       <transition name="drawer">
-        <div v-if="isHistoryOpen" class="absolute inset-0 z-[100] pointer-events-none">
-          <!-- Removed the dim/blur overlay per user request for a cleaner slide-out -->
-          <div class="absolute inset-y-0 right-0 w-96 bg-[#0a0a0a]/90 backdrop-blur-2xl border-l border-white/10 shadow-[-50px_0_100px_rgba(0,0,0,0.8)] pointer-events-auto flex flex-col overflow-hidden">
-            <div class="p-8 border-b border-white/5 flex items-center justify-between bg-white/5">
-              <div class="flex items-center gap-3">
-                <History class="w-6 h-6 text-blue-500" />
-                <h2 class="text-xl font-black text-white italic tracking-tighter">{{ i18n.history_title }}</h2>
+        <div v-if="isHistoryOpen" class="absolute inset-y-0 right-0 z-[60] w-96 bg-[#0a0a0a]/90 backdrop-blur-3xl border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden pointer-events-auto">
+          <div class="p-8 border-b border-white/5 flex items-center justify-between bg-white/5">
+            <div class="flex items-center gap-3">
+              <History class="w-6 h-6 text-blue-500" />
+              <h2 class="text-xl font-black text-white italic tracking-tighter">{{ i18n.history_title }}</h2>
+            </div>
+            <button @click="isHistoryOpen = false" class="p-2 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-all">
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+            <div 
+              v-for="proj in history" 
+              :key="proj.id"
+              @click="loadProject(proj.id)"
+              class="group p-4 bg-white/5 border border-white/5 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/30 transition-all relative overflow-hidden"
+            >
+              <div class="absolute right-0 top-0 w-1 h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-all"></div>
+              <div class="flex justify-between items-start mb-2">
+                 <div class="text-[9px] font-black text-gray-600 uppercase tracking-widest">
+                   {{ proj.createdAt > 0 ? new Date(proj.createdAt).toLocaleString() : 'JUST NOW' }}
+                 </div>
+                 <div class="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/20 font-black">{{ proj.version }}</div>
               </div>
-              <button @click="isHistoryOpen = false" class="p-2 hover:bg-white/5 rounded-lg text-gray-500 hover:text-white transition-all">
-                <ChevronRight class="w-5 h-5" />
-              </button>
+              <p class="text-xs text-white font-bold line-clamp-2 leading-relaxed mb-1">{{ proj.userIntent }}</p>
+              <div class="flex items-center gap-2">
+                 <div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+                 <span class="text-[9px] text-gray-500 uppercase font-black tracking-tighter">{{ proj.status }}</span>
+              </div>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-              <div 
-                v-for="proj in history" 
-                :key="proj.id"
-                @click="loadProject(proj.id)"
-                class="group p-4 bg-white/5 border border-white/5 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/30 transition-all relative overflow-hidden"
-              >
-                <div class="absolute right-0 top-0 w-1 h-full bg-blue-600 opacity-0 group-hover:opacity-100 transition-all"></div>
-                <div class="flex justify-between items-start mb-2">
-                   <div class="text-[9px] font-black text-gray-600 uppercase tracking-widest">
-                     {{ proj.createdAt > 0 ? new Date(proj.createdAt).toLocaleString() : 'JUST NOW' }}
-                   </div>
-                   <div class="text-[8px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/20 font-black">{{ proj.version }}</div>
-                </div>
-                <p class="text-xs text-white font-bold line-clamp-2 leading-relaxed mb-1">{{ proj.userIntent }}</p>
-                <div class="flex items-center gap-2">
-                   <div class="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
-                   <span class="text-[9px] text-gray-500 uppercase font-black tracking-tighter">{{ proj.status }}</span>
-                </div>
-              </div>
-              
-              <div v-if="history.length === 0" class="text-center py-20">
-                 <History class="w-12 h-12 text-gray-800 mx-auto mb-4" />
-                 <p class="text-xs text-gray-600 font-bold uppercase tracking-widest">{{ i18n.history_empty }}</p>
-              </div>
+            <div v-if="history.length === 0" class="text-center py-20">
+               <History class="w-12 h-12 text-gray-800 mx-auto mb-4" />
+               <p class="text-xs text-gray-600 font-bold uppercase tracking-widest text-center">{{ i18n.history_empty }}</p>
             </div>
           </div>
         </div>
       </transition>
 
-      <!-- Sidebar Toggle Badge -->
+      <!-- Sidebar Toggle Badge (Floating Action Button) -->
       <button 
         v-if="isWorkbenchMode && !isSidebarOpen"
         @click="isSidebarOpen = true"
-        class="absolute right-6 bottom-6 w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-90 transition-all z-50 text-white shadow-blue-500/20"
-        title="展开侧边栏"
+        class="absolute right-8 bottom-8 w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.4)] hover:scale-110 active:scale-95 transition-all z-50 text-white border border-white/20 group"
+        title="展开任务指挥部"
       >
-        <PanelRight class="w-6 h-6 rotate-180" />
+        <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 border-2 border-black rounded-full animate-pulse shadow-lg"></div>
+        <PanelRight class="w-7 h-7 rotate-180 group-hover:text-blue-100 transition-colors" />
       </button>
 
       <!-- Registration Overlay -->

@@ -25,14 +25,19 @@ public class UiDesignerAgent {
     public void design(ProjectManifest manifest) {
         log.info("Designer is creating initial prototype for: {}", manifest.getUserIntent());
         
+        // Language awareness needs to be determined before constructing the prompt for the design aesthetics part
+        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+
         String systemPrompt = "You are an expert UI/UX Designer. Create a premium, interactive HTML prototype based on requirements. "
-                + "Use Tailwind CSS for styling and Alpine.js for interactive logic (modals, tabs, likes, states). "
-                + "Ensure it looks polished (glassmorphism, gradients, modern typography). "
+                + "Use Tailwind CSS for styling. "
+                + "- Use alpine.js for interactive logic (click, hover, toggle).\n"
+                + "- CRITICAL FOR INSPECT MODE: Every visual component (div, button, input) MUST have a 'data-lingnow-id' attribute matching its functional name or feature id.\n"
+                + "- Example: <button data-lingnow-id=\"submit-order-btn\" @click=\"...\">Submit</button>\n"
+                + "- Ensure the design matches: " + (lang.equals("ZH") ? "Chinese commercial aesthetics (Clean, Modern, Dark/Glassmorphism)" : "Western modern design trends") + "\n"
                 + "Respond with a single JSON object: {\"prototypeHtml\": \"...\"}. "
                 + "IMPORTANT: All HTML must follow responsive design and include Desktop, Tablet, and Mobile layouts. ";
         
-        // Language awareness
-        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+        // Language awareness for content
         if ("ZH".equalsIgnoreCase(lang)) {
             systemPrompt += "CRITICAL: The user interface content (texts, labels, descriptions) MUST BE IN CHINESE.";
         } else {
