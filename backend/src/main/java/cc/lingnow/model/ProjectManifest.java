@@ -15,6 +15,7 @@ public class ProjectManifest {
     private String id;
     private String userIntent;
     private ProjectStatus status;
+    private long lastModified;
     
     // PLANNING phase products
     private List<Feature> features;
@@ -35,8 +36,19 @@ public class ProjectManifest {
     private String databaseSchema; // SQL/DDL
     
     // M6: Iteration & Tracking
-    private String version;        // e.g. "v1.2.0"
+    @Builder.Default
+    private String version = "0.0.1"; // v0.0.1 format
     private List<String> changeLog; // Evolution history
+    private List<Snapshot> snapshots; // Version history snapshots
+
+    @Data
+    @Builder
+    public static class Snapshot {
+        private String version;
+        private String html;
+        private long timestamp;
+        private String summary;
+    }
     
     // M8/v1.4: Context & Meta
     private Map<String, String> metaData; 

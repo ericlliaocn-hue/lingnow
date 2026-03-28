@@ -5,20 +5,14 @@ import cc.lingnow.model.ProjectManifest;
 import cc.lingnow.model.ProjectManifestEntity;
 import cc.lingnow.repository.ManifestRepository;
 import cc.lingnow.util.JsonUtils;
+import cn.dev33.satoken.stp.StpUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import cn.dev33.satoken.stp.StpUtil;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import cn.dev33.satoken.stp.StpUtil;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
 
 /**
  * DB backed registry for Project Manifests.
@@ -43,8 +37,8 @@ public class ManifestRegistry {
                 owner = StpUtil.getLoginIdAsString();
             }
         } catch (Exception e) {}
-        
-        return repository.findByOwnerOrderByCreatedAtDesc(owner).stream()
+
+        return repository.findByOwnerOrderByUpdatedAtDesc(owner).stream()
                 .map(this::toHistoryDto)
                 .toList();
     }
@@ -94,6 +88,7 @@ public class ManifestRegistry {
                 .pagesJson(JsonUtils.toJson(m.getPages()))
                 .generatedFilesJson(JsonUtils.toJson(m.getGeneratedFiles()))
                 .changeLogJson(JsonUtils.toJson(m.getChangeLog()))
+                .snapshotsJson(JsonUtils.toJson(m.getSnapshots()))
                 .owner(username) 
                 .build();
     }
@@ -111,6 +106,9 @@ public class ManifestRegistry {
                 .pages(JsonUtils.fromJson(e.getPagesJson(), new TypeReference<>() {}))
                 .generatedFiles(JsonUtils.fromJson(e.getGeneratedFilesJson(), new TypeReference<>() {}))
                 .changeLog(JsonUtils.fromJson(e.getChangeLogJson(), new TypeReference<>() {}))
+                .snapshots(JsonUtils.fromJson(e.getSnapshotsJson(), new TypeReference<>() {
+                }))
+                .lastModified(e.getUpdatedAt() != null ? e.getUpdatedAt().getTime() : 0)
                 .build();
     }
 
@@ -120,6 +118,7 @@ public class ManifestRegistry {
                 .userIntent(e.getUserIntent())
                 .status(e.getStatus())
                 .createdAt(e.getCreatedAt())
+                .lastModified(e.getUpdatedAt() != null ? e.getUpdatedAt().getTime() : 0)
                 .version(e.getVersion())
                 .build();
     }

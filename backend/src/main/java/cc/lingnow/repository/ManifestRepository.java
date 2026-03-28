@@ -8,5 +8,5 @@ import java.util.List;
 
 @Repository
 public interface ManifestRepository extends JpaRepository<ProjectManifestEntity, String> {
-    List<ProjectManifestEntity> findByOwnerOrderByCreatedAtDesc(String owner);
+    List<ProjectManifestEntity> findByOwnerOrderByUpdatedAtDesc(String owner);
 }

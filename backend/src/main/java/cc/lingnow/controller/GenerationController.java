@@ -101,6 +101,33 @@ public class GenerationController {
         }
     }
 
+    @PostMapping("/generate/snapshot")
+    public ResponseEntity<ProjectManifest> handleSnapshot(@RequestBody Map<String, String> body) {
+        String sessionId = body.get("sessionId");
+        String html = body.get("html");
+        String summary = body.get("summary");
+        log.info("Saving snapshot for session: {} - {}", sessionId, summary);
+        try {
+            return ResponseEntity.ok(generationService.saveSnapshot(sessionId, html, summary));
+        } catch (Exception e) {
+            log.error("Snapshot failed", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+    @PostMapping("/generate/rollback")
+    public ResponseEntity<ProjectManifest> handleRollback(@RequestBody Map<String, String> body) {
+        String sessionId = body.get("sessionId");
+        String targetVersion = body.get("version");
+        log.info("Rolling back session: {} to version: {}", sessionId, targetVersion);
+        try {
+            return ResponseEntity.ok(generationService.rollbackToVersion(sessionId, targetVersion));
+        } catch (Exception e) {
+            log.error("Rollback failed", e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     @GetMapping("/projects/{sessionId}")
     public ResponseEntity<ProjectManifest> getProject(@PathVariable String sessionId) {
         log.info("Fetching project details for session: {}", sessionId);

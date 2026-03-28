@@ -3,6 +3,7 @@ package cc.lingnow.dto;
 import cc.lingnow.model.ProjectManifest;
 import lombok.Builder;
 import lombok.Data;
+
 import java.util.Date;
 
 @Data
@@ -12,5 +13,6 @@ public class ProjectHistoryDto {
     private String userIntent;
     private ProjectManifest.ProjectStatus status;
     private Date createdAt;
+    private long lastModified;
     private String version;
 }

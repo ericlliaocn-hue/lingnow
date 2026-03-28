@@ -1,11 +1,15 @@
 package cc.lingnow.model;
 
 import jakarta.persistence.*;
-import lombok.*;
-import java.util.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.util.Date;
 
 /**
  * Persistable Project Manifest for M8
@@ -47,6 +51,9 @@ public class ProjectManifestEntity {
     private String databaseSchema;
 
     private String version;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String snapshotsJson;
 
     @Column(columnDefinition = "TEXT")
     private String changeLogJson;

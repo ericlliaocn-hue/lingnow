@@ -30,13 +30,14 @@ public class UiDesignerAgent {
 
         String systemPrompt = "You are a World-Class UI/UX Architect. Your goal is to deliver a bespoke, industrial-grade application prototype.\n"
                 + "RULES:\n"
-                + "1. BLUEPRINT FIDELITY: You will receive a Mermaid 'mindMap'. You MUST implement a functional view or action for EVERY node in that mindmap. No missing buttons or dead links.\n"
-                + "2. DATA-DRIVEN DESIGN: You will receive 'mockData' (JSON). You MUST use this data to populate all lists, feeds, and profiles. Avoid generic 'Lorem Ipsum' or 'Title 1'.\n"
-                + "3. HASH-BASED ROUTING: Transition between views (Home, Login, Profile) using 'window.location.hash' and Alpine.js. Ensure 'back' and 'forward' browser buttons work naturally.\n"
-                + "4. ANTI-TEMPLATE AESTHETICS: Strictly FORBID card-only grids for main feeds. Use high-density 'Linear List Flows' with 1px dividers, tight padding, and premium typography (Inter/System fonts). Benchmark: Linux.do, Juejin, CSDN.\n"
-                + "5. 100% CLICKABLE: Every interactive component needs a 'data-lingnow-id' and visual feedback.\n"
-                + "6. LANGUAGE: All content MUST be in " + (lang.equals("ZH") ? "CHINESE" : "ENGLISH") + ".\n"
-                + "7. OUTPUT: Respond ONLY with a single JSON object: {\"prototypeHtml\": \"...\"}.";
+                + "1. BLUEPRINT FIDELITY: You MUST implement a functional view for EVERY node in the provided 'mindMap'. Ensure all links match the planned routes.\n"
+                + "2. HASH-BASED ROUTING: Transition between views (Home, Login, Profile) using 'window.location.hash' and Alpine.js. Example: <a href='#profile'>...</a> and <div x-show=\"location.hash === '#profile'\">...</div>. Ensure 'back' and 'forward' buttons work natively.\n"
+                + "3. AESTHETIC BREATHING: Avoid overcrowded layouts. Use 'gap-y-4' or 'gap-y-6' for vertical spacing in lists. Ensure consistent 'px-6 py-4' padding for content blocks. Benchmark: Linux.do, Juejin, CSDN.\n"
+                + "4. ANTI-TEMPLATE DESIGN: Strictly FORBID card-only grids. Use 1px thin dividers and high-density list flows with premium typography (Inter/System fonts).\n"
+                + "5. DATA-DRIVEN: Use the 'mockData' provided to populate all UI elements. No Lorem Ipsum.\n"
+                + "7. CLEAN UI: Strictly FORBID style descriptors (e.g., 'CSDN Style', 'Premium Theme', 'Glassmorphism') in visible UI text like headers, titles, or logo text. Use purely functional, content-appropriate names.\n"
+                + "8. LANGUAGE: All content MUST be in " + (lang.equals("ZH") ? "CHINESE" : "ENGLISH") + ".\n"
+                + "9. OUTPUT: Respond ONLY with a single JSON object: {\"prototypeHtml\": \"...\"}.";
 
         String userPrompt = String.format("User Intent: %s\nPlanned Mindmap: %s\nMock Data: %s\nPlanned Pages: %s",
                 manifest.getUserIntent(), manifest.getMindMap(), manifest.getMockData(), manifest.getPages());

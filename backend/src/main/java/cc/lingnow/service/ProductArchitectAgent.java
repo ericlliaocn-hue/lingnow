@@ -63,7 +63,7 @@ public class ProductArchitectAgent {
                     
                     JSON Schema: {
                         "overview": "string describing the full journey",
-                            "mindMap": "string (Detailed Mermaid mindmap covering all functional nodes and navigation paths)",
+                            "mindMap": "string (A strictly formatted hierarchical tree. MUST use \\n and exactly 2 spaces per indentation level. Example: 'System\\n  Module A\\n    Feature 1\\n  Module B')",
                             "mockData": "string (A JSON-formatted string containing realistic sample data for articles, users, etc.)",
                             "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
                             "pages": [{"route": "string", "description": "string", "components": ["string"]}]

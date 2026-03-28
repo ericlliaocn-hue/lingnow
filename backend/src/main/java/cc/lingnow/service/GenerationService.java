@@ -66,8 +66,11 @@ public class GenerationService {
         manifestRegistry.save(manifest);
 
         designerAgent.design(manifest);
-        manifestRegistry.save(manifest);
+
+        // Initial snapshot after design
+        createSnapshot(manifest, "Initial Design");
         
+        manifestRegistry.save(manifest);
         return manifest;
     }
 
@@ -75,22 +78,76 @@ public class GenerationService {
      * M6: Iterative Redesign
      */
     public ProjectManifest redesignPrototype(String sessionId, String instructions, String lang) {
-        log.info("Iterative Design for session: {} with instructions: {} (lang: {})", sessionId, instructions, lang);
+        log.info("Iterative Design for session: {} with instructions: {}", sessionId, instructions);
         ProjectManifest manifest = manifestRegistry.get(sessionId);
         if (manifest == null) throw new RuntimeException("Manifest not found for session: " + sessionId);
 
-        if (lang != null) {
-            if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
-            manifest.getMetaData().put("lang", lang);
+        designerAgent.redesign(manifest, instructions);
+        createSnapshot(manifest, "AI Revision: " + instructions);
+
+        manifestRegistry.save(manifest);
+        return manifest;
+    }
+
+    public ProjectManifest saveSnapshot(String sessionId, String html, String summary) {
+        ProjectManifest manifest = manifestRegistry.get(sessionId);
+        if (manifest == null) throw new RuntimeException("Manifest not found");
+
+        manifest.setPrototypeHtml(html);
+        createSnapshot(manifest, summary != null ? summary : "Manual Save");
+        
+        manifestRegistry.save(manifest);
+        return manifest;
+    }
+
+    public ProjectManifest rollbackToVersion(String sessionId, String targetVersion) {
+        ProjectManifest manifest = manifestRegistry.get(sessionId);
+        if (manifest == null) throw new RuntimeException("Manifest not found");
+
+        if (manifest.getSnapshots() != null) {
+            manifest.getSnapshots().stream()
+                    .filter(s -> s.getVersion().equals(targetVersion))
+                    .findFirst()
+                    .ifPresent(s -> {
+                        manifest.setPrototypeHtml(s.getHtml());
+                        manifest.setVersion(s.getVersion());
+                    });
+        }
+        
+        manifestRegistry.save(manifest);
+        return manifest;
+    }
+
+    private void createSnapshot(ProjectManifest manifest, String summary) {
+        if (manifest.getSnapshots() == null) manifest.setSnapshots(new ArrayList<>());
+
+        // Version increment logic: handle both "0.0.1" and "v1.0.0"
+        String current = manifest.getVersion();
+        if (current == null) current = "0.0.0";
+
+        String cleanVersion = current.startsWith("v") ? current.substring(1) : current;
+        String[] parts = cleanVersion.split("\\.");
+
+        String nextVersion;
+        if (parts.length >= 3) {
+            int major = Integer.parseInt(parts[0]);
+            int minor = Integer.parseInt(parts[1]);
+            int patch = Integer.parseInt(parts[2]) + 1;
+            nextVersion = String.format("%d.%d.%d", major, minor, patch);
+        } else {
+            nextVersion = cleanVersion + ".1";
         }
 
-        manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
-        manifestRegistry.save(manifest);
+        if (current.startsWith("v")) nextVersion = "v" + nextVersion;
 
-        designerAgent.redesign(manifest, instructions);
-        manifestRegistry.save(manifest);
+        manifest.setVersion(nextVersion);
 
-        return manifest;
+        manifest.getSnapshots().add(ProjectManifest.Snapshot.builder()
+                .version(nextVersion)
+                .html(manifest.getPrototypeHtml())
+                .timestamp(System.currentTimeMillis())
+                .summary(summary)
+                .build());
     }
 
     /**
