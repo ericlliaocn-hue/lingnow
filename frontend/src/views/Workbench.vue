@@ -419,6 +419,13 @@ const handleConfirm = async () => {
 
 const injectInspectScript = (html, enabled) => {
   if (!html) return html
+
+  // Provide a base tag so the iframe does not try to resolve relative paths
+  // against the parent window URL (which confuses Vue Router).
+  const baseTag = '<base href="about:blank">';
+  const htmlWithBase = html.replace('<head>', '<head>' + baseTag).replace('</head>', '</head>');
+  const finalHtml = htmlWithBase.indexOf('<base') === -1 ? baseTag + htmlWithBase : htmlWithBase;
+
   const script = `
     <script>
       let debugEnabled = ${enabled};
@@ -432,13 +439,22 @@ const injectInspectScript = (html, enabled) => {
         const target = e.target;
         const link = target.closest('a');
         
-        // Block external or relative links (non-hash)
+        // Intercept ALL links to prevent iframe from redirecting the parent Vue app
         if (link) {
           const href = link.getAttribute('href');
-          if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          
+          if (href && href.startsWith('#')) {
+            // It's an internal SPA link (Alpine.js). Prevent browser default which might
+            // bubble to parent URL, and manually update the hash instead.
             e.preventDefault();
-            console.log('[LingNow Prototype] Navigation blocked:', href);
-            return; // Block and stop propagation for non-internal links
+            window.location.hash = href;
+            console.log('[LingNow Prototype] Handled hash navigation:', href);
+          } else {
+            // It's an external or unknown relative link. Block it.
+            if (href && !href.startsWith('javascript:')) {
+               e.preventDefault();
+               console.log('[LingNow Prototype] Navigation blocked:', href);
+            }
           }
         }
 
@@ -502,7 +518,7 @@ const injectInspectScript = (html, enabled) => {
       })
     <\/script>
   `
-  return html.replace('</body>', script + '</body>')
+  return finalHtml.replace('</body>', script + '</body>')
 }
 
 const resetProject = () => {
