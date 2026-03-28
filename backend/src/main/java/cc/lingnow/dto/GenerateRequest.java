@@ -10,6 +10,7 @@ package cc.lingnow.dto;
 public record GenerateRequest(
     String prompt,
     String sessionId,
-    boolean isModification
+    boolean isModification,
+    String lang
 ) {
 }

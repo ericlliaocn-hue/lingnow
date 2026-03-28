@@ -29,5 +29,5 @@ public class LlmProperties {
     /**
      * Request timeout in seconds
      */
-    private int timeoutSeconds = 60;
+    private int timeoutSeconds = 1800;  // 30 minutes for complex tasks
 }

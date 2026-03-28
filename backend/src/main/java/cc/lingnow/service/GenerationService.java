@@ -32,14 +32,17 @@ public class GenerationService {
     /**
      * Phase 1: Planning - Architect analyzes requirements
      */
-    public ProjectManifest planRequirements(String sessionId, String prompt) {
-        log.info("Phase 1: Planning for session: {}", sessionId);
+    public ProjectManifest planRequirements(String sessionId, String prompt, String lang) {
+        log.info("Phase 1: Planning for session: {} (lang: {})", sessionId, lang);
         ProjectManifest manifest = manifestRegistry.getOrCreate(sessionId, prompt);
-        
+
+        // Persist language context in metadata
+        if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
+        manifest.getMetaData().put("lang", lang != null ? lang : "EN");
+
         manifest.setStatus(ProjectManifest.ProjectStatus.PLANNING);
         manifestRegistry.save(manifest);
 
-        
         architectAgent.analyze(manifest);
         manifestRegistry.save(manifest);
         
@@ -49,10 +52,15 @@ public class GenerationService {
     /**
      * Phase 2: Designing - UI Designer creates prototype
      */
-    public ProjectManifest generatePrototype(String sessionId) {
-        log.info("Phase 2: Designing for session: {}", sessionId);
+    public ProjectManifest generatePrototype(String sessionId, String lang) {
+        log.info("Phase 2: Designing for session: {} (lang: {})", sessionId, lang);
         ProjectManifest manifest = manifestRegistry.get(sessionId);
         if (manifest == null) throw new RuntimeException("Manifest not found for session: " + sessionId);
+
+        if (lang != null) {
+            if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
+            manifest.getMetaData().put("lang", lang);
+        }
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
         manifestRegistry.save(manifest);
@@ -66,10 +74,15 @@ public class GenerationService {
     /**
      * M6: Iterative Redesign
      */
-    public ProjectManifest redesignPrototype(String sessionId, String instructions) {
-        log.info("Iterative Design for session: {} with instructions: {}", sessionId, instructions);
+    public ProjectManifest redesignPrototype(String sessionId, String instructions, String lang) {
+        log.info("Iterative Design for session: {} with instructions: {} (lang: {})", sessionId, instructions, lang);
         ProjectManifest manifest = manifestRegistry.get(sessionId);
         if (manifest == null) throw new RuntimeException("Manifest not found for session: " + sessionId);
+
+        if (lang != null) {
+            if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
+            manifest.getMetaData().put("lang", lang);
+        }
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
         manifestRegistry.save(manifest);
@@ -148,8 +161,8 @@ public class GenerationService {
         log.info("Orchestrating full-stack generation for session: {}", request.sessionId());
 
         try {
-            planRequirements(request.sessionId(), request.prompt());
-            generatePrototype(request.sessionId());
+            planRequirements(request.sessionId(), request.prompt(), request.lang());
+            generatePrototype(request.sessionId(), request.lang());
             return developFullStack(request.sessionId());
         } catch (Exception e) {
             log.error("Full-stack generation failed", e);

@@ -5,7 +5,6 @@ import cc.lingnow.dto.GenerateResponse;
 import cc.lingnow.dto.ProjectHistoryDto;
 import cc.lingnow.model.ProjectManifest;
 import cc.lingnow.service.GenerationService;
-import cn.dev33.satoken.stp.StpUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +32,7 @@ public class GenerationController {
     public ResponseEntity<ProjectManifest> handlePlan(@RequestBody GenerateRequest request) {
         log.info("Received planning request for session: {}", request.sessionId());
         try {
-            return ResponseEntity.ok(generationService.planRequirements(request.sessionId(), request.prompt()));
+            return ResponseEntity.ok(generationService.planRequirements(request.sessionId(), request.prompt(), request.lang()));
         } catch (Exception e) {
             log.error("Planning failed", e);
             return ResponseEntity.status(500).header("X-Error-Phase", "PLANNING").header("X-Error-Message", e.getMessage()).build();
@@ -46,9 +45,10 @@ public class GenerationController {
     @PostMapping("/generate/design")
     public ResponseEntity<ProjectManifest> handleDesign(@RequestBody Map<String, String> body) {
         String sessionId = body.get("sessionId");
-        log.info("Received design request for session: {}", sessionId);
+        String lang = body.getOrDefault("lang", "EN");
+        log.info("Received design request for session: {} (lang: {})", sessionId, lang);
         try {
-            return ResponseEntity.ok(generationService.generatePrototype(sessionId));
+            return ResponseEntity.ok(generationService.generatePrototype(sessionId, lang));
         } catch (Exception e) {
             log.error("Design failed", e);
             return ResponseEntity.status(500).header("X-Error-Phase", "DESIGNING").header("X-Error-Message", e.getMessage()).build();
@@ -61,10 +61,11 @@ public class GenerationController {
     @PostMapping("/generate/redesign")
     public ResponseEntity<ProjectManifest> handleRedesign(@RequestBody Map<String, String> body) {
         String sessionId = body.get("sessionId");
-        String instructions = body.get("prompt"); 
-        log.info("Received redesign request for session: {}", sessionId);
+        String instructions = body.get("prompt");
+        String lang = body.getOrDefault("lang", "EN");
+        log.info("Received redesign request for session: {} with lang: {}", sessionId, lang);
         try {
-            return ResponseEntity.ok(generationService.redesignPrototype(sessionId, instructions));
+            return ResponseEntity.ok(generationService.redesignPrototype(sessionId, instructions, lang));
         } catch (Exception e) {
             log.error("Redesign failed", e);
             return ResponseEntity.status(500).header("X-Error-Phase", "REDESIGN").header("X-Error-Message", e.getMessage()).build();

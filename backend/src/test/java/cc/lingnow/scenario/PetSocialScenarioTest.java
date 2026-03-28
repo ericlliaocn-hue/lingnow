@@ -36,14 +36,14 @@ public class PetSocialScenarioTest {
 
         // Phase 1: Planning
         log.info("--- Phase 1: Planning ---");
-        ProjectManifest plannedManifest = generationService.planRequirements(sessionId, prompt);
+        ProjectManifest plannedManifest = generationService.planRequirements(sessionId, prompt, "EN");
         assertNotNull(plannedManifest);
         assertFalse(plannedManifest.getFeatures().isEmpty(), "Should have generated features");
         log.info("Planned features: {}", plannedManifest.getFeatures().size());
 
         // Phase 2: Designing
         log.info("--- Phase 2: Designing ---");
-        ProjectManifest designedManifest = generationService.generatePrototype(sessionId);
+        ProjectManifest designedManifest = generationService.generatePrototype(sessionId, "EN");
         assertNotNull(designedManifest.getPrototypeHtml(), "Should have generated prototype HTML");
         log.info("Prototype length: {}", designedManifest.getPrototypeHtml().length());
 

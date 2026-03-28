@@ -28,22 +28,16 @@ public class UiDesignerAgent {
         // Language awareness needs to be determined before constructing the prompt for the design aesthetics part
         String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
 
-        String systemPrompt = "You are an expert UI/UX Designer. Create a premium, interactive HTML prototype based on requirements. "
-                + "Use Tailwind CSS for styling. "
-                + "- Use alpine.js for interactive logic (click, hover, toggle).\n"
-                + "- CRITICAL FOR INSPECT MODE: Every visual component (div, button, input) MUST have a 'data-lingnow-id' attribute matching its functional name or feature id.\n"
-                + "- Example: <button data-lingnow-id=\"submit-order-btn\" @click=\"...\">Submit</button>\n"
-                + "- Ensure the design matches: " + (lang.equals("ZH") ? "Chinese commercial aesthetics (Clean, Modern, Dark/Glassmorphism)" : "Western modern design trends") + "\n"
-                + "Respond with a single JSON object: {\"prototypeHtml\": \"...\"}. "
-                + "IMPORTANT: All HTML must follow responsive design and include Desktop, Tablet, and Mobile layouts. ";
-        
-        // Language awareness for content
-        if ("ZH".equalsIgnoreCase(lang)) {
-            systemPrompt += "\nCRITICAL: The entire user interface including all texts, navigation labels, button captions, headings, and placeholder contents MUST BE IN CHINESE. "
-                    + "DO NOT use English placeholder text if the target language is Chinese.";
-        } else {
-            systemPrompt += "\nThe entire user interface content MUST BE IN ENGLISH.";
-        }
+        String systemPrompt = "You are a World-Class UI/UX Architect specialized in high-density technical platforms. Your goal is to deliver a bespoke, industrial-grade application prototype.\n"
+                + "RULES:\n"
+                + "1. ANTI-TEMPLATE AESTHETICS: Strictly FORBID using repetitive uniform card grids (the 'templated' look) for main content feeds. Instead, implement high-density 'Linear List Flows' with subtle 1px dividers, zero-to-minimal box shadows, and tight padding.\n"
+                + "2. ANALYTICAL DESIGN: Study and reference the structural principles of Linux.do (Discourse), Juejin (掘金), and CSDN. Prioritize INFORMATION DENSITY and VERTICAL READABILITY. Use system fonts (Inter, -apple-system) and clear typographic hierarchies.\n"
+                + "3. DYNAMIC SPA ARCHITECTURE: Implement a functional view for EVERY page in the manifest using Alpine.js 'x-show'. Transition logic must be seamless.\n"
+                + "4. 100% CLICKABLE: Every navigation link, list item, and button MUST have visual feedback (Cursor/Hover/Active) and functional state transitions.\n"
+                + "5. CRITICAL: Every interactive component needs a 'data-lingnow-id' for inspection.\n"
+                + "6. LANGUAGE: All content MUST be in " + (lang.equals("ZH") ? "CHINESE" : "ENGLISH") + ".\n"
+                + "7. RESPONSIVE: Provide layouts optimized for Desktop, Tablet, and Mobile.\n"
+                + "Respond with a single JSON object: {\"prototypeHtml\": \"...\"}.";
         
         String userPrompt = String.format("User Intent: %s\nPlanned Features: %s\nPlanned Pages: %s", 
                 manifest.getUserIntent(), manifest.getFeatures(), manifest.getPages());
@@ -67,11 +61,12 @@ public class UiDesignerAgent {
     public void redesign(ProjectManifest manifest, String instructions) {
         log.info("Designer is refining prototype based on instructions: {}", instructions);
         String existingHtml = manifest.getPrototypeHtml();
-        
-        String systemPrompt = "You are an expert UI/UX Refinement Agent. You will receive an existing HTML prototype and modification instructions. "
-                + "Your goal is to EVOLVE the existing design without breaking current styles or Alpine.js logic, unless requested. "
-                + "Maintain consistency with the existing design language. "
-                + "Respond ONLY with a single JSON object: {\"prototypeHtml\": \"... updated html ...\"}. ";
+
+        String systemPrompt = "You are an expert UI/UX Refinement Agent. You will receive an existing SPA prototype (with multi-view Alpine.js logic) and modification instructions.\n"
+                + "YOUR GOAL: Evolve the existing design without breaking the 'x-data' state management or navigation logic.\n"
+                + "1. MAINTAIN FLOW: Ensure switching between views (Home, Detail, Login, etc.) still works perfectly.\n"
+                + "2. CONSISTENT AESTHETICS: Keep the industrial-grade, non-patterned look while applying updates.\n"
+                + "3. OUTPUT: Respond ONLY with a single JSON object: {\"prototypeHtml\": \"...\"}.";
 
         // Language awareness
         String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";

@@ -49,14 +49,20 @@ public class ProductArchitectAgent {
                 : "All content MUST BE IN ENGLISH.";
 
             String systemPrompt = """
-                You are a senior Product Architect.
+                    You are a senior Product Architect specialized in high-density technical ecosystems (like linux.do, Juejin, CSDN).
+                    
+                    YOUR GOAL: Design a COMPLETE application architecture that prioritizes CONTENT and FUNCTIONAL FLOW.
                 
                 RULES:
-                1. Output ONLY pure JSON.
-                2. Identify key features and pages.
-                3. If EXISTING PRD is provided, update it with the new requirements. Return the FULL updated list.
-                4. %s
-                5. JSON Schema: {
+                    1. DEDUCTIVE PLANNING: Automatically include all infrastructure (Login, Signup, User Profile, Settings, 404) for any community/SaaS project.
+                    2. CONTENT DENSITY: For every feature/page that involves listing (e.g., Article Feed), you MUST define rich metadata fields (e.g., Author Avatar/Bio, View Count, Like Count, Relative Time, Categories, Reading Time).
+                    3. USER JOURNEY: Clearly specify the state-to-state navigation in the descriptions.
+                    4. INDUSTRIAL STANDARDS: Benchmark against Vercel and Linear for layout strategy.
+                    5. LANGUAGE: %s
+                    6. OUTPUT: Pure JSON only.
+                    
+                    JSON Schema: {
+                        "overview": "string describing the full journey",
                     "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
                     "pages": [{"route": "string", "description": "string", "components": ["string"]}]
                 }
