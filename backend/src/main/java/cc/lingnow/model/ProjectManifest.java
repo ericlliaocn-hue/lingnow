@@ -2,6 +2,7 @@ package cc.lingnow.model;
 
 import lombok.Builder;
 import lombok.Data;
+
 import java.util.List;
 import java.util.Map;
 
@@ -18,6 +19,8 @@ public class ProjectManifest {
     // PLANNING phase products
     private List<Feature> features;
     private List<PageSpec> pages;
+    private String mindMap;        // Mermaid diagram
+    private String mockData;       // Simulated JSON data
     private Map<String, String> techStack;
     
     // DESIGNING phase products

@@ -177,6 +177,15 @@ const runtimeLogs = ref([])
 
 onMounted(async () => {
   console.log('Workbench mounted. Route ID:', route.params.id)
+
+  if (window.mermaid) {
+    window.mermaid.initialize({
+      theme: 'dark',
+      startOnLoad: false,
+      securityLevel: 'loose'
+    })
+  }
+
   if (route.params.id) {
     loadProject(route.params.id)
   }
@@ -353,6 +362,24 @@ const resetProject = () => {
   activeTab.value = 'design'
   if (route.path !== '/') router.push('/')
 }
+
+watch([activeTab, () => result.value?.mindMap], async ([tab, map]) => {
+  if (tab === 'plan' && map && window.mermaid) {
+    await nextTick()
+    try {
+      const container = document.getElementById('mermaid-container')
+      if (container) {
+        container.removeAttribute('data-processed')
+        container.innerHTML = map
+        await window.mermaid.run({
+          nodes: [container]
+        })
+      }
+    } catch (err) {
+      console.error('Mermaid render failed', err)
+    }
+  }
+}, {immediate: true})
 </script>
 
 <template>
@@ -460,6 +487,49 @@ const resetProject = () => {
                 </div>
               </div>
             </div>
+            <div v-else-if="activeTab === 'plan'" :key="'plan'"
+                 class="h-full w-full overflow-auto p-12 bg-[#0d0d0d] flex flex-col items-center">
+              <div class="max-w-5xl w-full space-y-8">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h2 class="text-3xl font-black text-white italic tracking-tighter uppercase">Architectural
+                      Blueprint</h2>
+                    <p class="text-gray-500 text-sm mt-1">AI 规划的功能逻辑脑图与交互架构</p>
+                  </div>
+                </div>
+                <div
+                    class="bg-white/5 border border-white/10 rounded-3xl p-8 overflow-x-auto min-h-[400px] flex justify-center">
+                  <div id="mermaid-container" class="mermaid w-full flex justify-center">
+                    {{ result?.mindMap || '等待思维导图生成...' }}
+                  </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div v-for="f in result?.features" :key="f.name"
+                       class="p-6 bg-white/5 border border-white/5 rounded-2xl hover:border-blue-500/30 transition-all">
+                    <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">{{ f.priority }} PRIORITY</span>
+                    <h4 class="text-white font-bold mt-1">{{ f.name }}</h4>
+                    <p class="text-gray-500 text-xs mt-2 leading-relaxed">{{ f.description }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="activeTab === 'code'" :key="'code'" class="h-full w-full overflow-auto p-12 bg-[#0d0d0d]">
+              <div class="max-w-4xl mx-auto space-y-6">
+                <h2 class="text-xl font-black text-white italic tracking-tighter uppercase">Source Inventory</h2>
+                <div class="grid grid-cols-1 gap-4">
+                  <div v-for="(content, path) in result?.files" :key="path"
+                       class="p-4 bg-white/5 border border-white/5 rounded-xl flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                      <Terminal class="w-4 h-4 text-gray-500"/>
+                      <span class="text-sm font-mono text-gray-300">{{ path }}</span>
+                    </div>
+                    <span class="text-[10px] text-gray-600 uppercase font-black">{{ content.length }} bytes</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div v-else-if="activeTab === 'preview'" :key="'preview'" class="h-full w-full">
               <Sandpack :files="sandpackFiles"
                         :options="{ editorHeight: '100%', externalResources: ['https://cdn.tailwindcss.com'] }"

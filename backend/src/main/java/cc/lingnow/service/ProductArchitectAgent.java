@@ -63,9 +63,11 @@ public class ProductArchitectAgent {
                     
                     JSON Schema: {
                         "overview": "string describing the full journey",
-                    "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
-                    "pages": [{"route": "string", "description": "string", "components": ["string"]}]
-                }
+                            "mindMap": "string (Detailed Mermaid mindmap covering all functional nodes and navigation paths)",
+                            "mockData": "string (A JSON-formatted string containing realistic sample data for articles, users, etc.)",
+                            "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
+                            "pages": [{"route": "string", "description": "string", "components": ["string"]}]
+                        }
                 """.formatted(langInstruction);
             
             String userPrompt = isMod 
@@ -75,6 +77,10 @@ public class ProductArchitectAgent {
             String response = llmClient.chat(systemPrompt, userPrompt + (isMod ? "\nContext:\n" + context : ""));
             log.debug("Architect LLM raw response: {}", response);
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
+
+            // Set Mindmap and MockData
+            manifest.setMindMap(root.path("mindMap").asText());
+            manifest.setMockData(root.path("mockData").asText());
 
             // Parse features
             List<ProjectManifest.Feature> features = new ArrayList<>();
