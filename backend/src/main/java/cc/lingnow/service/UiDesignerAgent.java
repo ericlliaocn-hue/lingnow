@@ -9,9 +9,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
- * UI Designer Agent - Responsible for creating and refining high-fidelity prototypes (HTML/Tailwind).
+ * UI Designer Agent - Creating high-fidelity, industry-aware interactive prototypes.
  */
 @Slf4j
 @Service
@@ -22,181 +23,136 @@ public class UiDesignerAgent {
     private final ObjectMapper objectMapper;
 
     /**
-     * Generate a high-fidelity HTML prototype based on the manifest using a Multi-Step Pipeline.
+     * Generate a high-fidelity HTML prototype using an Industry-Aware Multi-Step Pipeline.
      */
     public void design(ProjectManifest manifest) {
-        log.info("Designer is starting multi-step pipeline for: {}", manifest.getUserIntent());
+        log.info("Designer is starting high-fidelity pipeline for: {}", manifest.getUserIntent());
         String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
 
         try {
-            // STEP 1: Generate App Shell
-            log.info("Step 1: Generating Application Layout Shell...");
-            String shellHtml = generateShell(manifest, lang);
+            // STEP 1: Parse Features from Mindmap
+            List<String> featureNodes = parseFeatureNodes(manifest.getMindMap());
 
-            // STEP 2: Generate Page Components
-            log.info("Step 2: Generating Feature Components...");
+            // STEP 2: Aggregate Features (Define which ones go to the Dashboard vs Sub-pages)
+            String dashboardNodes = featureNodes.subList(0, Math.min(3, featureNodes.size()))
+                    .stream().collect(Collectors.joining(", "));
+
+            // STEP 3: Generate App Shell (Layout + Nav + Interactive Overlays)
+            log.info("Step 3: Generating Industry-Aware Shell...");
+            String shellHtml = generateShell(manifest, featureNodes, lang);
+
+            // STEP 4: Generate Clustered Components
+            log.info("Step 4: Generating Detailed Feature Components...");
             StringBuilder contentSlots = new StringBuilder();
 
-            try {
-                // Parse text-based mindmap to extract features (leaves or significant nodes)
-                String mindMap = manifest.getMindMap();
-                if (mindMap == null || mindMap.trim().isEmpty()) {
-                    log.error("Mindmap is missing in manifest for session: {}", manifest.getId());
-                    contentSlots.append("<div class='p-8 text-center text-red-500'>Error: Architectural plan (mindmap) is missing. Please regenerate the plan.</div>");
-                    throw new RuntimeException("Mindmap is missing. Visual design requires an architectural plan.");
-                }
+            // First component is ALWAYS the Dashboard/Index (Aggregates primary context)
+            String dashboardHtml = generateComponent(manifest, "INDEX", "Dashboard / Home Feed", lang, true);
+            contentSlots.append(dashboardHtml).append("\n");
 
-                String[] lines = mindMap.split("\\n");
-                List<String> featureNodes = new ArrayList<>();
-
-                for (int i = 0; i < lines.length; i++) {
-                    String current = lines[i];
-                    if (current.trim().isEmpty() || current.trim().startsWith("```")) continue;
-
-                    int currentIndent = current.length() - current.replaceAll("^\\s+", "").length();
-                    boolean isLeaf = true;
-
-                    if (i + 1 < lines.length) {
-                        String next = lines[i + 1];
-                        if (next.trim().startsWith("```")) {
-                            isLeaf = true; // end of markdown block
-                        } else {
-                            int nextIndent = next.length() - next.replaceAll("^\\s+", "").length();
-                            if (nextIndent > currentIndent) {
-                                isLeaf = false; // it has children
-                            }
-                        }
-                    }
-
-                    if (isLeaf) {
-                        featureNodes.add(current.replace("- ", "").trim());
-                    }
-                }
-
-                if (featureNodes.isEmpty()) {
-                    // Fallback to whatever is there
-                    for (String line : lines) {
-                        if (!line.trim().isEmpty() && !line.trim().startsWith("```")) {
-                            featureNodes.add(line.replace("- ", "").trim());
-                        }
-                    }
-                }
-
-                int count = 0;
-                for (String nodeName : featureNodes) {
-                    if (count >= 5) {
-                        log.info("Reached maximum of 5 pages for initial generation to save time/tokens. Skipping the rest.");
-                        break;
-                    }
-                    // Use a sanitized node name as the route ID so the Shell LLM and Component LLM match
-                    String routeId = java.net.URLEncoder.encode(nodeName.replace(" ", ""), java.nio.charset.StandardCharsets.UTF_8);
-
-                    log.info("Generating component for: {} ({})", nodeName, routeId);
-                    String componentHtml = generateComponent(manifest, routeId, nodeName, lang);
-                    contentSlots.append(componentHtml).append("\n");
-                    count++;
-                }
-
-            } catch (Exception e) {
-                log.error("Failed to parse mindMap text tree, skipping components", e);
-                contentSlots.append("<div class='p-8 text-center text-red-500'>Failed to parse mindmap nodes for individual pages: ").append(e.getMessage()).append("</div>");
+            // Remaining sub-pages (skip the first few if they are in dashboard, but keep for navigation)
+            for (int i = 0; i < Math.min(featureNodes.size(), 8); i++) {
+                String nodeName = featureNodes.get(i);
+                String routeId = java.net.URLEncoder.encode(nodeName.replace(" ", ""), java.nio.charset.StandardCharsets.UTF_8);
+                log.info("Generating view for: {} ({})", nodeName, routeId);
+                String componentHtml = generateComponent(manifest, routeId, nodeName, lang, false);
+                contentSlots.append(componentHtml).append("\n");
             }
 
-            // STEP 3: Assembly
-            log.info("Step 3: Assembling prototype...");
-            String finalHtml;
-            if (shellHtml.contains("{{CONTENT_SLOTS}}")) {
-                finalHtml = shellHtml.replace("{{CONTENT_SLOTS}}", contentSlots.toString());
-            } else if (shellHtml.contains("{{CONTENT_SLOT}}")) {
-                finalHtml = shellHtml.replace("{{CONTENT_SLOT}}", contentSlots.toString());
-            } else {
-                // Fallback in case LLM didn't put the exact placeholder
-                log.warn("Shell missing {{CONTENT_SLOTS}} tag. Appending blocks manually.");
-                finalHtml = shellHtml + "\n<!-- ASSEMBLED COMPONENTS -->\n" + contentSlots.toString();
-            }
+            // STEP 5: Final Assembly
+            log.info("Step 5: Finalizing Assembly...");
+            String finalHtml = assemble(shellHtml, contentSlots.toString());
 
             manifest.setPrototypeHtml(finalHtml);
-            log.info("Multi-step prototype created successfully ({} chars).", finalHtml.length());
+            log.info("Industrial-grade prototype created successfully ({} chars).", finalHtml.length());
 
         } catch (Exception e) {
-            log.error("Prototype multi-step design failed", e);
+            log.error("Prototype design pipeline failed", e);
             throw new RuntimeException("UI Design pipeline failed: " + e.getMessage());
         }
     }
 
-    private String generateShell(ProjectManifest manifest, String lang) {
-        String systemPrompt = "You are a World-Class UI/UX Architect. Your goal is to deliver an industrial-grade SPA Application Layout Shell.\n"
-                + "RULES:\n"
-                + "1. FULL HTML: You MUST output a complete HTML5 document (`<html><head>...</head><body class=\"bg-gray-50 text-gray-900 antialiased\">...</body></html>`).\n"
-                + "2. CDNs (CRITICAL): Inside `<head>`, you MUST include: Tailwind CSS `<script src=\"https://cdn.tailwindcss.com\"></script>`, Alpine.js `<script defer src=\"https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js\"></script>`, and FontAwesome `<link href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css\" rel=\"stylesheet\">`.\n"
-                + "3. HASH-ROUTER: Globally define Alpine routing on the body or main wrapper: `<div x-data=\"{ hash: window.location.hash || '#/' }\" @hashchange.window=\"hash = window.location.hash\" class=\"flex h-screen overflow-hidden\">`.\n"
-                + "4. SKELETON ONLY: Build the Sidebar, Top Navigation, and Layout wrappers using the provided 'mindMap' text tree for navigation links. The href MUST be the EXACT URL-encoded node name with spaces removed (e.g. `href=\"#UserManagement\"` and `:class=\"hash === '#UserManagement' ? 'bg-primary-500 text-white' : 'text-gray-400'\"`).\n"
-                + "5. CONTENT SLOT: Inside your `<main>` tag, you MUST leave EXACTLY the string `{{CONTENT_SLOTS}}` without any HTML around it.\n"
-                + "6. PREMIUM AESTHETICS: Use gorgeous Tailwind classes. Add glassmorphism (`backdrop-blur-md bg-white/70`), shadows (`shadow-sm`), and soft borders. NEVER generate giant unconstrained SVGs; all icons MUST have `w-5 h-5` or similar sizes.\n"
-                + "7. LANGUAGE: All UI text must be in " + (lang.equals("ZH") ? "CHINESE" : "ENGLISH") + ".\n"
-                + "8. OUTPUT: Respond ONLY with the raw HTML string wrapped in ```html and ``` markers. DO NOT wrap it in JSON.";
+    private List<String> parseFeatureNodes(String mindMap) {
+        if (mindMap == null || mindMap.trim().isEmpty()) return new ArrayList<>();
+        List<String> featureNodes = new ArrayList<>();
+        String[] lines = mindMap.split("\\n");
+        for (int i = 0; i < lines.length; i++) {
+            String current = lines[i];
+            if (current.trim().isEmpty() || current.trim().startsWith("```")) continue;
+            int currentIndent = current.length() - current.replaceAll("^\\s+", "").length();
+            boolean isLeaf = true;
+            if (i + 1 < lines.length) {
+                String next = lines[i + 1];
+                if (!next.trim().startsWith("```")) {
+                    int nextIndent = next.length() - next.replaceAll("^\\s+", "").length();
+                    if (nextIndent > currentIndent) isLeaf = false;
+                }
+            }
+            if (isLeaf) featureNodes.add(current.replace("- ", "").trim());
+        }
+        return featureNodes;
+    }
 
-        String userPrompt = String.format("User Intent: %s\nPlanned Routing/Mindmap: %s", manifest.getUserIntent(), manifest.getMindMap());
+    private String generateShell(ProjectManifest manifest, List<String> featureNodes, String lang) {
+        String systemPrompt = "You are a World-Class UX Architect. Your task is to generate a STUNNING, industry-aware SPA Layout Shell.\n\n"
+                + "CONTEXT SENSING:\n"
+                + "Extract the industry from User Intent: '" + manifest.getUserIntent() + "'.\n"
+                + "- If TECH/BLOG: Use clean typography, high information density, Github/Linear-style sleekness, subtle borders.\n"
+                + "- If SOCIAL/PET: Use vibrant colors, large soft-rounded cards (3xl), playful gradients, friendly avatars.\n"
+                + "- If SAAS/DASHBOARD: Use professional deep-blue/gray palette, sidebar focus, dense metric cards.\n\n"
+                + "TECHNICAL RULES:\n"
+                + "1. FULL HTML5: Include Tailwind CSS, Alpine.js, and FontAwesome 6.\n"
+                + "2. INTERACTIVE ROUTING: Use Alpine.js `x-data=\"{ activeTab: '#INDEX', showPostModal: false, isLoggedIn: false }\"`.\n"
+                + "3. SHELL STRUCTURE:\n"
+                + "   - TOP NAV: Logo (with industry relevant icon), Search Bar, User Profile (with Login/Register triggers), and Global 'Action' button (e.g., 'New Post').\n"
+                + "   - SIDEBAR: Hierarchical navigation. Highlight active tab. Use URLEncoded hashes like `#PostDetail`.\n"
+                + "   - MAIN: Body with smooth scrolling. Leave EXACTLY `{{CONTENT_SLOTS}}` tag for component injection.\n"
+                + "4. PREMIUM UI: Use glassmorphism, soft shadows, and CSS animations (`animate-fade-in`). Icons MUST have sizes (e.g. `w-5 h-5`).\n"
+                + "5. LANGUAGE: " + (lang.equals("ZH") ? "Chinese (Mandarin)" : "English") + ".\n"
+                + "6. OUTPUT: Raw HTML ONLY, no JSON, wrapped in ```html.";
+
+        StringBuilder navItems = new StringBuilder();
+        for (String node : featureNodes.subList(0, Math.min(featureNodes.size(), 8))) {
+            String encoded = java.net.URLEncoder.encode(node.replace(" ", ""), java.nio.charset.StandardCharsets.UTF_8);
+            navItems.append(String.format("Node: %s (Hash: #%s), ", node, encoded));
+        }
+
+        String userPrompt = "Generate the Shell for: " + manifest.getUserIntent() + "\nNavigation nodes: " + navItems.toString();
 
         try {
-            String response = llmClient.chat(systemPrompt, userPrompt);
-            return parseHtmlSnippet(response);
+            return parseHtmlSnippet(llmClient.chat(systemPrompt, userPrompt));
         } catch (java.io.IOException e) {
-            throw new RuntimeException("LLM Shell generation failed", e);
+            throw new RuntimeException("Shell generation failed", e);
         }
     }
 
-    private String generateComponent(ProjectManifest manifest, String routeId, String routeName, String lang) {
-        String systemPrompt = "You are a World-Class UI/UX Component Designer. Your goal is to design a single, standalone high-fidelity feature view.\n"
+    private String generateComponent(ProjectManifest manifest, String routeId, String routeName, String lang, boolean isIndex) {
+        String industryFocus = manifest.getUserIntent();
+        String systemPrompt = "You are a World-Class UI Component Designer. Design a " + (isIndex ? "MASTER AGGREGATED DASHBOARD" : "DETAILED FEATURE VIEW") + ".\n\n"
+                + "INDUSTRY: " + industryFocus + "\n"
                 + "RULES:\n"
-                + "1. VIEW WRAPPER (CRITICAL): The OUTERMOST tag of your entire HTML must be EXACTLY: `<div x-show=\"hash === '#" + routeId + "'\" class=\"h-full overflow-y-auto animate-fade-in\">`.\n"
-                + "2. FOCUS ON DETAIL: Make it incredibly detailed, realistic, and highly polished with Tailwind CSS. Use grids (`grid-cols-1 md:grid-cols-3`), beautiful hover effects, and nice padding (e.g., `p-6`). Use FontAwesome classes for icons (e.g., `fas fa-chart-line`).\n"
-                + "3. NO SHELL: Do NOT generate `<html>`, `<body>`, `x-data` routers, sidebars, or headers. Just generate the inner page content `div`.\n"
-                + "4. DATA-DRIVEN: Use the 'mockData' provided conceptually to populate beautiful tables, metric cards (like Stripe/Vercel dashboards), charts placeholders, or lists. No empty generic lorem ipsum.\n"
-                + "5. SVG/IMAGE RULES: NEVER generate massive unconstrained svgs. If using svgs, adding `w-6 h-6` or similar is mandatory. Use Unsplash for placeholder avatars.\n"
-                + "6. OUTPUT: Respond ONLY with the raw HTML string wrapped in ```html and ``` markers. DO NOT wrap it in JSON.";
+                + "1. OUTER WRAPPER: Must be `<div x-show=\"activeTab === '#" + routeId + "'\" class=\"h-full p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500\">`.\n"
+                + "2. VISUAL QUALITY: Match the peak industry standards (e.g., if Tech Blog, look like LinuxDo/Medium; if Social, look like PawPal). Use rich mock data provided below.\n"
+                + "3. " + (isIndex ? "AGGREGATION: Combine 3-4 key sub-features into a cohesive multi-column dashboard layout. Eliminate any empty vertical space." : "FOCUS: Deep dive into the specific feature functionality with rich tables/forms.") + "\n"
+                + "4. INTERACTIVE MOCKUP: Use Alpine.js commands (like `@click`) to simulate real flows (e.g., clicking a post 'likes' it or opens a detail view).\n"
+                + "5. MOCK DATA BINDING: Use the 'mockData' provided. DO NOT use Lorem Ipsum. Render REAL technical titles, comments, and stats.\n"
+                + "6. ASSETS: Use relevant FontAwesome icons and Unsplash images (e.g., `https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&w=800` for code/tech).\n"
+                + "7. OUTPUT: Raw HTML ONLY, wrapped in ```html.";
 
-        String userPrompt = String.format("Generate the highly-detailed view for feature node: %s (Route Hash: #%s).\nUser Intent: %s\nMock Data: %s",
-                routeName, routeId, manifest.getUserIntent(), manifest.getMockData());
+        String userPrompt = String.format("Design the %s component: %s (activeTab: #%s).\nUser Intent: %s\nMock Data JSON (MANDATORY USE): %s",
+                isIndex ? "Index/Home" : "Feature", routeName, routeId, manifest.getUserIntent(), manifest.getMockData());
 
         try {
-            String response = llmClient.chat(systemPrompt, userPrompt);
-            return parseHtmlSnippet(response);
+            return parseHtmlSnippet(llmClient.chat(systemPrompt, userPrompt));
         } catch (java.io.IOException e) {
-            log.error("Failed to generate component for {}", routeId, e);
-            return "<!-- Error generating " + routeId + " -->";
+            log.error("Failed to generate component {}", routeId, e);
+            return "<!-- Gen Error for " + routeId + " -->";
         }
     }
 
-    /**
-     * M6: Iterative Redesign - Refines the existing prototype based on user instructions.
-     */
-    public void redesign(ProjectManifest manifest, String instructions) {
-        log.info("Designer is refining prototype based on instructions: {}", instructions);
-        String existingHtml = manifest.getPrototypeHtml();
-
-        String systemPrompt = "You are an expert UI/UX Refinement Agent. You will receive an existing SPA prototype (with Hash-based Alpine.js logic) and modification instructions.\n"
-                + "YOUR GOAL: Evolve the existing design without breaking the 'mindmap' node coverage or 'mockData' consistency.\n"
-                + "1. MAINTAIN FLOW: Ensure navigation (Hash changes) and state management still works perfectly.\n"
-                + "2. CONSISTENT AESTHETICS: Keep the high-density list flow and technical blog aesthetics.\n"
-                + "3. OUTPUT: Respond ONLY with the raw HTML string wrapped in ```html and ``` markers. DO NOT wrap it in JSON.";
-
-        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
-        if ("ZH".equalsIgnoreCase(lang)) {
-            systemPrompt += "CRITICAL: If you add new UI elements or update texts, USE CHINESE.";
-        }
-
-        String userPrompt = String.format("Existing HTML: \n%s\n\nModification Instructions: %s", existingHtml, instructions);
-                
-        try {
-            String response = llmClient.chat(systemPrompt, userPrompt);
-            String html = parseHtmlSnippet(response);
-            manifest.setPrototypeHtml(html);
-            log.info("Prototype refinement complete ({} chars).", html.length());
-        } catch (Exception e) {
-            log.error("Prototype refinement failed", e);
-            throw new RuntimeException("UI Redesign phase failed: " + e.getMessage());
-        }
+    private String assemble(String shell, String slots) {
+        if (shell.contains("{{CONTENT_SLOTS}}")) return shell.replace("{{CONTENT_SLOTS}}", slots);
+        if (shell.contains("{{CONTENT_SLOT}}")) return shell.replace("{{CONTENT_SLOT}}", slots);
+        return shell + "\n<!-- CONTENT -->\n" + slots;
     }
 
     private String parseHtmlSnippet(String response) {
@@ -204,21 +160,37 @@ public class UiDesignerAgent {
         try {
             int startIndex = response.indexOf("```html");
             if (startIndex != -1) {
-                startIndex += 7; // Length of ```html
+                startIndex += 7;
                 int endIndex = response.lastIndexOf("```");
-                if (endIndex != -1 && endIndex > startIndex) {
-                    return response.substring(startIndex, endIndex).trim();
-                }
+                if (endIndex != -1 && endIndex > startIndex) return response.substring(startIndex, endIndex).trim();
             }
-            // Fallback: If no markers found, but it might be pure HTML anyway
-            if (response.trim().startsWith("<")) {
-                return response.trim();
-            }
-            log.warn("No valid HTML code block found in response.");
+            if (response.trim().startsWith("<")) return response.trim();
             return response;
         } catch (Exception e) {
-            log.warn("Failed to extract HTML snippet from LLM output. Returning raw response.");
             return response;
         }
     }
+
+    public void redesign(ProjectManifest manifest, String instructions) {
+        log.info("Refining prototype: {}", instructions);
+        String existingHtml = manifest.getPrototypeHtml();
+        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+
+        String systemPrompt = "You are a UIUX Refinement Expert. Update the following SPA prototype.\n"
+                + "1. PRESERVE STRUCTURE: Keep the Shell, Alpine.js routing, and high-fidelity aesthetics.\n"
+                + "2. APPLY CHANGES: " + instructions + "\n"
+                + "3. LANGUAGE: Use " + (lang.equals("ZH") ? "Chinese" : "English") + ".\n"
+                + "4. OUTPUT: Raw HTML ONLY, wrapped in ```html.";
+
+        String userPrompt = "Existing Code: \n" + existingHtml;
+
+        try {
+            String response = llmClient.chat(systemPrompt, userPrompt);
+            manifest.setPrototypeHtml(parseHtmlSnippet(response));
+        } catch (Exception e) {
+            log.error("Redesign failed", e);
+            throw new RuntimeException("UI Redesign phase failed: " + e.getMessage());
+        }
+    }
 }
+
