@@ -43,7 +43,7 @@ public class PetSocialScenarioTest {
 
         // Phase 2: Designing
         log.info("--- Phase 2: Designing ---");
-        ProjectManifest designedManifest = generationService.generatePrototype(sessionId, "EN");
+        ProjectManifest designedManifest = generationService.generatePrototype(sessionId, "EN", null);
         assertNotNull(designedManifest.getPrototypeHtml(), "Should have generated prototype HTML");
         log.info("Prototype length: {}", designedManifest.getPrototypeHtml().length());
 

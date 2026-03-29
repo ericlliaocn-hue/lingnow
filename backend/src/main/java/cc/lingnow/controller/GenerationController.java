@@ -46,9 +46,10 @@ public class GenerationController {
     public ResponseEntity<ProjectManifest> handleDesign(@RequestBody Map<String, String> body) {
         String sessionId = body.get("sessionId");
         String lang = body.getOrDefault("lang", "EN");
-        log.info("Received design request for session: {} (lang: {})", sessionId, lang);
+        String mindMap = body.get("mindMap");
+        log.info("Received design request for session: {} (lang: {}, overridden mindMap: {})", sessionId, lang, mindMap != null);
         try {
-            return ResponseEntity.ok(generationService.generatePrototype(sessionId, lang));
+            return ResponseEntity.ok(generationService.generatePrototype(sessionId, lang, mindMap));
         } catch (Exception e) {
             log.error("Design failed", e);
             return ResponseEntity.status(500).header("X-Error-Phase", "DESIGNING").header("X-Error-Message", e.getMessage()).build();

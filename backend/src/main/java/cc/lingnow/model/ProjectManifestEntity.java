@@ -41,13 +41,13 @@ public class ProjectManifestEntity {
     @Column(columnDefinition = "LONGTEXT")
     private String generatedFilesJson;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String prototypeHtml;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String apiSchema;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String databaseSchema;
 
     private String version;
@@ -57,6 +57,21 @@ public class ProjectManifestEntity {
 
     @Column(columnDefinition = "TEXT")
     private String changeLogJson;
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String mindMap; // Text tree for mindmap
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String mockData; // Captured JSON mock data
+
+    @Column(columnDefinition = "TEXT")
+    private String dependenciesJson;
+
+    @Column(columnDefinition = "TEXT")
+    private String metaDataJson;
+
+    @Column(columnDefinition = "TEXT")
+    private String techStackJson;
 
     private String owner; // Username for isolation
 

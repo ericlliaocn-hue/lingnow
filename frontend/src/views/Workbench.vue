@@ -347,9 +347,12 @@ const handleStartDesign = async () => {
   loading.value = true
   generationPhase.value = 'DESIGNING'
   try {
+    const activeMindMap = treeData.value ? serializeTree(treeData.value) : result.value?.mindMap
+    
     const designRes = await axios.post('/api/generate/design', {
       sessionId: currentSessionId.value,
-      lang: locale.value
+      lang: locale.value,
+      mindMap: activeMindMap
     })
     result.value = designRes.data
     isDesignStarted.value = true

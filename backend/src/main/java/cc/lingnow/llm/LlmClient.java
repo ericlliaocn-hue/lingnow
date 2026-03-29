@@ -29,6 +29,36 @@ public class LlmClient {
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .writeTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
+                .addInterceptor(chain -> {
+                    Request request = chain.request();
+                    Response response = null;
+                    IOException lastException = null;
+
+                    for (int tryCount = 1; tryCount <= 3; tryCount++) {
+                        try {
+                            if (tryCount > 1) {
+                                log.warn("Retrying LLM API call... Attempt {}/3", tryCount);
+                                Thread.sleep(500 * tryCount); // Exponential backoff
+                            }
+                            response = chain.proceed(request);
+                            if (response.isSuccessful()) {
+                                return response;
+                            }
+                            // If not successful and we have retries left, close and continue
+                            if (tryCount < 3) {
+                                response.close();
+                            }
+                        } catch (IOException e) {
+                            log.warn("LLM API attempt {} failed: {}", tryCount, e.getMessage());
+                            lastException = e;
+                            if (tryCount == 3) throw e;
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("Retry interrupted", e);
+                        }
+                    }
+                    return response;
+                })
                 .build();
     }
 

@@ -120,13 +120,11 @@ public class ProductArchitectAgent {
     private String cleanJsonResponse(String response) {
         if (response == null) return "{}";
         String cleaned = response.trim();
-        if (cleaned.startsWith("```")) {
-            int firstNewline = cleaned.indexOf("\n");
-            int lastBackticks = cleaned.lastIndexOf("```");
-            if (firstNewline != -1 && lastBackticks > firstNewline) {
-                cleaned = cleaned.substring(firstNewline, lastBackticks).trim();
-            }
+        int firstBrace = cleaned.indexOf("{");
+        int lastBrace = cleaned.lastIndexOf("}");
+        if (firstBrace != -1 && lastBrace != -1 && lastBrace >= firstBrace) {
+            return cleaned.substring(firstBrace, lastBrace + 1);
         }
-        return cleaned;
+        return "{}";
     }
 }

@@ -52,7 +52,7 @@ public class GenerationService {
     /**
      * Phase 2: Designing - UI Designer creates prototype
      */
-    public ProjectManifest generatePrototype(String sessionId, String lang) {
+    public ProjectManifest generatePrototype(String sessionId, String lang, String overriddenMindMap) {
         log.info("Phase 2: Designing for session: {} (lang: {})", sessionId, lang);
         ProjectManifest manifest = manifestRegistry.get(sessionId);
         if (manifest == null) throw new RuntimeException("Manifest not found for session: " + sessionId);
@@ -60,6 +60,11 @@ public class GenerationService {
         if (lang != null) {
             if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
             manifest.getMetaData().put("lang", lang);
+        }
+
+        if (overriddenMindMap != null && !overriddenMindMap.isEmpty()) {
+            log.info("Applying frontend-driven mindmap override (length: {})", overriddenMindMap.length());
+            manifest.setMindMap(overriddenMindMap);
         }
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
@@ -219,7 +224,7 @@ public class GenerationService {
 
         try {
             planRequirements(request.sessionId(), request.prompt(), request.lang());
-            generatePrototype(request.sessionId(), request.lang());
+            generatePrototype(request.sessionId(), request.lang(), null);
             return developFullStack(request.sessionId());
         } catch (Exception e) {
             log.error("Full-stack generation failed", e);

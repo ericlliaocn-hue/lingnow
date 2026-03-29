@@ -87,8 +87,13 @@ public class ManifestRegistry {
                 .featuresJson(JsonUtils.toJson(m.getFeatures()))
                 .pagesJson(JsonUtils.toJson(m.getPages()))
                 .generatedFilesJson(JsonUtils.toJson(m.getGeneratedFiles()))
+                .dependenciesJson(JsonUtils.toJson(m.getDependencies()))
                 .changeLogJson(JsonUtils.toJson(m.getChangeLog()))
                 .snapshotsJson(JsonUtils.toJson(m.getSnapshots()))
+                .metaDataJson(JsonUtils.toJson(m.getMetaData()))
+                .techStackJson(JsonUtils.toJson(m.getTechStack()))
+                .mindMap(m.getMindMap())
+                .mockData(m.getMockData())
                 .owner(username) 
                 .build();
     }
@@ -105,9 +110,17 @@ public class ManifestRegistry {
                 .features(JsonUtils.fromJson(e.getFeaturesJson(), new TypeReference<>() {}))
                 .pages(JsonUtils.fromJson(e.getPagesJson(), new TypeReference<>() {}))
                 .generatedFiles(JsonUtils.fromJson(e.getGeneratedFilesJson(), new TypeReference<>() {}))
+                .dependencies(JsonUtils.fromJson(e.getDependenciesJson(), new TypeReference<>() {
+                }))
                 .changeLog(JsonUtils.fromJson(e.getChangeLogJson(), new TypeReference<>() {}))
                 .snapshots(JsonUtils.fromJson(e.getSnapshotsJson(), new TypeReference<>() {
                 }))
+                .metaData(JsonUtils.fromJson(e.getMetaDataJson(), new TypeReference<>() {
+                }))
+                .techStack(JsonUtils.fromJson(e.getTechStackJson(), new TypeReference<>() {
+                }))
+                .mindMap(e.getMindMap())
+                .mockData(e.getMockData())
                 .lastModified(e.getUpdatedAt() != null ? e.getUpdatedAt().getTime() : 0)
                 .build();
     }
