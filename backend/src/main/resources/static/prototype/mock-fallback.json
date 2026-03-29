@@ -1,0 +1,161 @@
+{
+  "COMMUNITY": [
+    {
+      "id": 1,
+      "title": "如何设计一个高密度技术社区首页",
+      "author": "Linyer",
+      "time": "20分钟前",
+      "likes": 128,
+      "views": 1540,
+      "description": "探讨在移动端和Web端如何平衡信息密度与留白，利用卡片流和动态阴影提升视觉层级感。",
+      "cover": "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=800",
+      "tags": [
+        "UI设计",
+        "UX",
+        "技术分享"
+      ],
+      "comments": [
+        {},
+        {},
+        {}
+      ]
+    }
+  ],
+  "VIDEO": [
+    {
+      "id": 501,
+      "title": "2026 苹果开发者大会全记录 (4K)",
+      "author": "TechInsider",
+      "time": "5小时前",
+      "views": "1.2M views",
+      "duration": "15:20",
+      "quality": "4K",
+      "likes": 42000,
+      "description": "今年的 WWDC 带来了革命性的 AI 集成，我们将深入解析新的系统底层架构...",
+      "cover": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800",
+      "tags": [
+        "Technology",
+        "Apple",
+        "AI"
+      ],
+      "comments": [
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "id": 502,
+      "title": "极简主义生活方式：如何保持专注",
+      "author": "MinimalistLife",
+      "time": "1天前",
+      "views": "850K views",
+      "duration": "10:45",
+      "quality": "HD",
+      "likes": 28000,
+      "description": "在信息爆炸的时代，如何通过减少非必要决策来提高生活效率...",
+      "cover": "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?q=80&w=800",
+      "tags": [
+        "Lifestyle",
+        "Minimalism"
+      ],
+      "comments": [
+        {},
+        {}
+      ]
+    },
+    {
+      "id": 503,
+      "title": "赛博朋克 2077：往日之影 最终预告",
+      "author": "CDPR_Official",
+      "time": "2小时前",
+      "views": "3.5M views",
+      "duration": "02:30",
+      "quality": "HDR",
+      "likes": 150000,
+      "description": "欢迎来到狗镇，一个规则被践踏、忠诚受到考验的地方。准备好迎接...",
+      "cover": "https://images.unsplash.com/photo-1605810230434-7631ac76ec81?q=80&w=800",
+      "tags": [
+        "Gaming",
+        "Cyberpunk",
+        "Trailer"
+      ],
+      "comments": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ]
+    },
+    {
+      "id": 504,
+      "title": "东京深夜街头：4K 环境音沉浸式漫步",
+      "author": "WalkWithMe",
+      "time": "3天前",
+      "views": "2.1M views",
+      "duration": "45:00",
+      "quality": "4K 60FPS",
+      "likes": 98000,
+      "description": "戴上耳机，感受东京雨夜的霓虹与喧嚣。这是一场不需要机票的旅行。",
+      "cover": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=800",
+      "tags": [
+        "Travel",
+        "Japan",
+        "ASMR"
+      ],
+      "comments": [
+        {},
+        {}
+      ]
+    }
+  ],
+  "ECOMMERCE": [
+    {
+      "id": 101,
+      "name": "旗舰级降噪蓝牙耳机 Pro",
+      "price": "1,999 元",
+      "stock": 42,
+      "author": "精品数码",
+      "time": "促",
+      "likes": 89,
+      "description": "采用航天级轻量化材料，配备双核主动降噪芯片。",
+      "cover": "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800",
+      "tags": [
+        "新品",
+        "数码"
+      ]
+    }
+  ],
+  "SAAS": [
+    {
+      "id": 201,
+      "title": "三月收入预测模型报告",
+      "summary": "根据历史数据推算，三月份平台增长率预计达到 12.5%。",
+      "author": "AI分析师",
+      "time": "2026-03-29",
+      "status": "已完成",
+      "cover": "https://images.unsplash.com/photo-1551288049-bbbda536339a?q=80&w=800",
+      "tags": [
+        "数据分析"
+      ]
+    }
+  ],
+  "DEFAULT": [
+    {
+      "id": 999,
+      "title": "默认展示文章",
+      "author": "Admin",
+      "time": "刚刚",
+      "description": "由于系统无法识别特定行业，已自动加载通用工业化模板。",
+      "cover": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800",
+      "tags": [
+        "系统"
+      ]
+    }
+  ]
+}

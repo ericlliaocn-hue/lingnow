@@ -31,33 +31,29 @@ public class LlmClient {
                 .readTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
                 .addInterceptor(chain -> {
                     Request request = chain.request();
-                    Response response = null;
-                    IOException lastException = null;
-
+                    Exception lastException = null;
                     for (int tryCount = 1; tryCount <= 3; tryCount++) {
                         try {
                             if (tryCount > 1) {
                                 log.warn("Retrying LLM API call... Attempt {}/3", tryCount);
-                                Thread.sleep(500 * tryCount); // Exponential backoff
+                                Thread.sleep(500 * tryCount);
                             }
-                            response = chain.proceed(request);
+                            Response response = chain.proceed(request);
                             if (response.isSuccessful()) {
                                 return response;
                             }
-                            // If not successful and we have retries left, close and continue
-                            if (tryCount < 3) {
-                                response.close();
-                            }
-                        } catch (IOException e) {
-                            log.warn("LLM API attempt {} failed: {}", tryCount, e.getMessage());
+                            response.close();
+                        } catch (Exception e) {
                             lastException = e;
-                            if (tryCount == 3) throw e;
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            throw new IOException("Retry interrupted", e);
+                            log.error("LLM attempt {} failed: {}", tryCount, e.getMessage());
+                            if (e instanceof InterruptedException) {
+                                Thread.currentThread().interrupt();
+                                throw new IOException("Retry interrupted", e);
+                            }
                         }
                     }
-                    return response;
+                    throw new IOException("LLM API failed after 3 attempts. Last error: "
+                            + (lastException != null ? lastException.getMessage() : "Unknown"), lastException);
                 })
                 .build();
     }
