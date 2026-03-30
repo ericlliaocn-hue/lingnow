@@ -1,6 +1,5 @@
 package cc.lingnow.service;
 
-import cc.lingnow.llm.LlmProperties;
 import cc.lingnow.model.ProjectManifest;
 import cc.lingnow.util.ExcelReportGenerator;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,8 +61,6 @@ public class UiDesignerAgentStressTest {
     private UiDesignerAgent designer;
     @Autowired
     private ProductArchitectAgent architect;
-    @Autowired
-    private LlmProperties llmProperties;
 
     @BeforeEach
     public void setup() {

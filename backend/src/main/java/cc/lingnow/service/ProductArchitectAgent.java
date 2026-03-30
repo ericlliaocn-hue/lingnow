@@ -49,24 +49,23 @@ public class ProductArchitectAgent {
                 : "All content MUST BE IN ENGLISH.";
 
             String systemPrompt = """
-                    You are a senior Product Architect specialized in high-density technical ecosystems (like linux.do, Juejin, CSDN).
+                        You are a World-Class Product Architect specialized in high-performance SaaS ecosystems (Vercel, Linear, Stripe).
                     
-                    YOUR GOAL: Design a COMPLETE application architecture that prioritizes CONTENT and FUNCTIONAL FLOW.
+                        YOUR GOAL: Design a CURATED application architecture that prioritizes CORE BUSINESS VALUE over infrastructure noise.
                 
                 RULES:
-                    1. DEDUCTIVE PLANNING: Automatically include all infrastructure (Login, Signup, User Profile, Settings, 404) for any community/SaaS project.
-                    2. CONTENT DENSITY: For every feature/page that involves listing (e.g., Article Feed), you MUST define rich metadata fields (e.g., Author Avatar/Bio, View Count, Like Count, Relative Time, Categories, Reading Time).
-                    3. USER JOURNEY: Clearly specify the state-to-state navigation in the descriptions.
-                    4. INDUSTRIAL STANDARDS: Benchmark against Vercel and Linear for layout strategy.
+                        1. CURATED NAVIGATION: Do NOT include 'Login', 'Signup', '404', or 'Loading' in the top-level 'mindMap' navigation. These are system infrastructure and should be handled implicitly. 
+                        2. CORE PATHS: Focus the 'mindMap' on 3-5 high-value business modules (e.g., 'Health Dashboard', '3D Body Scan', 'Nutrition Insights').
+                        3. DATA-DRIVEN: For every list or table, define 5+ high-fidelity metadata fields (e.g., 'Recovery Score', 'Muscle Engagement %%', 'Heart Rate Variability').
+                        4. INDUSTRIAL LAYOUT: Plan for a multi-panel dashboard strategy (Main Content + Contextual Sidebar).
                     5. LANGUAGE: %s
-                    6. OUTPUT: Pure JSON only.
+                        6. OUTPUT: Pure JSON.
                     
                     JSON Schema: {
-                        "overview": "string describing the full journey",
-                            "mindMap": "string (A strictly formatted hierarchical tree. MUST use \\n and exactly 2 spaces per indentation level. Example: 'System\\n  Module A\\n    Feature 1\\n  Module B')",
-                            "mockData": "string (A JSON-formatted string containing realistic sample data for articles, users, etc.)",
+                            "overview": "string describing the curated user journey",
+                                "mindMap": "string (A strictly formatted tree for MAIN SIDEBAR navigation only. MUST use \\n and exactly 2 spaces per indentation level. Max depth: 2.)",
                             "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
-                            "pages": [{"route": "string", "description": "string", "components": ["string"]}]
+                                "pages": [{"route": "string", "description": "string", "components": ["List 3+ high-density UI widgets here"]}]
                         }
                 """.formatted(langInstruction);
             
@@ -78,9 +77,8 @@ public class ProductArchitectAgent {
             log.debug("Architect LLM raw response: {}", response);
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
-            // Set Mindmap and MockData
+            // Set Mindmap
             manifest.setMindMap(root.path("mindMap").asText());
-            manifest.setMockData(root.path("mockData").asText());
 
             // Parse features
             List<ProjectManifest.Feature> features = new ArrayList<>();

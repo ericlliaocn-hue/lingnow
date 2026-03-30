@@ -24,7 +24,9 @@ public class GenerationService {
 
     private final ManifestRegistry manifestRegistry;
     private final ProductArchitectAgent architectAgent;
+    private final DataEngineerAgent dataEngineerAgent;
     private final UiDesignerAgent designerAgent;
+    private final AutoRepairAgent autoRepairAgent;
     private final FrontendDeveloperAgent frontendAgent;
     private final BackendDeveloperAgent backendAgent;
     private final DeploymentAgent deploymentAgent;
@@ -44,6 +46,10 @@ public class GenerationService {
         manifestRegistry.save(manifest);
 
         architectAgent.analyze(manifest);
+
+        // Phase 1.5: Data Engineering - Synthesize high-fidelity mock data
+        dataEngineerAgent.generateData(manifest);
+        
         manifestRegistry.save(manifest);
         
         return manifest;
@@ -71,6 +77,12 @@ public class GenerationService {
         manifestRegistry.save(manifest);
 
         designerAgent.design(manifest);
+
+        // Phase 2.5: Auto-Repair - Self-healing logic verification
+        if (manifest.getPrototypeHtml() != null) {
+            String repairedHtml = autoRepairAgent.checkAndFix(manifest.getPrototypeHtml(), manifest.getUserIntent(), manifest.getMockData());
+            manifest.setPrototypeHtml(repairedHtml);
+        }
 
         // Initial snapshot after design
         createSnapshot(manifest, "Initial Design");
