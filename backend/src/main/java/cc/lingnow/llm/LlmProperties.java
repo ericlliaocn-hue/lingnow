@@ -2,32 +2,45 @@ package cc.lingnow.llm;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Configuration;
 
 /**
- * LLM Configuration Properties
+ * Configuration for LLM clients
  */
 @Data
-@Component
+@Configuration
 @ConfigurationProperties(prefix = "lingnow.llm")
 public class LlmProperties {
+
     /**
-     * API Key for metapi
+     * Base URL for the API (e.g., https://api.openai.com/v1)
+     */
+    private String baseUrl;
+
+    /**
+     * API Key
      */
     private String apiKey;
 
     /**
-     * Base URL for the OpenAI compatible API
+     * Model name to use (e.g., gpt-4)
      */
-    private String baseUrl = "https://codex.metapi.cc/v1";
+    private String model = "gpt-4";
 
     /**
-     * Model name to use (e.g., gpt-5.4)
+     * Timeout in seconds for API calls
      */
-    private String model = "gpt-5.4";
+    private int timeoutSeconds = 1800;
 
-    /**
-     * Request timeout in seconds
-     */
-    private int timeoutSeconds = 1800;  // 30 minutes for complex tasks
+    public void setApiKey(String apiKey) {
+        this.apiKey = apiKey;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+        this.baseUrl = baseUrl;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
 }

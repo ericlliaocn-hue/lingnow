@@ -26,17 +26,17 @@ public class LlmClient {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .writeTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(properties.getTimeoutSeconds(), TimeUnit.SECONDS)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
                 .addInterceptor(chain -> {
                     Request request = chain.request();
                     Exception lastException = null;
-                    for (int tryCount = 1; tryCount <= 3; tryCount++) {
+                    for (int tryCount = 1; tryCount <= 5; tryCount++) {
                         try {
                             if (tryCount > 1) {
-                                log.warn("Retrying LLM API call... Attempt {}/3", tryCount);
-                                Thread.sleep(500 * tryCount);
+                                log.warn("Retrying LLM API call... Attempt {}/5", tryCount);
+                                Thread.sleep(2000L * tryCount); // 递增避震
                             }
                             Response response = chain.proceed(request);
                             if (response.isSuccessful()) {

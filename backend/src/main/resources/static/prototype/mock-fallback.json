@@ -145,17 +145,86 @@
       ]
     }
   ],
+  "SOCIAL": [
+    {
+      "id": 1,
+      "title": "户外攀岩爱好者组队中",
+      "distance": "5.2km",
+      "description": "周末去阳朔攀岩，现有3人，缺1位有经验的先锋手。",
+      "cover": "https://images.unsplash.com/photo-1522163182402-834f871fd851?q=80&w=800"
+    }
+  ],
+  "BOOKING": [
+    {
+      "id": 1,
+      "title": "张大夫 - 牙科主任",
+      "available": "今日可约",
+      "description": "从事牙科正畸20年，擅长复杂案例处理。",
+      "cover": "https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=800"
+    }
+  ],
+  "EDUCATION": [
+    {
+      "id": 1,
+      "title": "Python 数据科学从入门到精通",
+      "progress": "75%",
+      "description": "专为零基础设计的实战课程，涵盖 Numpy, Pandas 和 Scikit-learn。",
+      "cover": "https://images.unsplash.com/photo-1527689368864-3a821dbccc34?q=80&w=800"
+    }
+  ],
+  "FINANCE": [
+    {
+      "id": 1,
+      "title": "全球科技增长基金",
+      "value": "+24.5%",
+      "description": "专注于硅谷独角兽企业的激进配置，波动较大但长期回报可观。",
+      "cover": "https://images.unsplash.com/photo-1611974714405-b77409228587?q=80&w=800"
+    }
+  ],
+  "HEALTH": [
+    {
+      "id": 1,
+      "title": "清晨 5KM 有氧慢跑",
+      "bpm": "142",
+      "description": "保持心率在燃脂区间，空气清新，状态极佳。",
+      "cover": "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?q=80&w=800"
+    }
+  ],
+  "FOOD": [
+    {
+      "id": 1,
+      "title": "松露和牛眼肉",
+      "rating": "5.0",
+      "description": "精选A5级和牛，搭配阿尔巴顶级黑松露，入口即化。",
+      "cover": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=800"
+    }
+  ],
+  "TRAVEL": [
+    {
+      "id": 1,
+      "title": "马尔代夫私人海岛之旅",
+      "price": "￥28,000",
+      "description": "避世天堂，水屋直达珊瑚礁，包含私人飞机接送。",
+      "cover": "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?q=80&w=800"
+    }
+  ],
+  "LUXURY": [
+    {
+      "id": 1,
+      "title": "江诗丹顿纵横四海系列",
+      "exclusivity": "至尊会员",
+      "description": "传世精品，全球限量 50 枚，尊享终身质保。",
+      "cover": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=800"
+    }
+  ],
   "DEFAULT": [
     {
       "id": 999,
-      "title": "默认展示文章",
+      "title": "默认内容",
       "author": "Admin",
       "time": "刚刚",
-      "description": "由于系统无法识别特定行业，已自动加载通用工业化模板。",
-      "cover": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800",
-      "tags": [
-        "系统"
-      ]
+      "description": "暂无匹配行业数据，已为您加载系统默认种子内容。",
+      "cover": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800"
     }
   ]
 }

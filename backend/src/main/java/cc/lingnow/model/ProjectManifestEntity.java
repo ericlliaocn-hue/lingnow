@@ -68,10 +68,18 @@ public class ProjectManifestEntity {
     private String dependenciesJson;
 
     @Column(columnDefinition = "TEXT")
-    private String metaDataJson;
+    private String metaDataJson; // Stores the Visual DNA
 
     @Column(columnDefinition = "TEXT")
     private String techStackJson;
+
+    @Column(columnDefinition = "TEXT")
+    private String snapshotPath; // Local path for the screenshot
+
+    @Column(columnDefinition = "TEXT")
+    private String videoPath; // Local path for the video recording (optional)
+
+    private String industryCategory; // Industry categorization for reporting
 
     private String owner; // Username for isolation
 
@@ -92,5 +100,30 @@ public class ProjectManifestEntity {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = new Date();
+    }
+
+    // Getters and Setters for new fields
+    public String getSnapshotPath() {
+        return snapshotPath;
+    }
+
+    public void setSnapshotPath(String snapshotPath) {
+        this.snapshotPath = snapshotPath;
+    }
+
+    public String getVideoPath() {
+        return videoPath;
+    }
+
+    public void setVideoPath(String videoPath) {
+        this.videoPath = videoPath;
+    }
+
+    public String getIndustryCategory() {
+        return industryCategory;
+    }
+
+    public void setIndustryCategory(String industryCategory) {
+        this.industryCategory = industryCategory;
     }
 }

@@ -35,7 +35,7 @@ public class GenerationController {
             return ResponseEntity.ok(generationService.planRequirements(request.sessionId(), request.prompt(), request.lang()));
         } catch (Exception e) {
             log.error("Planning failed", e);
-            return ResponseEntity.status(500).header("X-Error-Phase", "PLANNING").header("X-Error-Message", e.getMessage()).build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "PLANNING").header("X-Error-Message", sanitizeHeader(e.getMessage())).build();
         }
     }
 
@@ -52,7 +52,7 @@ public class GenerationController {
             return ResponseEntity.ok(generationService.generatePrototype(sessionId, lang, mindMap));
         } catch (Exception e) {
             log.error("Design failed", e);
-            return ResponseEntity.status(500).header("X-Error-Phase", "DESIGNING").header("X-Error-Message", e.getMessage()).build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "DESIGNING").header("X-Error-Message", sanitizeHeader(e.getMessage())).build();
         }
     }
 
@@ -69,7 +69,7 @@ public class GenerationController {
             return ResponseEntity.ok(generationService.redesignPrototype(sessionId, instructions, lang));
         } catch (Exception e) {
             log.error("Redesign failed", e);
-            return ResponseEntity.status(500).header("X-Error-Phase", "REDESIGN").header("X-Error-Message", e.getMessage()).build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "REDESIGN").header("X-Error-Message", sanitizeHeader(e.getMessage())).build();
         }
     }
 
@@ -84,7 +84,7 @@ public class GenerationController {
             return ResponseEntity.ok(generationService.developFullStack(sessionId));
         } catch (Exception e) {
             log.error("Development failed", e);
-            return ResponseEntity.status(500).header("X-Error-Phase", "DEVELOPING").header("X-Error-Message", e.getMessage()).build();
+            return ResponseEntity.status(500).header("X-Error-Phase", "DEVELOPING").header("X-Error-Message", sanitizeHeader(e.getMessage())).build();
         }
     }
 
@@ -144,5 +144,11 @@ public class GenerationController {
     public ResponseEntity<List<ProjectHistoryDto>> listAllProjects() {
         log.info("Fetching all projects for current user history");
         return ResponseEntity.ok(generationService.getHistory());
+    }
+
+    private String sanitizeHeader(String value) {
+        if (value == null) return "Unknown Error";
+        // Strip non-ASCII characters for HTTP header safety
+        return value.replaceAll("[^\\x00-\\x7F]", "");
     }
 }
