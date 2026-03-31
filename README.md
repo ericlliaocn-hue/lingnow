@@ -34,6 +34,12 @@ lingnow/
 
 ---
 
+## 🧭 生成流程时序图
+
+详见：`docs/sequence-diagram.md`
+
+---
+
 ## 🛠️ 环境要求
 
 - **Java**: JDK 21+
