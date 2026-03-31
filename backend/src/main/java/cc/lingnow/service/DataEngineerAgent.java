@@ -43,14 +43,15 @@ public class DataEngineerAgent {
 
         String userPrompt = String.format("""
                         Requirement: %s
-                        Architectural Plan: %s
-                        Existing Features: %s
+                        Architectural Plan (Mindmap): %s
+                        Planned Pages & Field Requirements: %s
                         
-                        Please output a robust JSON array of objects representing the primary business entity (e.g., 'workouts', 'leads', 'transactions').
+                        Please output a robust JSON array of objects representing the primary business entity. 
+                        CRITICAL: The objects must include ALL high-fidelity metadata fields suggested in the 'Planned Pages' section to ensure the UI components can find and render the data.
                         """,
                 manifest.getUserIntent(),
                 manifest.getMindMap(),
-                manifest.getFeatures() != null ? manifest.getFeatures().toString() : "N/A"
+                manifest.getPages() != null ? manifest.getPages().toString() : "N/A"
         );
 
         try {

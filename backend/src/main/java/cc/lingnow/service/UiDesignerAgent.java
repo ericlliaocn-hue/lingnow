@@ -21,6 +21,14 @@ public class UiDesignerAgent {
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
 
+    private static final String DESIGN_DNA = """
+            - Background: bg-slate-50
+            - Cards: bg-white border border-slate-200 shadow-sm rounded-2xl p-6
+            - Buttons: rounded-lg font-medium transition-all
+            - Text: slate-900 (headings), slate-500 (body)
+            - Primary: indigo-600
+            """;
+
     /**
      * Generate a high-fidelity HTML prototype based on the manifest using a Multi-Step Pipeline.
      */
@@ -39,8 +47,8 @@ public class UiDesignerAgent {
             log.info("Step 1: Generating Application Layout Shell with {} routes...", routes.size());
             String shellHtml = generateShell(manifest, routes, lang);
 
-            // STEP 2: Generate Page Components
-            log.info("Step 2: Generating Feature Components...");
+            // STEP 2: Generate Page Components with Deep Context
+            log.info("Step 2: Generating Feature Components (Context Bridge Active)...");
             StringBuilder contentSlots = new StringBuilder();
 
             int count = 0;
@@ -49,8 +57,18 @@ public class UiDesignerAgent {
                     log.info("Reached maximum of 6 pages for initial generation. Skipping the rest.");
                     break;
                 }
-                log.info("Generating component for: {} (#{})", route.name, route.id);
-                String componentHtml = generateComponent(manifest, route, lang);
+
+                // Context Bridge: Match Route to PageSpec (Architect's Intent)
+                ProjectManifest.PageSpec pageSpec = null;
+                if (manifest.getPages() != null) {
+                    pageSpec = manifest.getPages().stream()
+                            .filter(p -> p.getRoute().toLowerCase().replaceAll("[^a-z0-9]", "").equals(route.id))
+                            .findFirst()
+                            .orElse(null);
+                }
+
+                log.info("Generating component for: {} (#{}) using Context: {}", route.name, route.id, (pageSpec != null));
+                String componentHtml = generateComponent(manifest, route, pageSpec, lang);
                 contentSlots.append(componentHtml).append("\n");
                 count++;
             }
@@ -133,15 +151,14 @@ public class UiDesignerAgent {
         String systemPrompt = "You are a World-Class UI/UX Architect. Your goal is a Professional Light-Themed SaaS Layout Shell (Apple/Stripe style).\n"
                 + "RULES:\n"
                 + "1. FULL HTML: Use `bg-slate-50/50 text-slate-900 antialiased font-sans`.\n"
-                + "2. CDNs: Include Tailwind, Alpine.js, and FontAwesome. IMPORTANT: DO NOT use `integrity` or `crossorigin` attributes on script/link tags.\n"
+                + "2. CDNs: Include Tailwind, Alpine.js, and FontAwesome. DO NOT use `integrity` or `crossorigin` attributes.\n"
                 + "   - Tailwind: <script src=\"https://cdn.tailwindcss.com\"></script>\n"
-                + "   - FontAwesome: <link rel=\"stylesheet\" href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css\">\n"
                 + "   - Alpine.js: <script defer src=\"https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js\"></script>\n"
-                + "3. STATE: Root tag: `<div x-data=\"{ hash: window.location.hash || '#" + routes.get(0).id + "', mockData: {{MOCK_DATA}}, selectedItem: null, drawerOpen: false }\" @hashchange.window=\"hash = window.location.hash\" class=\"flex h-screen overflow-hidden\">`.\n"
+                + "3. STATE: Root tag: `<div x-data=\"{ hash: window.location.hash || '#" + routes.get(0).id + "', mockData: {{MOCK_DATA}}, selectedItem: null, drawerOpen: false, search: '' }\" @hashchange.window=\"hash = window.location.hash\" class=\"flex h-screen overflow-hidden\">`.\n"
                 + "4. PREMIUM SIDEBAR: Fixed, white sidebar. Grouped nav with solid icons.\n"
-                + "   CRITICAL: Sidebar links MUST use the exact IDs provided in the context (e.g. href=\"#dashboard\"). DO NOT invent your own hashes.\n"
-                + "   ACTIVE STATE: If `hash === '#id'`, apply `bg-slate-100 text-indigo-600` for visual feedback.\n"
-                + "5. GLOBAL DRAWER: Include a fixed-right side drawer (`x-show=\"drawerOpen\"`) for detail viewing.\n"
+                + "   DESIGN DNA:\n" + DESIGN_DNA
+                + "   CRITICAL: Sidebar links MUST use the exact IDs provided in the context (href=\"#id\").\n"
+                + "5. GLOBAL DRAWER: Include a transition-friendly side drawer (x-show=\"drawerOpen\") for detail views.\n"
                 + "6. CONTENT SLOT: Inside `<main class=\"flex-1 overflow-auto p-12\">`, leave `{{CONTENT_SLOTS}}`.\n"
                 + "7. LANGUAGE: " + (lang.equals("ZH") ? "CHINESE" : "ENGLISH") + ".\n"
                 + "8. OUTPUT: RAW HTML. NO JSON.";
@@ -156,18 +173,23 @@ public class UiDesignerAgent {
         }
     }
 
-    private String generateComponent(ProjectManifest manifest, Route route, String lang) {
+    private String generateComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, String lang) {
+        String contextDescription = pageSpec != null ?
+                "ARCHITECT'S PLAN: " + pageSpec.getDescription() + "\nEXPECTED COMPONENTS: " + String.join(", ", pageSpec.getComponents()) :
+                "Generate a standard dashboard view for this feature.";
+
         String systemPrompt = "You are a World-Class UI/UX Component Designer. Goal: Standalone Dashboard Page.\n"
                 + "RULES:\n"
                 + "1. WRAPPER: `<div x-show=\"hash === '#" + route.id + "'\" class=\"space-y-8 animate-fade-in\">`.\n"
-                + "2. INTERACTION: List items/rows MUST have `@click=\"selectedItem = item; drawerOpen = true\"`.\n"
+                + "2. INTERACTION: Every list item MUST have `@click=\"selectedItem = item; drawerOpen = true\"`. Use interactive cursor and hover states.\n"
                 + "3. DATA: Loop through `mockData` using `<template x-for=\"item in mockData\">`.\n"
-                + "4. AESTHETICS: White cards (`bg-white border border-slate-200 shadow-sm rounded-2xl p-6`). High-contrast typography.\n"
-                + "5. DENSITY: Use multi-column grids and status badges.\n"
+                + "   CRITICAL: Use the high-fidelity fields suggested in the architectural plan (e.g. item.recoveryScore).\n"
+                + "4. DESIGN DNA:\n" + DESIGN_DNA
+                + "5. DENSITY: Use multi-column grids, status badges, and large-card analytics.\n"
                 + "6. OUTPUT: RAW HTML. NO JSON.";
 
-        String userPrompt = String.format("Generate the highly-detailed view for feature: %s (Route Hash: #%s).\nUser Intent: %s\nMock Data example: %s",
-                route.name, route.id, manifest.getUserIntent(), manifest.getMockData());
+        String userPrompt = String.format("Feature: %s (Route: #%s)\n%s\nUser Intent: %s\nMock Data example: %s",
+                route.name, route.id, contextDescription, manifest.getUserIntent(), manifest.getMockData());
 
         try {
             String response = llmClient.chat(systemPrompt, userPrompt);

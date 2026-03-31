@@ -35,6 +35,8 @@ public class AutoRepairAgent {
                 4. SCRIPT ERRORS: Look for `ReferenceError` candidates in the Alpine definitions.
                 5. SECURITY ATTRIBUTES: REMOVE all `integrity` and `crossorigin` attributes from `<script>` and `<link>` tags.
                 6. ROUTING AUDIT: Verify that every `href="#id"` in the sidebar has a corresponding `<div x-show="hash === '#id'">`. If a container is missing or empty, synthesize its content based on the node name.
+                7. VISUAL DNA AUDIT: Ensure cards use `rounded-2xl`, background is `bg-slate-50`, and buttons use `indigo-600`.
+                8. FIELD CONSISTENCY: Verify that Alpine.js data bindings (e.g. `item.score`) match the keys in the provided `Target MockData Example`. Use the closest match if they differ.
                 
                 OUTPUT: Respond ONLY with the repaired RAW HTML wrapped in ```html markers.
                 """;
