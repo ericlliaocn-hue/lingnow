@@ -25,7 +25,9 @@ public class GenerationService {
     private final ManifestRegistry manifestRegistry;
     private final ProductArchitectAgent architectAgent;
     private final DataEngineerAgent dataEngineerAgent;
+    private final VisualDNAAgent visualDNAAgent;
     private final UiDesignerAgent designerAgent;
+    private final FunctionalAuditorAgent functionalAuditorAgent;
     private final AutoRepairAgent autoRepairAgent;
     private final FrontendDeveloperAgent frontendAgent;
     private final BackendDeveloperAgent backendAgent;
@@ -47,8 +49,9 @@ public class GenerationService {
 
         architectAgent.analyze(manifest);
 
-        // Phase 1.5: Data Engineering - Synthesize high-fidelity mock data
+        // Phase 1.5: Data Engineering & Visual DNA Synthesis
         dataEngineerAgent.generateData(manifest);
+        visualDNAAgent.synthesize(manifest);
         
         manifestRegistry.save(manifest);
         
@@ -78,9 +81,18 @@ public class GenerationService {
 
         designerAgent.design(manifest);
 
-        // Phase 2.5: Auto-Repair - Self-healing logic verification
+        // Phase 2.4: Functional Logic Audit (UX Verification)
+        String taskFlows = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("taskFlows", "No flows defined") : "No flows defined";
+        String auditResult = "No audit performed.";
         if (manifest.getPrototypeHtml() != null) {
-            String repairedHtml = autoRepairAgent.checkAndFix(manifest.getPrototypeHtml(), manifest.getUserIntent(), manifest.getMockData());
+            auditResult = functionalAuditorAgent.verify(manifest.getPrototypeHtml(), manifest.getUserIntent(), taskFlows);
+            if (manifest.getMetaData() == null) manifest.setMetaData(new java.util.HashMap<>());
+            manifest.getMetaData().put("functional_audit_result", auditResult);
+        }
+
+        // Phase 2.5: Auto-Repair - Self-healing logic verification (Now with Logic Audit input!)
+        if (manifest.getPrototypeHtml() != null) {
+            String repairedHtml = autoRepairAgent.checkAndFix(manifest.getPrototypeHtml(), manifest.getUserIntent(), manifest.getMockData(), auditResult);
             manifest.setPrototypeHtml(repairedHtml);
         }
 

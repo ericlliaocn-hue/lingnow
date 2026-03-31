@@ -18,36 +18,35 @@ public class AutoRepairAgent {
     private final LlmClient llmClient;
 
     /**
-     * Scan and repair common UI generation failures.
+     * Scan and repair common UI generation failures using both syntax checks and functional audit reports.
      */
-    public String checkAndFix(String html, String userIntent, String mockData) {
-        log.info("[AutoRepair] Scanning prototype for logical or syntax errors...");
+    public String checkAndFix(String html, String userIntent, String mockData, String auditReport) {
+        log.info("[AutoRepair] Scanning prototype for logical or syntax errors using Audit Report...");
 
         String systemPrompt = """
-                You are a Senior Frontend Quality Engineer.
+                You are a Senior Frontend Quality Engineer & UX Specialist.
                 
-                YOUR GOAL: Fix any broken Alpine.js logic or malformed HTML in the provided prototype.
+                YOUR GOAL: Fix any broken Alpine.js logic, malformed HTML, OR functional logic gaps identified in the Audit Report.
                 
-                CHECKLIST:
-                1. MISSING MOCKDATA: Ensure any usage of `mockData` is correctly bound to the global scope.
-                2. ALPINE ATTRIBUTES: Fix unclosed quotes in `x-data`, `x-show`, or `@click`.
-                3. CONTAINER BREAKS: Ensure all <div> tags are balanced.
-                4. SCRIPT ERRORS: Look for `ReferenceError` candidates in the Alpine definitions.
+                FIX INSTRUCTIONS:
+                1. LOGIC AUDIT REPAIR: Read the provided `Audit Report`. If it says a flow is broken (e.g. missing links, wrong hashes), YOU MUST FIX the HTML `href="#id"` and `@click` attributes to restore the journey.
+                2. ROUTING ALIGNMENT: Ensure the Sidebar links match the Content IDs precisely.
+                3. ALPINE ATTRIBUTES: Fix unclosed quotes in `x-data`, `x-show`, or `@click`.
+                4. CONTAINER BREAKS: Ensure all <div> tags are balanced.
                 5. SECURITY ATTRIBUTES: REMOVE all `integrity` and `crossorigin` attributes from `<script>` and `<link>` tags.
-                6. ROUTING AUDIT: Verify that every `href="#id"` in the sidebar has a corresponding `<div x-show="hash === '#id'">`. If a container is missing or empty, synthesize its content based on the node name.
-                7. VISUAL DNA AUDIT: Ensure cards use `rounded-2xl`, background is `bg-slate-50`, and buttons use `indigo-600`.
-                8. FIELD CONSISTENCY: Verify that Alpine.js data bindings (e.g. `item.score`) match the keys in the provided `Target MockData Example`. Use the closest match if they differ.
+                6. FIELD CONSISTENCY: Verify that Alpine.js data bindings (e.g. `item.score`) match the keys in the provided `Target MockData Example`. 
                 
                 OUTPUT: Respond ONLY with the repaired RAW HTML wrapped in ```html markers.
                 """;
 
         String userPrompt = String.format("""
                 User Intent: %s
+                Audit Report: %s
                 Target MockData Example: %s
                 
                 Current HTML:
                 %s
-                """, userIntent, (mockData != null && mockData.length() > 50 ? mockData.substring(0, 50) + "..." : mockData), html);
+                """, userIntent, auditReport, (mockData != null && mockData.length() > 50 ? mockData.substring(0, 50) + "..." : mockData), html);
 
         try {
             String response = llmClient.chat(systemPrompt, userPrompt);

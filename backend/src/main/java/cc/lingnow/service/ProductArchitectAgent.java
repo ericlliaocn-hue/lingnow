@@ -9,7 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+// import java.util.Map; (Deleted)
 
 /**
  * Product Architect Agent - Responsible for analyzing user requirements
@@ -65,7 +67,10 @@ public class ProductArchitectAgent {
                             "overview": "string describing the curated user journey",
                                 "mindMap": "string (A strictly formatted tree for MAIN SIDEBAR navigation only. MUST use \\n and exactly 2 spaces per indentation level. Max depth: 2.)",
                             "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
-                                "pages": [{"route": "string", "description": "string", "components": ["List 3+ high-density UI widgets here"]}]
+                                    "pages": [{"route": "string", "description": "string", "components": ["List 3+ high-density UI widgets here"]}],
+                                "taskFlows": [
+                                    {"id": "flow_1", "description": "Flow name (e.g. Booking a Table)", "steps": ["Page A -> Page B -> Action C -> Success Page"]}
+                                ]
                         }
                 """.formatted(langInstruction);
             
@@ -104,14 +109,81 @@ public class ProductArchitectAgent {
                         .build());
             });
             manifest.setPages(pages);
+
+            // Parse and Save Task Flows to MetaData
+            if (!root.path("taskFlows").isMissingNode()) {
+                if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
+                manifest.getMetaData().put("taskFlows", root.path("taskFlows").toString());
+                log.info("[Architect] Defined {} Task Flows for verification.", root.path("taskFlows").size());
+            }
             
             log.info("Architect analysis complete. Total features: {}, pages: {}", 
                 manifest.getFeatures() != null ? manifest.getFeatures().size() : 0, 
                 manifest.getPages() != null ? manifest.getPages().size() : 0);
 
+            // PHASE 1.2: Integrity Audit & Refinement (Self-Healing Plan)
+            refineArchitecture(manifest, langInstruction);
+
         } catch (Exception e) {
             log.error("Architect analysis failed", e);
             throw new RuntimeException("Architect analysis failed: " + e.getMessage());
+        }
+    }
+
+    private void refineArchitecture(ProjectManifest manifest, String langInstruction) {
+        log.info("[Architect] Starting Integrity Audit (Self-Refinement)...");
+
+        String auditPrompt = String.format("""
+                You are a Product Quality Auditor.
+                
+                YOUR GOAL: Review the generated application architecture (PRD) and ensure 100%% logical completeness.
+                
+                SCRUTINY CHECKLIST:
+                1. MISSION COVERAGE: Does the Mindmap actually solve the core problem for "%s"?
+                2. BUSINESS LOOP: Are there obvious missing nodes (e.g., if it's a rental app, is there a way to 'Confirm Booking')?
+                3. NAVIGATION FIDELITY: Ensure no system infrastructure nodes (Login, Error) are in the Mindmap.
+                4. DATA CONSISTENCY: Ensure every page has 5+ specific data fields that match its business purpose.
+                
+                CURRENT PRD:
+                Mindmap: %s
+                Pages: %s
+                
+                OUTPUT: If perfect, respond with "STABLE". If not, respond with the UPDATED JSON only (same schema).
+                5. LANGUAGE: %s
+                """, manifest.getUserIntent(), manifest.getMindMap(), manifest.getPages().toString(), langInstruction);
+
+        try {
+            String response = llmClient.chat(auditPrompt, "Audit and Refine requested.");
+            if (response.contains("STABLE")) {
+                log.info("[Architect] Audit passed: PRD is mission-stable.");
+                return;
+            }
+
+            // Apply refined architecture
+            log.info("[Architect] Audit found gaps. Applying Genetic Patch to PRD...");
+            JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
+
+            if (!root.path("mindMap").isMissingNode()) {
+                manifest.setMindMap(root.path("mindMap").asText());
+            }
+            // Update pages if refined
+            if (!root.path("pages").isMissingNode()) {
+                List<ProjectManifest.PageSpec> pages = new ArrayList<>();
+                root.path("pages").forEach(p -> {
+                    List<String> components = new ArrayList<>();
+                    p.path("components").forEach(c -> components.add(c.asText()));
+                    pages.add(ProjectManifest.PageSpec.builder()
+                            .route(p.path("route").asText())
+                            .description(p.path("description").asText())
+                            .components(components)
+                            .build());
+                });
+                manifest.setPages(pages);
+            }
+            log.info("[Architect] PRD Refined successfully.");
+
+        } catch (Exception e) {
+            log.warn("[Architect] Refinement pass skipped or failed: {}", e.getMessage());
         }
     }
 

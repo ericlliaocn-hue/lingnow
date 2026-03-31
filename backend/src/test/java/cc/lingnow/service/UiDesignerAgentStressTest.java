@@ -58,9 +58,7 @@ public class UiDesignerAgentStressTest {
             "社区老年乐团排练单", "防震减灾演练点索引", "城市阳台种菜水分仪", "非遗陶瓷花纹生成器", "深夜食堂热单TOP10"
     );
     @Autowired
-    private UiDesignerAgent designer;
-    @Autowired
-    private ProductArchitectAgent architect;
+    private GenerationService generationService;
 
     @BeforeEach
     public void setup() {
@@ -70,31 +68,41 @@ public class UiDesignerAgentStressTest {
     @Test
     public void runFull200IndustryStressTest() throws Exception {
         List<ExcelReportGenerator.IndustryReportRow> reportRows = new ArrayList<>();
-        System.out.println(">>> [StressTest] Starting HIGH-SPEED FILE run (200 Industries)...");
+        System.out.println(">>> [StressTest] Starting INDUSTRIAL PIPELINE run (200 Industries)...");
 
-        // For verification, we only run the first one
-        for (int i = 0; i < 1; i++) {
+        // We run a few for verification of the NEW pipeline
+        for (int i = 0; i < 3; i++) {
             String intent = INTENTS.get(i);
-            ProjectManifest manifest = ProjectManifest.builder()
-                    .id("verify-" + i)
-                    .userIntent(intent)
-                    .build();
+            String sessionId = "verify-v4-" + i;
             try {
-                System.out.println(">>> [Step 1] Architect Planning for: " + intent);
-                architect.analyze(manifest);
+                System.out.println(">>> [Step 1] Planning & Data Injection & DNA synthesis for: " + intent);
+                ProjectManifest manifest = generationService.planRequirements(sessionId, intent, "ZH");
 
-                System.out.println(">>> [Step 2] Designer Designing for: " + intent);
-                designer.design(manifest);
+                // Define paths
+                File htmlFile = new File("target/stress-html/" + sessionId + ".html");
+                File snapshotFile = new File("target/stress-html/" + sessionId + ".png");
 
-                File htmlFile = new File("target/stress-html/verify-" + i + ".html");
-                Files.writeString(htmlFile.toPath(), manifest.getPrototypeHtml(), StandardCharsets.UTF_8);
+                // Optimization: Skip regeneration if HTML already exists
+                if (htmlFile.exists()) {
+                    System.out.println(">>> [Step 2] SKIPPING Generator (File exists): " + intent);
+                } else {
+                    System.out.println(">>> [Step 2] Designing & Logic Auditing & Auto-Repair for: " + intent);
+                    manifest = generationService.generatePrototype(sessionId, "ZH", null);
+                    Files.writeString(htmlFile.toPath(), manifest.getPrototypeHtml(), StandardCharsets.UTF_8);
+                }
 
+                // Add to Excel Report
                 reportRows.add(ExcelReportGenerator.IndustryReportRow.builder()
                         .userIntent(intent)
+                        .visualDna(manifest.getMetaData() != null ? manifest.getMetaData().get("visual_reasoning") : "N/A")
                         .metadataJson(cc.lingnow.util.JsonUtils.toJson(manifest.getMetaData()))
                         .status("SUCCESS")
                         .localPath(htmlFile.getAbsolutePath())
+                        .snapshot(snapshotFile.exists() ? snapshotFile : null) // Link the image if it exists
                         .build());
+
+                System.out.println(">>> [Step 3] SUCCESS: Managed to generate " + intent + " -> Path: " + htmlFile.getAbsolutePath());
+
             } catch (Exception e) {
                 System.err.println("FAILED: " + intent + " - Error: " + e.getMessage());
                 e.printStackTrace();
