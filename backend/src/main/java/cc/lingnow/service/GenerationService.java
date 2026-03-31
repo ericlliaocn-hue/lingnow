@@ -23,6 +23,7 @@ import java.util.Map;
 public class GenerationService {
 
     private final ManifestRegistry manifestRegistry;
+    private final IndustryIntelligenceAgent intelligenceAgent;
     private final ProductArchitectAgent architectAgent;
     private final DataEngineerAgent dataEngineerAgent;
     private final VisualDNAAgent visualDNAAgent;
@@ -46,6 +47,9 @@ public class GenerationService {
 
         manifest.setStatus(ProjectManifest.ProjectStatus.PLANNING);
         manifestRegistry.save(manifest);
+
+        // Step 0: Strategic Intelligence (Think before Act)
+        intelligenceAgent.synthesizeStrategy(manifest);
 
         architectAgent.analyze(manifest);
 
@@ -85,7 +89,8 @@ public class GenerationService {
         String taskFlows = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("taskFlows", "No flows defined") : "No flows defined";
         String auditResult = "No audit performed.";
         if (manifest.getPrototypeHtml() != null) {
-            auditResult = functionalAuditorAgent.verify(manifest.getPrototypeHtml(), manifest.getUserIntent(), taskFlows);
+            String archetype = manifest.getArchetype() != null ? manifest.getArchetype() : "DASHBOARD";
+            auditResult = functionalAuditorAgent.verify(manifest.getPrototypeHtml(), manifest.getUserIntent(), taskFlows, archetype, manifest.getUxStrategy());
             if (manifest.getMetaData() == null) manifest.setMetaData(new java.util.HashMap<>());
             manifest.getMetaData().put("functional_audit_result", auditResult);
         }

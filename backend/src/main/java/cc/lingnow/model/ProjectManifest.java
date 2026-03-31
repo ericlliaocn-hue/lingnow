@@ -18,6 +18,8 @@ import java.util.Map;
 public class ProjectManifest {
     private String id;
     private String userIntent;
+    private String archetype;      // Archetype (READER, DASHBOARD, GALLERY, BOOKING)
+    private String overview;       // M7.2: PM-synthesized product mission
     private ProjectStatus status;
     private long lastModified;
     
@@ -55,7 +57,8 @@ public class ProjectManifest {
     }
     
     // M8/v1.4: Context & Meta
-    private Map<String, String> metaData; 
+    private Map<String, String> metaData;
+    private Map<String, String> uxStrategy; // v1.6: Industry-specific strategic benchmarks
 
     // Deployment (New for M7)
     private String deploymentConfig;
@@ -85,6 +88,8 @@ public class ProjectManifest {
     public static class PageSpec {
         private String route;
         private String description;
+        private String navType; // v1.7: Semantic Type (NAV_ANCHOR | CONTEXT_WIDGET | LEAF_DETAIL)
+        private String navRole; // v1.8: UX Role (PRIMARY | UTILITY | OVERLAY | PERSONAL)
         private List<String> components;
     }
 

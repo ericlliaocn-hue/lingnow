@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>{{TITLE}} - LingNow 7.2 High-Fidelity Shell</title>
+    <!-- CDNs: 工业化基座 -->
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+        }
+
+        html, body {
+            font-family: "Inter", sans-serif;
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+
+        .masonry-grid {
+            column-gap: 1.5rem;
+            column-count: 2;
+        }
+
+        @media (min-width: 1024px) {
+            .masonry-grid {
+                column-count: 3;
+            }
+        }
+
+        /* 强制图标规范 */
+        svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+    </style>
+</head>
+<body class="antialiased font-sans bg-slate-50 text-slate-900 overflow-x-hidden">
+<!-- APP STATE: 流程状态管理 -->
+<div @hashchange.window="hash = window.location.hash"
+     class="min-h-screen"
+     x-data="{
+            hash: window.location.hash || '#pg1',
+            selectedItem: null,
+            drawerOpen: false,
+            postOpen: false,
+            notificationsOpen: false,
+            mockData: {{MOCK_DATA}}
+         }">
+
+    <!-- HEADER: UTILITY & USER AREA (Clean IA) -->
+    <header class="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
+        <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+            <div class="flex items-center gap-4">
+                <button @click="drawerOpen = !drawerOpen" class="md:hidden p-2 hover:bg-slate-100 rounded-lg">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                {{LOGO_AREA}}
+            </div>
+
+            <!-- SEARCH (Implicit Essential) -->
+            <div class="hidden flex-1 max-w-md mx-8 md:block">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border-transparent focus:bg-white focus:ring-2 focus:ring-rose-200 transition-all text-sm" placeholder="发现你感兴趣的穿搭..."
+                           type="text">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button @click="postOpen = true"
+                        class="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-rose-200 hover:bg-rose-600 transition">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>发布</span>
+                </button>
+                <div class="flex items-center gap-1 border-l border-slate-200 ml-2 pl-2">
+                    {{UTILITY_BUTTONS}}
+                    <div class="relative ml-2 group">
+                        <img class="h-8 w-8 rounded-full border border-slate-200 cursor-pointer"
+                             src="https://ui-avatars.com/api/?name=User&background=random">
+                        <!-- Dropdown for PERSONAL Roles -->
+                        <div class="absolute right-0 top-full mt-2 w-48 bg-white border border-slate-100 shadow-xl rounded-xl invisible group-hover:visible translate-y-2 group-hover:translate-y-0 transition-all">
+                            {{PERSONAL_LINKS}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN LAYOUT -->
+    <div class="mx-auto flex max-w-7xl px-4 py-6">
+        <!-- SIDEBAR: PRIMARY ONLY -->
+        <aside class="hidden w-64 flex-shrink-0 md:block">
+            <nav class="sticky top-24 space-y-1">
+                {{SIDEBAR_NAV}}
+            </nav>
+        </aside>
+
+        <!-- CONTENT SLOTS -->
+        <main class="flex-1 min-w-0 md:pl-8">
+            {{CONTENT_SLOTS}}
+        </main>
+    </div>
+
+    <!-- OVERLAY: UNIVERSAL DETAIL MODAL (Process Guarantee) -->
+    <template x-if="selectedItem">
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-cloak>
+            <div @click="selectedItem = null" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+            <div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200">
+                {{MODAL_SLOT}}
+            </div>
+        </div>
+    </template>
+
+    <!-- POST OVERLAY (Process Guarantee) -->
+    <template x-if="postOpen">
+        <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-cloak>
+            <div @click="postOpen = false" class="absolute inset-0 bg-slate-900/40"></div>
+            <div class="relative w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold mb-4">发布新灵感</h3>
+                <textarea class="w-full h-32 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4"
+                          placeholder="写点什么分享你的穿搭灵感..."></textarea>
+                <div class="flex gap-2">
+                    <button @click="postOpen = false" class="flex-1 py-2 rounded-xl bg-slate-100 font-bold">取消
+                    </button>
+                    <button @click="postOpen = false" class="flex-1 py-2 rounded-xl bg-rose-500 text-white font-bold">
+                        立即发布
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>
+</body>
+</html>

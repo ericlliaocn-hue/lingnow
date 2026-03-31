@@ -29,6 +29,8 @@ public class ProjectManifestEntity {
     @Column(columnDefinition = "TEXT")
     private String userIntent;
 
+    private String archetype;
+
     @Enumerated(EnumType.STRING)
     private ProjectManifest.ProjectStatus status;
 
@@ -69,6 +71,9 @@ public class ProjectManifestEntity {
 
     @Column(columnDefinition = "TEXT")
     private String metaDataJson; // Stores the Visual DNA
+
+    @Column(columnDefinition = "LONGTEXT")
+    private String uxStrategyJson; // v1.6: Industry-specific strategic benchmarks
 
     @Column(columnDefinition = "TEXT")
     private String techStackJson;

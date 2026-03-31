@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-// import java.util.Map; (Deleted)
+
 
 /**
  * Product Architect Agent - Responsible for analyzing user requirements
@@ -50,29 +50,40 @@ public class ProductArchitectAgent {
                 ? "CRITICAL: All content (features names, descriptions, page descriptions) MUST BE IN CHINESE."
                 : "All content MUST BE IN ENGLISH.";
 
+            String uxStrategyContext = manifest.getUxStrategy() != null ?
+                    "UX STRATEGY (Determined by Intelligence Agent):\n" + manifest.getUxStrategy().toString() :
+                    "No specific research available. Use general professional standards.";
+
             String systemPrompt = """
-                        You are a World-Class Product Architect specialized in high-performance SaaS ecosystems (Vercel, Linear, Stripe).
+                             You are a World-Class Interface Architect & Product Manager.
                     
-                        YOUR GOAL: Design a CURATED application architecture that prioritizes CORE BUSINESS VALUE over infrastructure noise.
-                
-                RULES:
-                        1. CURATED NAVIGATION: Do NOT include 'Login', 'Signup', '404', or 'Loading' in the top-level 'mindMap' navigation. These are system infrastructure and should be handled implicitly. 
-                        2. CORE PATHS: Focus the 'mindMap' on 3-5 high-value business modules (e.g., 'Health Dashboard', '3D Body Scan', 'Nutrition Insights').
-                        3. DATA-DRIVEN: For every list or table, define 5+ high-fidelity metadata fields (e.g., 'Recovery Score', 'Muscle Engagement %%', 'Heart Rate Variability').
-                        4. INDUSTRIAL LAYOUT: Plan for a multi-panel dashboard strategy (Main Content + Contextual Sidebar).
-                    5. LANGUAGE: %s
-                        6. OUTPUT: Pure JSON.
+                            YOUR GOAL (M7.2 INDUSTRIALIZATION): Synthesize a COMPLETE Application Ecosystem with process-aware navigation.
+                    
+                     SCRUTINY CHECKLIST:
+                             1. NAV_ROLE CLASSIFICATION (Mandatory): 
+                                - 'PRIMARY': Corresponds to NAV_ANCHOR content feeds (Sidebar).
+                                - 'UTILITY': Action-based tools like Search, Notifications (Header Right).
+                                - 'PERSONAL': Identity-based links like Profile, Orders (Header Dropdown).
+                                - 'OVERLAY': Detail-level content like Post Detail, Edit Form (Modals/Drawers).
+                             2. UNIVERSAL PROCESS GUARANTEE: EVERY generated product MUST have a closed loop.
+                                - If DASHBOARD: Row Click (OVERLAY) -> Edit/View -> Toast/Success.
+                                - If COMMERCE: Product Click (OVERLAY) -> Quick View -> Cart.
+                                - If SOCIAL: Feed Click (OVERLAY) -> Detail -> Comment/Like.
+                             3. SEMANTIC PURITY: UTILITY, PERSONAL, and OVERLAY pages MUST NOT appear in the primary Sidebar navigation menu.
+                             4. DATA DENSITY: Define 6+ rich data fields per entity (e.g., 'AuthorBadge', 'InteractionRate', 'AssetTag').
+                          5. LANGUAGE: %s
+                             6. STRATEGY CONTEXT: %s
+                             7. OUTPUT: Pure JSON only.
                     
                     JSON Schema: {
-                            "overview": "string describing the curated user journey",
-                                "mindMap": "string (A strictly formatted tree for MAIN SIDEBAR navigation only. MUST use \\n and exactly 2 spaces per indentation level. Max depth: 2.)",
+                                "archetype": "READER | DASHBOARD | GALLERY | SOCIAL | COMMERCE",
+                                "overview": "string (The core product mission)",
+                                "mindMap": "string (Formatted tree for PRIMARY nodes only. Content navigation.)",
                             "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
-                                    "pages": [{"route": "string", "description": "string", "components": ["List 3+ high-density UI widgets here"]}],
-                                "taskFlows": [
-                                    {"id": "flow_1", "description": "Flow name (e.g. Booking a Table)", "steps": ["Page A -> Page B -> Action C -> Success Page"]}
-                                ]
+                                "pages": [{"route": "string", "description": "string", "navType": "NAV_ANCHOR|CONTEXT_WIDGET|LEAF_DETAIL", "navRole": "PRIMARY|UTILITY|OVERLAY|PERSONAL", "components": ["List of component names"]}],
+                                "taskFlows": [{"id": "flow_x", "description": "Loop description", "steps": ["Entry -> Action -> Success"]}]
                         }
-                """.formatted(langInstruction);
+                    """.formatted(langInstruction, uxStrategyContext);
             
             String userPrompt = isMod 
                 ? "Update the PRD based on this new requirement: " + manifest.getUserIntent()
@@ -82,7 +93,9 @@ public class ProductArchitectAgent {
             log.debug("Architect LLM raw response: {}", response);
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
-            // Set Mindmap
+            // Set Archetype and Mindmap
+            manifest.setArchetype(root.path("archetype").asText("DASHBOARD"));
+            manifest.setOverview(root.path("overview").asText("Application Overview"));
             manifest.setMindMap(root.path("mindMap").asText());
 
             // Parse features
@@ -105,6 +118,8 @@ public class ProductArchitectAgent {
                 pages.add(ProjectManifest.PageSpec.builder()
                         .route(p.path("route").asText())
                         .description(p.path("description").asText())
+                        .navType(p.path("navType").asText("NAV_ANCHOR"))
+                        .navRole(p.path("navRole").asText("PRIMARY"))
                         .components(components)
                         .build());
             });
@@ -134,21 +149,21 @@ public class ProductArchitectAgent {
         log.info("[Architect] Starting Integrity Audit (Self-Refinement)...");
 
         String auditPrompt = String.format("""
-                You are a Product Quality Auditor.
+                You are a Senior Product Quality Auditor.
                 
-                YOUR GOAL: Review the generated application architecture (PRD) and ensure 100%% logical completeness.
+                YOUR GOAL: Review the PRD for mission-critical 'Implicit Essentials' and 'Semantic Integrity'.
                 
                 SCRUTINY CHECKLIST:
-                1. MISSION COVERAGE: Does the Mindmap actually solve the core problem for "%s"?
-                2. BUSINESS LOOP: Are there obvious missing nodes (e.g., if it's a rental app, is there a way to 'Confirm Booking')?
-                3. NAVIGATION FIDELITY: Ensure no system infrastructure nodes (Login, Error) are in the Mindmap.
-                4. DATA CONSISTENCY: Ensure every page has 5+ specific data fields that match its business purpose.
+                1. IMPLICIT ESSENTIALS: If the industry is social/content, does it have a 'Reply/Comment' flow and 'Post' action? REJECT if it's just a 'Reader' with no UGC.
+                2. NAVIGATION SEMANTICS: Are Detail pages correctly labeled as LEAF_DETAIL (not in Mindmap)? 
+                3. ECOSYSTEM CONNECTIVITY: Is there a way to get from a detail page back to the discovery feed? 
+                4. DATA FIDELITY: Ensure 5+ specific data fields per component (e.g. thumbUrl, authorBadge, readTime).
                 
                 CURRENT PRD:
                 Mindmap: %s
                 Pages: %s
                 
-                OUTPUT: If perfect, respond with "STABLE". If not, respond with the UPDATED JSON only (same schema).
+                OUTPUT: If perfect, respond with "STABLE". If not, respond with the UPDATED JSON only (same schema as Architect).
                 5. LANGUAGE: %s
                 """, manifest.getUserIntent(), manifest.getMindMap(), manifest.getPages().toString(), langInstruction);
 

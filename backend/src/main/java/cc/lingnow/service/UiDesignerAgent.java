@@ -2,13 +2,15 @@ package cc.lingnow.service;
 
 import cc.lingnow.llm.LlmClient;
 import cc.lingnow.model.ProjectManifest;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+
 
 /**
  * UI Designer Agent - Responsible for creating and refining high-fidelity prototypes (HTML/Tailwind).
@@ -19,29 +21,37 @@ import java.util.Map;
 public class UiDesignerAgent {
 
     private final LlmClient llmClient;
+    private final ObjectMapper objectMapper;
 
     private String getDynamicDNA(ProjectManifest manifest) {
-        Map<String, String> meta = manifest.getMetaData();
-        if (meta == null) return """
-                - Background: bg-slate-50
-                - Cards: bg-white border border-slate-200 shadow-sm rounded-2xl p-6
-                - Buttons: rounded-lg font-medium transition-all
-                - Primary: indigo-600
-                """;
-
+        var meta = manifest.getMetaData();
+        if (meta == null) return "";
+        
         return String.format("""
                         - Background: %s
                         - Cards: %s
-                        - Buttons: %s
                         - Primary: %s
+                        - Accent: %s
+                        - Shadow Style: %s
+                        - Border Style: %s
+                        - Glass Effect: %s
                         - Font: %s
+                        - Line Height: %s
+                        - Letter Spacing: %s
+                        - Serif Bias (High Fidelity): %s
                         - Reasoning: %s
                         """,
                 meta.getOrDefault("visual_bgClass", "bg-slate-50"),
-                meta.getOrDefault("visual_cardClass", "bg-white border shadow-sm rounded-2xl p-6"),
-                meta.getOrDefault("visual_buttonClass", "rounded-lg font-medium transition-all"),
+                meta.getOrDefault("visual_cardClass", "bg-white shadow-sm rounded-2xl p-6"),
                 meta.getOrDefault("visual_primaryColor", "indigo-600"),
+                meta.getOrDefault("visual_accentColor", "pink-500"),
+                meta.getOrDefault("visual_shadowStrategy", "shadow-sm"),
+                meta.getOrDefault("visual_borderAccent", "border-slate-200"),
+                meta.getOrDefault("visual_glassIntensity", "backdrop-blur-none"),
                 meta.getOrDefault("visual_fontFamily", "font-sans"),
+                meta.getOrDefault("visual_lineHeight", "leading-normal"),
+                meta.getOrDefault("visual_letterSpacing", "tracking-normal"),
+                meta.getOrDefault("visual_serifBias", "false"),
                 meta.getOrDefault("visual_reasoning", "Standard professional style."));
     }
 
@@ -127,13 +137,16 @@ public class UiDesignerAgent {
             if (current.trim().isEmpty() || current.trim().startsWith("```") || current.trim().equalsIgnoreCase("mindmap"))
                 continue;
 
-            // Simple logic: treat all indented nodes as feature pages for SPA
             String name = current.replace("- ", "").trim();
             if (name.isEmpty()) continue;
 
-            // Stable ID Generation: use index to ensure CJK support in hash
             String id = "pg" + (i + 1);
-            routes.add(new Route(id, name));
+
+            // Match with PageSpec to get navType
+            ProjectManifest.PageSpec spec = findPageSpec(manifest, new Route(id, name, "NAV_ANCHOR"));
+            String navType = spec != null ? spec.getNavType() : "NAV_ANCHOR";
+
+            routes.add(new Route(id, name, navType));
         }
         return routes;
     }
@@ -152,55 +165,91 @@ public class UiDesignerAgent {
                 .orElse(null);
     }
 
+    private String cleanJsonResponse(String response) {
+        if (response == null) return "{}";
+        String cleaned = response.trim();
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        return cleaned.trim();
+    }
+
+    private String readResource(String path) {
+        try (java.io.InputStream is = getClass().getResourceAsStream(path)) {
+            if (is == null) return "";
+            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            log.warn("Failed to read resource: {}", path);
+            return "";
+        }
+    }
+
     private String generateShell(ProjectManifest manifest, List<Route> routes, String lang) {
-        StringBuilder routeContext = new StringBuilder("ENFORCED ROUTES (Exact hashes to use in Sidebar links):\n");
+        String template = readResource("/templates/StandardShell.html");
+
+        // Categorize routes by navRole
+        StringBuilder navContext = new StringBuilder("PAGE ROLES & ROUTES:\n");
         for (Route r : routes) {
-            routeContext.append(String.format("- Name: %s, ID: %s (Link: #%s)\n", r.name, r.id, r.id));
+            ProjectManifest.PageSpec spec = findPageSpec(manifest, r);
+            String role = (spec != null && spec.getNavRole() != null) ? spec.getNavRole() : "PRIMARY";
+            navContext.append(String.format("- Route: #%s, Name: %s, Role: %s\n", r.id, r.name, role));
         }
 
-        String systemPrompt = "You are a World-Class UI/UX Architect. Your goal is a Professional Light-Themed SaaS Layout Shell (Apple/Stripe style).\n"
-                + "RULES:\n"
-                + "1. FULL HTML: Use `bg-slate-50/50 text-slate-900 antialiased font-sans`.\n"
-                + "2. CDNs: Include Tailwind, Alpine.js, and FontAwesome. DO NOT use `integrity` or `crossorigin` attributes.\n"
-                + "   - Tailwind: <script src=\"https://cdn.tailwindcss.com\"></script>\n"
-                + "   - Alpine.js: <script defer src=\"https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js\"></script>\n"
-                + "3. STATE: Root tag: `<div x-data=\"{ hash: window.location.hash || '#" + routes.get(0).id + "', mockData: {{MOCK_DATA}}, selectedItem: null, drawerOpen: false, search: '' }\" @hashchange.window=\"hash = window.location.hash\" class=\"flex h-screen overflow-hidden\">`.\n"
-                + "4. PREMIUM SIDEBAR: Fixed, white sidebar. Grouped nav with solid icons.\n"
-                + "   DESIGN DNA:\n" + getDynamicDNA(manifest)
-                + "   CRITICAL: Sidebar links MUST use the exact IDs provided in the context (href=\"#id\").\n"
-                + "5. GLOBAL DRAWER: Include a transition-friendly side drawer (x-show=\"drawerOpen\") for detail views.\n"
-                + "6. CONTENT SLOT: Inside `<main class=\"flex-1 overflow-auto p-12\">`, leave `{{CONTENT_SLOTS}}`.\n"
-                + "7. LANGUAGE: " + (lang.equals("ZH") ? "CHINESE" : "ENGLISH") + ".\n"
-                + "8. OUTPUT: RAW HTML. NO JSON.";
+        String systemPrompt = """
+                You are a UI Architect. Fill the slots for a high-fidelity application shell. 
+                
+                CONSTRAINTS:
+                1. LOGO_AREA: Return 1-2 lines of Tailwind HTML.
+                2. SIDEBAR_NAV: Return <a> tags for PRIMARY roles only. Use `x-bind:class="hash==='#pgX' ? 'active' : ''"`.
+                3. UTILITY_BUTTONS: Icons for UTILITY roles (Search, Notif).
+                4. PERSONAL_LINKS: <a> tags for PERSONAL roles.
+                5. DESIGN DNA: %s
+                6. OUTPUT: Return a JSON with keys: "logo", "sidebar", "utility", "personal".
+                """.formatted(getDynamicDNA(manifest));
 
-        String userPrompt = String.format("User Intent: %s\n\n%s", manifest.getUserIntent(), routeContext.toString());
+        String userPrompt = String.format("Architecture Context:\n%s\nLanguage: %s", navContext, lang);
 
         try {
             String response = llmClient.chat(systemPrompt, userPrompt);
-            return parseHtmlSnippet(response);
+            JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
+
+            String shell = template
+                    .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
+                    .replace("{{LOGO_AREA}}", root.path("logo").asText())
+                    .replace("{{SIDEBAR_NAV}}", root.path("sidebar").asText())
+                    .replace("{{UTILITY_BUTTONS}}", root.path("utility").asText())
+                    .replace("{{PERSONAL_LINKS}}", root.path("personal").asText());
+
+            return shell;
         } catch (java.io.IOException e) {
-            throw new RuntimeException("LLM Shell generation failed", e);
+            log.error("Shell fragment generation failed", e);
+            return "<html><body>Error generating shell. Check logs.</body></html>";
         }
     }
 
     private String generateComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, String lang) {
         String contextDescription = pageSpec != null ?
                 "ARCHITECT'S PLAN: " + pageSpec.getDescription() + "\nEXPECTED COMPONENTS: " + String.join(", ", pageSpec.getComponents()) :
-                "Generate a standard dashboard view for this feature.";
+                "Generate a standard view for this feature.";
 
-        String taskFlows = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("taskFlows", "No explicit task flows defined.") : "No explicit task flows defined.";
-        
-        String systemPrompt = "You are a World-Class UI/UX Component Designer. Goal: Standalone Dashboard Page.\n"
+        String archetype = manifest.getArchetype() != null ? manifest.getArchetype() : "DASHBOARD";
+
+        String systemPrompt = "You are a World-Class UI/UX Component Designer. Goal: High-Density Pro-Grade View.\n"
                 + "RULES:\n"
-                + "1. WRAPPER: `<div x-show=\"hash === '#" + route.id + "'\" class=\"space-y-8 animate-fade-in\">`.\n"
-                + "2. INTERACTION: Every list item MUST have `@click=\"selectedItem = item; drawerOpen = true\"`. Use interactive cursor and hover states.\n"
-                + "3. TASK FLOWS: Ensure this page supports these specific user journeys: " + taskFlows + "\n"
-                + "   CRITICAL: If this page is part of a flow, include functional buttons with the correct `#hash-links` to fulfill the journey.\n"
+                + "1. WRAPPER: `<div x-show=\"hash === '#" + route.id + "'\" class=\"animate-fade-in\">`.\n"
+                + "2. PORTAL vs DETAIL (M7.0 Strategy-Aware):\n"
+                + "   - IF PORTAL (navType: " + route.navType + "): USE THE GRID STRATEGY. High density. Show multiple content cards. Thumbnail right, metadata bottom.\n"
+                + "   - IF LEAF_DETAIL: Centered reading layout (`max-w-3xl mx-auto`). MUST include 'Like/Save/Share' floating tools and a 'Comment Section' at the bottom.\n"
+                + "   - MIXED CONTENT: If the intent is social (XiaoHongShu style), design for a Modal-ready detail view (Media Gallery | Side Info Panel).\n"
+                + "3. ESSENTIALS: Support the 'essential_modules' list: " + (manifest.getUxStrategy() != null ? manifest.getUxStrategy().get("essential_modules") : "Standard") + "\n"
                 + "4. DATA: Loop through `mockData` using `<template x-for=\"item in mockData\">`.\n"
-                + "   CRITICAL: Use the high-fidelity fields suggested in the architectural plan (e.g. item.recoveryScore).\n"
-                + "5. DESIGN DNA:\n" + getDynamicDNA(manifest)
-                + "6. DENSITY: Use multi-column grids, status badges, and large-card analytics.\n"
-                + "7. OUTPUT: RAW HTML. NO JSON.";
+                + "5. DESIGN DNA (Archetype: " + archetype + "):\n" + getDynamicDNA(manifest)
+                + "6. OUTPUT: RAW HTML. NO JSON.";
 
         String userPrompt = String.format("Feature: %s (Route: #%s)\n%s\nUser Intent: %s\nMock Data example: %s",
                 route.name, route.id, contextDescription, manifest.getUserIntent(), manifest.getMockData());
@@ -217,7 +266,7 @@ public class UiDesignerAgent {
     /**
      * Internal Route metadata
      */
-    private record Route(String id, String name) {
+    private record Route(String id, String name, String navType) {
     }
 
     /**

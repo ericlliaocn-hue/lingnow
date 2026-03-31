@@ -94,6 +94,8 @@ public class ManifestRegistry {
                 .techStackJson(JsonUtils.toJson(m.getTechStack()))
                 .mindMap(m.getMindMap())
                 .mockData(m.getMockData())
+                .uxStrategyJson(JsonUtils.toJson(m.getUxStrategy()))
+                .archetype(m.getArchetype())
                 .owner(username) 
                 .build();
     }
@@ -121,6 +123,9 @@ public class ManifestRegistry {
                 }))
                 .mindMap(e.getMindMap())
                 .mockData(e.getMockData())
+                .uxStrategy(JsonUtils.fromJson(e.getUxStrategyJson(), new TypeReference<>() {
+                }))
+                .archetype(e.getArchetype())
                 .lastModified(e.getUpdatedAt() != null ? e.getUpdatedAt().getTime() : 0)
                 .build();
     }

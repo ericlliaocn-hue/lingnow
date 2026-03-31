@@ -9,7 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
-// import java.util.Map; (Deleted)
+
 
 /**
  * Visual DNA Agent - Synthesizes the unique aesthetic personality of a project.
@@ -27,50 +27,69 @@ public class VisualDNAAgent {
      * Synthesize a unique design system for the given intent.
      */
     public void synthesize(ProjectManifest manifest) {
-        log.info("[VisualDNA] Synthesizing aesthetic personality for: {}", manifest.getUserIntent());
+        log.info("[VisualDNA] Synthesizing aesthetic personality for: {} (Archetype: {})",
+                manifest.getUserIntent(), manifest.getArchetype());
+
+        String archetype = manifest.getArchetype() != null ? manifest.getArchetype() : "DASHBOARD";
+        String uxStrategyContext = manifest.getUxStrategy() != null ?
+                "UX STRATEGY (Determined by Intelligence Agent):\n" + manifest.getUxStrategy().toString() :
+                "No specific research available. Use general professional standards.";
+
 
         String systemPrompt = """
-                You are a World-Class UI/UX Strategist.
+                You are a World-Class UI/UX Strategist & PM.
                 
-                YOUR GOAL: Devise a unique "Visual DNA" for a SaaS application based on its industry context.
+                YOUR GOAL: Synthesize a unique "Visual DNA" that captures the Industry Soul and High-Density requirements.
                 
-                RULES:
-                1. AVOID TEMPLATES: Do not use `bg-slate-50` for everything.
-                2. SENSE OF PLACE:
-                   - If it's a NIGHT/BAR/CRYPTO app, use DARK MODE (`bg-slate-950`).
-                   - If it's a LUXURY/MINIMAL app, use ULTRA-WHITE (`bg-white`) with minimal borders.
-                   - If it's a NATURE/HEALTH app, use organic tones (`bg-stone-50`, `bg-emerald-50`).
-                3. ROUNDNESS: Adjust `rounded-none` (Industrial/Brute) to `rounded-3xl` (Playful/Consumer).
-                4. DENSITY: Map high-precision apps to high-density layouts.
+                THINKING PROCESS (PM MODE):
+                1. DENSITY RATIO: Define tokens for 'Discovery-Density' (compact margins, tight leading) or 'Reading-Density' (generous gutters).
+                2. GRID VISUALS: Define border styles for separating 3-column layouts (e.g., thin hair-line borders vs subtle shadows).
+                3. TYPOGRAPHY BONES: Choose font families and weights for large information hierarchies.
+                
+                STRATEGY CONTEXT: %s
                 
                 OUTPUT: Respond ONLY with a pure JSON object.
                 
                 JSON Schema:
                 {
-                    "bgClass": "tailwind background class",
-                    "cardClass": "tailwind card classes (bg, border, shadow)",
-                    "primaryColor": "tailwind color name (e.g. indigo-600)",
-                    "buttonClass": "tailwind button shape/style",
-                    "fontFamily": "font-sans | font-mono | font-serif",
-                    "themeReasoning": "Briefly why this style was chosen"
+                    "bgClass": "Tailwind bg-xxx",
+                    "cardClass": "Tailwind classes for content containers (padding, borders, bg)",
+                    "primaryColor": "Tailwind color name",
+                    "accentColor": "A contrasting accent color",
+                    "shadowStrategy": "shadow-none | shadow-sm | shadow-xl",
+                    "borderAccent": "border-slate-100 | border-transparent",
+                    "glassIntensity": "backdrop-blur-md | none",
+                    "fontFamily": "font-sans | font-serif",
+                    "lineHeight": "leading-snug | leading-relaxed",
+                    "letterSpacing": "tracking-tight | tracking-normal",
+                    "serifBias": boolean,
+                    "themeReasoning": "Reasoning based on UX Strategy"
                 }
-                """;
+                """.formatted(uxStrategyContext);
 
         try {
-            String response = llmClient.chat(systemPrompt, "Industry Intent: " + manifest.getUserIntent());
+            String userPrompt = String.format("Industry Intent: %s\nTarget Archetype: %s",
+                    manifest.getUserIntent(), archetype);
+            String response = llmClient.chat(systemPrompt, userPrompt);
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
             if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
 
-            // Map JSON results to Manifest Metadata
+            // Map NEW Generative Tokens to Manifest Metadata
             manifest.getMetaData().put("visual_bgClass", root.path("bgClass").asText("bg-slate-50"));
-            manifest.getMetaData().put("visual_cardClass", root.path("cardClass").asText("bg-white border border-slate-200 shadow-sm rounded-2xl p-6"));
+            manifest.getMetaData().put("visual_cardClass", root.path("cardClass").asText("bg-white shadow-sm rounded-2xl p-6"));
             manifest.getMetaData().put("visual_primaryColor", root.path("primaryColor").asText("indigo-600"));
-            manifest.getMetaData().put("visual_buttonClass", root.path("buttonClass").asText("rounded-lg font-medium transition-all"));
+            manifest.getMetaData().put("visual_accentColor", root.path("accentColor").asText("pink-500"));
+            manifest.getMetaData().put("visual_shadowStrategy", root.path("shadowStrategy").asText("shadow-sm"));
+            manifest.getMetaData().put("visual_borderAccent", root.path("borderAccent").asText("border-slate-200"));
+            manifest.getMetaData().put("visual_glassIntensity", root.path("glassIntensity").asText("backdrop-blur-none"));
             manifest.getMetaData().put("visual_fontFamily", root.path("fontFamily").asText("font-sans"));
+            manifest.getMetaData().put("visual_lineHeight", root.path("lineHeight").asText("leading-normal"));
+            manifest.getMetaData().put("visual_letterSpacing", root.path("letterSpacing").asText("tracking-normal"));
+            manifest.getMetaData().put("visual_serifBias", root.path("serifBias").asText("false"));
             manifest.getMetaData().put("visual_reasoning", root.path("themeReasoning").asText("Standard professional style."));
 
-            log.info("[VisualDNA] Style Synthesized: {}", root.path("themeReasoning").asText());
+            log.info("[VisualDNA] Aesthetic Synthesis: {}", root.path("themeReasoning").asText());
 
         } catch (Exception e) {
             log.error("[VisualDNA] Synthesis failed, falling back to default.", e);

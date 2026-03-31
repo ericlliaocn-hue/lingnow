@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 /**
  * Functional Auditor Agent - The UX Guardian of LingNow.
  * Verifies that the generated HTML prototype actually implements the tactical task flows.
@@ -21,24 +23,37 @@ public class FunctionalAuditorAgent {
      *
      * @return A correction requirement if failed, or "VERIFIED" if pass.
      */
-    public String verify(String html, String intent, String taskFlows) {
-        log.info("[Auditor] Auditing functional integrity for intent: {}", intent);
+    public String verify(String html, String intent, String taskFlows, String archetype, Map<String, String> uxStrategy) {
+        log.info("[Auditor] Auditing functional integrity and archetype fidelity for intent: {} (Archetype: {})",
+                intent, archetype);
+
+        String strategyContext = uxStrategy != null ?
+                "BENCHMARK STRATEGY (Intelligence Agent):\n" + uxStrategy.toString() :
+                "Standard professional standards.";
 
         String systemPrompt = """
-                You are a Lead UX Functional Auditor.
+                You are a Lead Product Auditor & PM Quality Guardian.
                 
-                YOUR GOAL: Verify if the provided HTML prototype (Alpine.js based) actually supports the requested Task Flows.
+                YOUR GOAL: Verify if the product is 'Community-Ready' and matches Industry Density Benchmarks.
                 
-                SCRUTINY RULES:
-                1. INTERACTION PATHS: If a flow says "A -> B", verify that Page A has a button/link pointing to #hash-of-B.
-                2. DATA CONSISTENCY: Verify that the buttons and actions names match the business purpose.
-                3. NO GAPS: Ensure no core "Submit" or "Action" buttons are missing from the task flows.
-                4. REJECTION: If a flow is broken (missing links, missing pages), reject with a detailed "CORRECTION_NEEDED" list.
+                SCRUTINY CHECKLIST (M7.0):
+                1. PRODUCT MATURITY (Interaction Loop): 
+                   - REJECT if Social/Content archetypes lack 'Like/Care/Collect' buttons or a visible 'Comment Section'.
+                   - REJECT if there is no 'Post/Create' entry point in the shell.
+                   - REJECT if Auth (Login/Signup) modal/links are missing from the header.
+                2. INFORMATION DENSITY: 
+                   - REJECT if a Portal/Discovery page uses a loose 'Landing Page' style (too much whitespace, huge hero images). 
+                   - MUST use the Grid Strategies from the UX Strategy.
+                3. NAVIGATION SEMANTICS:
+                   - REJECT if Detail pages are in the sidebar. They must be context-switched widgets or leaf nodes.
+                4. TASK FLOWS: Ensure functional #hash-links exist for all primary routes.
                 
                 OUTPUT:
-                - If all flows are logically traversable: Respond with "VERIFIED".
-                - If not: Respond with "CORRECTION_NEEDED: [List of specific missing interactions or broken paths]".
-                """;
+                - If perfect: Respond with "VERIFIED".
+                - If not: Respond with "CORRECTION_NEEDED: [Product Gap or Density Violation]".
+                
+                STRATEGY CONTEXT:
+                """ + strategyContext;
 
         String userPrompt = String.format("""
                 User Intent: %s
