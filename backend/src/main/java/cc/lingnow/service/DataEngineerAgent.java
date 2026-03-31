@@ -17,29 +17,36 @@ public class DataEngineerAgent {
 
     private final LlmClient llmClient;
 
+    private String loadHandbook() {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get("/Users/eric/workspace/lingnow/.agents/skills/DATA_ARCHITECT_HANDBOOK.md"));
+        } catch (Exception e) {
+            log.warn("[DataEngineer] Handbook not found, falling back to basic data logic.");
+            return "";
+        }
+    }
+
     /**
      * Generate a robust JSON dataset based on the architectural plan.
      */
     public void generateData(ProjectManifest manifest) {
         log.info("Data Engineer is synthesizing mock records for: {}", manifest.getUserIntent());
 
+        String handbook = loadHandbook();
         String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
         String langInstruction = "ZH".equalsIgnoreCase(lang)
                 ? "CRITICAL: USE CHINESE for all data values (names, categories, statuses)."
                 : "Use realistic English data.";
 
         String systemPrompt = String.format("""
-                You are a World-Class Data Engineer specializing in SaaS data modeling.
+                %s
                 
                 YOUR GOAL: Generate a high-fidelity, realistic JSON dataset that brings a prototype to life.
                 
                 RULES:
                 1. VOLUME: Generate 15-20 diverse records.
-                2. FIDELITY: Data must be context-aware (e.g., if it's a fitness app, muscle groups and heart rates must be medically plausible).
-                3. HIERARCHY: If the features include 'Orders' and 'Customers', ensure they are cross-referenced or part of a rich object.
-                4. FORMAT: Output ONLY a raw JSON array of objects. No markdown markers.
-                5. LANGUAGE: %s
-                """, langInstruction);
+                2. LANGUAGE: %s
+                """, handbook, langInstruction);
 
         String userPrompt = String.format("""
                         Requirement: %s

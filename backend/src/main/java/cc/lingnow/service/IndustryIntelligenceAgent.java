@@ -23,39 +23,40 @@ public class IndustryIntelligenceAgent {
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
 
+    private String loadHandbook() {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get("/Users/eric/workspace/lingnow/.agents/skills/RESEARCHER_HANDBOOK.md"));
+        } catch (Exception e) {
+            log.warn("[Intelligence] Handbook not found, falling back to basic intelligence logic.");
+            return "";
+        }
+    }
+
     /**
      * Synthesize a UX Strategy based on the user's intent by researching industry benchmarks.
      */
     public void synthesizeStrategy(ProjectManifest manifest) {
         log.info("[Intelligence] Analyzing industry strategic benchmarks for: {}", manifest.getUserIntent());
 
-        String systemPrompt = """
-                You are a World-Class Industry Intelligence Agent. 
+        String handbook = loadHandbook();
+        String systemPrompt = String.format("""
+                %s
                 
-                YOUR GOAL: Analyze the user's intent and synthesize a "UX Strategy" based on industry-leading benchmarks (e.g., Tesla for Automotive, Medium for Blogs, Stripe for FinTech).
-                
-                THINKING PROCESS (PM MODE):
-                1. Identify the 'North Star' products and their CORE PRODUCT ECOSYSTEM (Implicit workflows).
-                2. Select a SHELL PATTERN: 
-                   - PERSISTENT_TOP_DYNAMIC_SIDEBAR (Tech Communities like Juejin)
-                   - MINIMAL_HEADER_DRAWER_ONLY (Luxury/Automotive like Porsche)
-                   - SIDEBAR_PRIMARY_NAV (SaaS Dashboards like Stripe)
-                3. Define ATOMIC GRID SPECS (Pixel-perfect width benchmarks).
-                4. Define ESSENTIAL MODULES (Implicit 'must-have' features: Social Interaction, UGC Posting, Notifications, Auth).
+                YOUR GOAL: Analyze the user's intent and synthesize a "UX Strategy" based on industry-leading benchmarks.
                 
                 OUTPUT: Respond ONLY with a pure JSON object.
                 
                 JSON Schema:
                 {
-                    "industry_soul": "Description of the atmospheric goal",
-                    "benchmarks": ["Site A", "Site B"],
+                    "industry_soul": "string",
+                    "benchmarks": ["string"],
                     "shell_pattern": "PERSISTENT_TOP_DYNAMIC_SIDEBAR | MINIMAL_HEADER_DRAWER_ONLY | SIDEBAR_PRIMARY_NAV",
-                    "grid_specs": { "max_width": "1200px", "columns": "180:700:300" },
-                    "essential_modules": ["PostBtn", "LikeSystem", "NotificationBell", "AuthOverlay", "Search", "TOC"],
+                    "grid_specs": { "max_width": "string", "columns": "string" },
+                    "essential_modules": ["string"],
                     "visual_density": "LOW | NORMAL | HIGH",
-                    "strategy_reasoning": "Reasoning focusing on information architecture and user flow"
+                    "strategy_reasoning": "string"
                 }
-                """;
+                """, handbook);
 
         try {
             String userPrompt = "User Intent: " + manifest.getUserIntent();

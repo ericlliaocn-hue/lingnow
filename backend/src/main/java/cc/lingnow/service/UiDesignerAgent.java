@@ -69,42 +69,58 @@ public class UiDesignerAgent {
                 throw new RuntimeException("No valid feature nodes found in mindmap. Cannot design UI.");
             }
 
-            // STEP 1: Generate App Shell
-            log.info("Step 1: Generating Application Layout Shell with {} routes...", routes.size());
-            String shellHtml = generateShell(manifest, routes, lang);
+            // Separate PRIMARY (sidebar) routes from OVERLAY (modal) routes
+            List<Route> primaryRoutes = new ArrayList<>();
+            List<Route> overlayRoutes = new ArrayList<>();
+            for (Route r : routes) {
+                ProjectManifest.PageSpec spec = findPageSpec(manifest, r);
+                String role = (spec != null && spec.getNavRole() != null) ? spec.getNavRole() : "PRIMARY";
+                if ("OVERLAY".equals(role)) {
+                    overlayRoutes.add(r);
+                } else {
+                    primaryRoutes.add(r);
+                }
+            }
+            // Fallback: if no OVERLAY defined by architect, synthesize a generic detail
+            if (overlayRoutes.isEmpty()) {
+                overlayRoutes.add(new Route("detail", "内容详情", "OVERLAY"));
+            }
 
-            // STEP 2: Generate Page Components with Deep Context
+            // STEP 1: Generate App Shell
+            log.info("Step 1: Generating Application Layout Shell with {} primary routes...", primaryRoutes.size());
+            String shellHtml = generateShell(manifest, primaryRoutes, lang);
+
+            // STEP 2: Generate Page Components
             log.info("Step 2: Generating Feature Components (Context Bridge Active)...");
             StringBuilder contentSlots = new StringBuilder();
-
             int count = 0;
-            for (Route route : routes) {
-                if (count >= 6) { // Increased to 6 to cover more ground
-                    log.info("Reached maximum of 6 pages for initial generation. Skipping the rest.");
+            for (Route route : primaryRoutes) {
+                if (count >= 6) {
+                    log.info("Reached maximum of 6 primary pages. Skipping the rest.");
                     break;
                 }
-
-                // Context Bridge: Match Route to PageSpec (Architect's Intent)
                 ProjectManifest.PageSpec pageSpec = findPageSpec(manifest, route);
-
                 log.info("Generating component for: {} (#{}) using Context: {}", route.name, route.id, (pageSpec != null));
                 String componentHtml = generateComponent(manifest, route, pageSpec, lang);
                 contentSlots.append(componentHtml).append("\n");
                 count++;
             }
 
+            // STEP 2b: Generate Detail Modal Component (OVERLAY slot)
+            log.info("Step 2b: Generating Detail Modal for OVERLAY routes...");
+            String modalHtml = generateDetailModal(manifest, overlayRoutes.get(0), lang);
+
             // STEP 3: Assembly
             log.info("Step 3: Assembling prototype...");
-            String finalHtml;
-
-            // Inject Mock Data into Shell
             String processedShell = shellHtml;
             String mockJson = manifest.getMockData() != null ? manifest.getMockData() : "[]";
-
-            // Ensure JSON is safe for HTML attribute insertion
             String safeMockJson = mockJson.replace("\"", "&quot;");
             processedShell = processedShell.replace("{{MOCK_DATA}}", safeMockJson);
 
+            // Inject MODAL_SLOT
+            processedShell = processedShell.replace("{{MODAL_SLOT}}", modalHtml);
+
+            String finalHtml;
             if (processedShell.contains("{{CONTENT_SLOTS}}")) {
                 finalHtml = processedShell.replace("{{CONTENT_SLOTS}}", contentSlots.toString());
             } else if (processedShell.contains("{{CONTENT_SLOT}}")) {
@@ -126,18 +142,25 @@ public class UiDesignerAgent {
     private List<Route> extractRoutes(ProjectManifest manifest) {
         String mindMap = manifest.getMindMap();
         if (mindMap == null || mindMap.trim().isEmpty()) {
-            return new ArrayList<>();
+            log.warn("[Designer] Mindmap is empty. Attempting to fall back to page titles.");
+            return manifest.getPages() != null ?
+                    manifest.getPages().stream()
+                            .filter(p -> "PRIMARY".equals(p.getNavRole()))
+                            .map(p -> new Route("pg_" + p.getRoute().hashCode(), p.getRoute(), p.getNavType()))
+                            .toList() : new ArrayList<>();
         }
 
         String[] lines = mindMap.split("\\n");
         List<Route> routes = new ArrayList<>();
 
         for (int i = 0; i < lines.length; i++) {
-            String current = lines[i];
-            if (current.trim().isEmpty() || current.trim().startsWith("```") || current.trim().equalsIgnoreCase("mindmap"))
+            String current = lines[i].trim();
+            // Skip empty lines or technical markers
+            if (current.isEmpty() || current.startsWith("```") || current.equalsIgnoreCase("mindmap"))
                 continue;
 
-            String name = current.replace("- ", "").trim();
+            // Robust extraction: removes common markdown list prefixes (-, *, 1., etc.)
+            String name = current.replaceAll("^[\\-\\s\\*\\d\\.]+", "").trim();
             if (name.isEmpty()) continue;
 
             String id = "pg" + (i + 1);
@@ -189,8 +212,18 @@ public class UiDesignerAgent {
         }
     }
 
+    private String loadHandbook() {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get("/Users/eric/workspace/lingnow/.agents/skills/UI_DESIGN_HANDBOOK.md"));
+        } catch (Exception e) {
+            log.warn("[Designer] Handbook not found, falling back to core logic.");
+            return "";
+        }
+    }
+
     private String generateShell(ProjectManifest manifest, List<Route> routes, String lang) {
         String template = readResource("/templates/StandardShell.html");
+        String handbook = loadHandbook();
 
         // Categorize routes by navRole
         StringBuilder navContext = new StringBuilder("PAGE ROLES & ROUTES:\n");
@@ -200,17 +233,26 @@ public class UiDesignerAgent {
             navContext.append(String.format("- Route: #%s, Name: %s, Role: %s\n", r.id, r.name, role));
         }
 
-        String systemPrompt = """
-                You are a UI Architect. Fill the slots for a high-fidelity application shell. 
+        String systemPrompt = String.format("""
+                %s
                 
-                CONSTRAINTS:
-                1. LOGO_AREA: Return 1-2 lines of Tailwind HTML.
-                2. SIDEBAR_NAV: Return <a> tags for PRIMARY roles only. Use `x-bind:class="hash==='#pgX' ? 'active' : ''"`.
-                3. UTILITY_BUTTONS: Icons for UTILITY roles (Search, Notif).
-                4. PERSONAL_LINKS: <a> tags for PERSONAL roles.
-                5. DESIGN DNA: %s
-                6. OUTPUT: Return a JSON with keys: "logo", "sidebar", "utility", "personal".
-                """.formatted(getDynamicDNA(manifest));
+                YOUR GOAL: Generate Application Shell Fragments as a JSON object.
+                
+                CRITICAL - YOU MUST OUTPUT PURE JSON ONLY:
+                - Do NOT output <!DOCTYPE>, <html>, <head>, <body> tags anywhere.
+                - Output ONLY a JSON object with these four string keys: logo, sidebar, utility, personal.
+                - Each value is an HTML FRAGMENT (a few tags, not a full document).
+                
+                SIDEBAR PURITY RULE:
+                - ONLY generate <a> tags for routes with 'Role: PRIMARY'.
+                - UTILITY and PERSONAL roles MUST NOT appear in the sidebar.
+                - Each sidebar link: <a @click="hash='#ID'" :class="hash==='#ID'?'bg-rose-50 text-rose-600 font-semibold':''" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm">
+                
+                DESIGN DNA: %s
+                
+                JSON OUTPUT FORMAT (respond ONLY with this, no extra text):
+                {"logo": "<HTML_FRAGMENT>", "sidebar": "<HTML_FRAGMENT>", "utility": "<HTML_FRAGMENT>", "personal": "<HTML_FRAGMENT>"}
+                """, handbook, getDynamicDNA(manifest));
 
         String userPrompt = String.format("Architecture Context:\n%s\nLanguage: %s", navContext, lang);
 
@@ -218,38 +260,76 @@ public class UiDesignerAgent {
             String response = llmClient.chat(systemPrompt, userPrompt);
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
+            String logoHtml = root.path("logo").asText();
+            String sidebarHtml = root.path("sidebar").asText();
+            String utilityHtml = root.path("utility").asText();
+            String personalHtml = root.path("personal").asText();
+
+            // Validate: if sidebar is empty or JSON parse failed, use a safe fallback
+            if (sidebarHtml.isBlank()) {
+                log.warn("[Designer] Shell JSON parse returned empty sidebar. Using safe fallback nav.");
+                StringBuilder fallbackNav = new StringBuilder();
+                for (Route r : routes) {
+                    fallbackNav.append(String.format(
+                            "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
+                            r.id, r.id, r.name));
+                }
+                sidebarHtml = fallbackNav.toString();
+            }
+            if (logoHtml.isBlank())
+                logoHtml = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
+
             String shell = template
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
-                    .replace("{{LOGO_AREA}}", root.path("logo").asText())
-                    .replace("{{SIDEBAR_NAV}}", root.path("sidebar").asText())
-                    .replace("{{UTILITY_BUTTONS}}", root.path("utility").asText())
-                    .replace("{{PERSONAL_LINKS}}", root.path("personal").asText());
+                    .replace("{{LOGO_AREA}}", logoHtml)
+                    .replace("{{SIDEBAR_NAV}}", sidebarHtml)
+                    .replace("{{UTILITY_BUTTONS}}", utilityHtml)
+                    .replace("{{PERSONAL_LINKS}}", personalHtml);
 
             return shell;
-        } catch (java.io.IOException e) {
-            log.error("Shell fragment generation failed", e);
-            return "<html><body>Error generating shell. Check logs.</body></html>";
+        } catch (Exception e) {
+            log.error("Shell fragment generation failed, using minimal safe fallback shell", e);
+            // Safe fallback: build sidebar from routes list directly
+            StringBuilder fallbackNav = new StringBuilder();
+            for (Route r : routes) {
+                fallbackNav.append(String.format(
+                        "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
+                        r.id, r.id, r.name));
+            }
+            String safeLogo = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
+            return template
+                    .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
+                    .replace("{{LOGO_AREA}}", safeLogo)
+                    .replace("{{SIDEBAR_NAV}}", fallbackNav.toString())
+                    .replace("{{UTILITY_BUTTONS}}", "")
+                    .replace("{{PERSONAL_LINKS}}", "");
         }
     }
 
     private String generateComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, String lang) {
+        String handbook = loadHandbook();
         String contextDescription = pageSpec != null ?
                 "ARCHITECT'S PLAN: " + pageSpec.getDescription() + "\nEXPECTED COMPONENTS: " + String.join(", ", pageSpec.getComponents()) :
                 "Generate a standard view for this feature.";
 
-        String archetype = manifest.getArchetype() != null ? manifest.getArchetype() : "DASHBOARD";
-
-        String systemPrompt = "You are a World-Class UI/UX Component Designer. Goal: High-Density Pro-Grade View.\n"
-                + "RULES:\n"
-                + "1. WRAPPER: `<div x-show=\"hash === '#" + route.id + "'\" class=\"animate-fade-in\">`.\n"
-                + "2. PORTAL vs DETAIL (M7.0 Strategy-Aware):\n"
-                + "   - IF PORTAL (navType: " + route.navType + "): USE THE GRID STRATEGY. High density. Show multiple content cards. Thumbnail right, metadata bottom.\n"
-                + "   - IF LEAF_DETAIL: Centered reading layout (`max-w-3xl mx-auto`). MUST include 'Like/Save/Share' floating tools and a 'Comment Section' at the bottom.\n"
-                + "   - MIXED CONTENT: If the intent is social (XiaoHongShu style), design for a Modal-ready detail view (Media Gallery | Side Info Panel).\n"
-                + "3. ESSENTIALS: Support the 'essential_modules' list: " + (manifest.getUxStrategy() != null ? manifest.getUxStrategy().get("essential_modules") : "Standard") + "\n"
-                + "4. DATA: Loop through `mockData` using `<template x-for=\"item in mockData\">`.\n"
-                + "5. DESIGN DNA (Archetype: " + archetype + "):\n" + getDynamicDNA(manifest)
-                + "6. OUTPUT: RAW HTML. NO JSON.";
+        String systemPrompt = String.format("""
+                %s
+                
+                YOUR GOAL: Generate a high-density, pro-grade view for route: #%s.
+                
+                ⚠️ CRITICAL FORBIDDEN RULES (VIOLATION = BROKEN PAGE):
+                - NEVER output <!DOCTYPE>, <html>, <head>, <body>, <script src=...> tags.
+                - Output ONLY an HTML fragment starting with: <div x-show="hash === '#%s'">
+                - NEVER start response with ```html or any markdown.
+                
+                MANDATORY INTERACTION LOGIC (MODAL BINDING):
+                - If this is a Feed/Grid/List view, every item/card MUST have:
+                  @click="selectedItem = item; hash = '#detail'" class="cursor-pointer"
+                - Use Alpine.js x-for loop to render from mockData array.
+                
+                REQUIRED WRAPPER (start your output with exactly this):
+                <div x-show="hash === '#%s'" class="animate-fade-in pb-8">
+                """, handbook, route.id, route.id, route.id);
 
         String userPrompt = String.format("Feature: %s (Route: #%s)\n%s\nUser Intent: %s\nMock Data example: %s",
                 route.name, route.id, contextDescription, manifest.getUserIntent(), manifest.getMockData());
@@ -260,6 +340,51 @@ public class UiDesignerAgent {
         } catch (java.io.IOException e) {
             log.error("Failed to generate component for {}", route.id, e);
             return "<!-- Error generating " + route.id + " -->";
+        }
+    }
+
+    /**
+     * Phase 7.3.2: Generate a dedicated Detail Modal component for the OVERLAY slot.
+     * This closes the interaction loop: card click → selectedItem set → modal renders.
+     */
+    private String generateDetailModal(ProjectManifest manifest, Route overlayRoute, String lang) {
+        String handbook = loadHandbook();
+        String langInstruction = "ZH".equalsIgnoreCase(lang) ? "Use Chinese labels." : "Use English labels.";
+
+        String systemPrompt = String.format("""
+                %s
+                
+                YOUR GOAL: Generate a beautiful FULL-SCREEN Detail Modal Panel for a community prototype.
+                
+                RULES:
+                - The modal is ALREADY wrapped by `<template x-if="selectedItem">` in the shell. DO NOT add x-if.
+                - Render fields from `selectedItem` using Alpine.js expressions: `x-text="selectedItem.fieldName"`.
+                - MUST include: large hero image/cover, title, author info (avatar + name), stats (likes, comments, collects), full body content/description, tags, a comment input area, and a close button.
+                - Close button MUST: @click="selectedItem = null; hash = '#pg1'".
+                - Style: premium card, rounded-3xl, bg-white, shadow-2xl, overflow-y-auto max-h-[90vh].
+                - %s
+                OUTPUT: Return ONLY a raw HTML snippet (no ```html markers). Start with a <div class="relative ...">
+                """, handbook, langInstruction);
+
+        String userPrompt = String.format(
+                "User Intent: %s\nMock Data sample: %s\nGenerate the detail modal inner content.",
+                manifest.getUserIntent(), manifest.getMockData());
+
+        try {
+            String response = llmClient.chat(systemPrompt, userPrompt);
+            // parseHtmlSnippet handles both raw HTML and ```html``` wrapped responses
+            return parseHtmlSnippet(response);
+        } catch (java.io.IOException e) {
+            log.error("Failed to generate detail modal", e);
+            // Hardcoded safe fallback modal
+            return """       
+                    <div class="relative bg-white rounded-3xl p-8 max-w-2xl mx-auto shadow-2xl">
+                      <button @click="selectedItem = null; hash = '#pg1'" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
+                      <h2 class="text-2xl font-bold mb-2" x-text="selectedItem.title || selectedItem.标题 || '详情'"></h2>
+                      <p class="text-slate-500 text-sm mb-4" x-text="selectedItem.author || selectedItem.作者 || ''"></p>
+                      <p class="text-slate-700 leading-relaxed" x-text="selectedItem.content || selectedItem.内容 || selectedItem.description || ''"></p>
+                    </div>
+                    """;
         }
     }
 

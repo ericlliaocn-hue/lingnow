@@ -25,11 +25,21 @@ public class ProductArchitectAgent {
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
 
+    private String loadHandbook() {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get("/Users/eric/workspace/lingnow/.agents/skills/PRODUCT_MANAGER_HANDBOOK.md"));
+        } catch (Exception e) {
+            log.warn("[Architect] Handbook not found, falling back to basic PM logic.");
+            return "";
+        }
+    }
+
     public void analyze(ProjectManifest manifest) {
         log.info("Architect is analyzing requirement: {} (Mod: {})", manifest.getUserIntent(), manifest.getFeatures() != null && !manifest.getFeatures().isEmpty());
         
         try {
             boolean isMod = manifest.getFeatures() != null && !manifest.getFeatures().isEmpty();
+            String handbook = loadHandbook();
             
             StringBuilder context = new StringBuilder();
             if (isMod) {
@@ -46,47 +56,39 @@ public class ProductArchitectAgent {
 
             // Language awareness
             String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
-            String langInstruction = "ZH".equalsIgnoreCase(lang) 
-                ? "CRITICAL: All content (features names, descriptions, page descriptions) MUST BE IN CHINESE."
+            String langInstruction = "ZH".equalsIgnoreCase(lang)
+                    ? "CRITICAL: All content MUST BE IN CHINESE."
                 : "All content MUST BE IN ENGLISH.";
 
             String uxStrategyContext = manifest.getUxStrategy() != null ?
-                    "UX STRATEGY (Determined by Intelligence Agent):\n" + manifest.getUxStrategy().toString() :
-                    "No specific research available. Use general professional standards.";
+                    "UX STRATEGY (Intelligence Agent):\n" + manifest.getUxStrategy().toString() :
+                    "Standard professional standards.";
 
-            String systemPrompt = """
-                             You are a World-Class Interface Architect & Product Manager.
+            String systemPrompt = String.format("""
+                    %s
                     
-                            YOUR GOAL (M7.2 INDUSTRIALIZATION): Synthesize a COMPLETE Application Ecosystem with process-aware navigation.
+                    YOUR GOAL: Synthesize a COMPLETE Application Ecosystem with process-aware navigation.
                     
-                     SCRUTINY CHECKLIST:
-                             1. NAV_ROLE CLASSIFICATION (Mandatory): 
-                                - 'PRIMARY': Corresponds to NAV_ANCHOR content feeds (Sidebar).
-                                - 'UTILITY': Action-based tools like Search, Notifications (Header Right).
-                                - 'PERSONAL': Identity-based links like Profile, Orders (Header Dropdown).
-                                - 'OVERLAY': Detail-level content like Post Detail, Edit Form (Modals/Drawers).
-                             2. UNIVERSAL PROCESS GUARANTEE: EVERY generated product MUST have a closed loop.
-                                - If DASHBOARD: Row Click (OVERLAY) -> Edit/View -> Toast/Success.
-                                - If COMMERCE: Product Click (OVERLAY) -> Quick View -> Cart.
-                                - If SOCIAL: Feed Click (OVERLAY) -> Detail -> Comment/Like.
-                             3. SEMANTIC PURITY: UTILITY, PERSONAL, and OVERLAY pages MUST NOT appear in the primary Sidebar navigation menu.
-                             4. DATA DENSITY: Define 6+ rich data fields per entity (e.g., 'AuthorBadge', 'InteractionRate', 'AssetTag').
-                          5. LANGUAGE: %s
-                             6. STRATEGY CONTEXT: %s
-                             7. OUTPUT: Pure JSON only.
+                    TASKS:
+                    1. Define semantic navRole (PRIMARY, UTILITY, OVERLAY, PERSONAL).
+                    2. Enforce the PROCESS GUARANTEE.
+                    3. Ensure high DATA DENSITY (8+ fields).
+                    
+                    LANGUAGE: %s
+                    STRATEGY CONTEXT: %s
                     
                     JSON Schema: {
-                                "archetype": "READER | DASHBOARD | GALLERY | SOCIAL | COMMERCE",
-                                "overview": "string (The core product mission)",
-                                "mindMap": "string (Formatted tree for PRIMARY nodes only. Content navigation.)",
-                            "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
-                                "pages": [{"route": "string", "description": "string", "navType": "NAV_ANCHOR|CONTEXT_WIDGET|LEAF_DETAIL", "navRole": "PRIMARY|UTILITY|OVERLAY|PERSONAL", "components": ["List of component names"]}],
-                                "taskFlows": [{"id": "flow_x", "description": "Loop description", "steps": ["Entry -> Action -> Success"]}]
-                        }
-                    """.formatted(langInstruction, uxStrategyContext);
+                        "archetype": "string",
+                        "overview": "string",
+                        "mindMap": "string (PRIMARY nodes only)",
+                        "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
+                        "pages": [{"route": "string", "description": "string", "navType": "NAV_ANCHOR|CONTEXT_WIDGET|LEAF_DETAIL", "navRole": "PRIMARY|UTILITY|OVERLAY|PERSONAL", "components": ["List of component names"]}],
+                        "taskFlows": [{"id": "flow_x", "description": "Loop description", "steps": ["Entry -> Action -> Success"]}]
+                    }
+                    """, handbook, langInstruction, uxStrategyContext);
             
-            String userPrompt = isMod 
-                ? "Update the PRD based on this new requirement: " + manifest.getUserIntent()
+            String userPrompt = isMod
+                    ? "Update the PRD based on: " + manifest.getUserIntent()
                 : "Create a PRD for: " + manifest.getUserIntent();
             
             String response = llmClient.chat(systemPrompt, userPrompt + (isMod ? "\nContext:\n" + context : ""));

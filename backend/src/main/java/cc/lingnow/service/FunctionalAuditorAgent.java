@@ -18,6 +18,15 @@ public class FunctionalAuditorAgent {
 
     private final LlmClient llmClient;
 
+    private String loadHandbook() {
+        try {
+            return java.nio.file.Files.readString(java.nio.file.Paths.get("/Users/eric/workspace/lingnow/.agents/skills/QA_AUDITOR_HANDBOOK.md"));
+        } catch (Exception e) {
+            log.warn("[Auditor] Handbook not found, falling back to basic QA logic.");
+            return "";
+        }
+    }
+
     /**
      * Audit the generated prototype against the required task flows.
      *
@@ -27,33 +36,23 @@ public class FunctionalAuditorAgent {
         log.info("[Auditor] Auditing functional integrity and archetype fidelity for intent: {} (Archetype: {})",
                 intent, archetype);
 
+        String handbook = loadHandbook();
         String strategyContext = uxStrategy != null ?
                 "BENCHMARK STRATEGY (Intelligence Agent):\n" + uxStrategy.toString() :
                 "Standard professional standards.";
 
-        String systemPrompt = """
-                You are a Lead Product Auditor & PM Quality Guardian.
+        String systemPrompt = String.format("""
+                %s
                 
                 YOUR GOAL: Verify if the product is 'Community-Ready' and matches Industry Density Benchmarks.
-                
-                SCRUTINY CHECKLIST (M7.0):
-                1. PRODUCT MATURITY (Interaction Loop): 
-                   - REJECT if Social/Content archetypes lack 'Like/Care/Collect' buttons or a visible 'Comment Section'.
-                   - REJECT if there is no 'Post/Create' entry point in the shell.
-                   - REJECT if Auth (Login/Signup) modal/links are missing from the header.
-                2. INFORMATION DENSITY: 
-                   - REJECT if a Portal/Discovery page uses a loose 'Landing Page' style (too much whitespace, huge hero images). 
-                   - MUST use the Grid Strategies from the UX Strategy.
-                3. NAVIGATION SEMANTICS:
-                   - REJECT if Detail pages are in the sidebar. They must be context-switched widgets or leaf nodes.
-                4. TASK FLOWS: Ensure functional #hash-links exist for all primary routes.
                 
                 OUTPUT:
                 - If perfect: Respond with "VERIFIED".
                 - If not: Respond with "CORRECTION_NEEDED: [Product Gap or Density Violation]".
                 
                 STRATEGY CONTEXT:
-                """ + strategyContext;
+                %s
+                """, handbook, strategyContext);
 
         String userPrompt = String.format("""
                 User Intent: %s
