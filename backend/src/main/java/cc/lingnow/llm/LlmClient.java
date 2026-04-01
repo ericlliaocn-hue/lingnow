@@ -28,7 +28,7 @@ public class LlmClient {
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
+                .readTimeout(180, TimeUnit.SECONDS)
                 .addInterceptor(chain -> {
                     Request request = chain.request();
                     Exception lastException = null;
@@ -52,7 +52,7 @@ public class LlmClient {
                             }
                         }
                     }
-                    throw new IOException("LLM API failed after 3 attempts. Last error: "
+                    throw new IOException("LLM API failed after 5 attempts. Last error: "
                             + (lastException != null ? lastException.getMessage() : "Unknown"), lastException);
                 })
                 .build();

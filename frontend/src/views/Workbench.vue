@@ -234,7 +234,12 @@ const lastParsedId = ref(null)
 const parseMindMap = (text) => {
   if (!text) return null
   const lines = text.split('\n').filter(l => l.trim().length > 0)
-  const root = {id: 'root-' + Math.random().toString(36).substr(2, 9), name: '', children: []}
+  const root = {
+    id: 'root-' + Math.random().toString(36).substr(2, 9),
+    name: '',
+    children: [],
+    isVirtualRoot: true
+  }
   const stack = [{node: root, indent: -1}]
 
   lines.forEach(line => {
@@ -252,15 +257,18 @@ const parseMindMap = (text) => {
     }
   })
 
-  return root.children[0] || root
+  return root
 }
 
 const serializeTree = (node, indent = 0) => {
   if (!node) return ''
-  let text = ' '.repeat(indent) + node.name + '\n'
+  let text = ''
+  if (!node.isVirtualRoot) {
+    text = ' '.repeat(indent) + node.name + '\n'
+  }
   if (node.children) {
     node.children.forEach(child => {
-      text += serializeTree(child, indent + 2)
+      text += serializeTree(child, node.isVirtualRoot ? indent : indent + 2)
     })
   }
   return text

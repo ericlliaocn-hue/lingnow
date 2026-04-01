@@ -51,6 +51,8 @@ public class ProjectManifest {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Snapshot {
         private String version;
         private String html;
@@ -77,6 +79,8 @@ public class ProjectManifest {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Feature {
         private String name;
         private String description;
@@ -87,6 +91,8 @@ public class ProjectManifest {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class PageSpec {
         private String route;
         private String description;
@@ -97,6 +103,8 @@ public class ProjectManifest {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TaskFlow {
         private String id;
         private String description;
@@ -105,6 +113,8 @@ public class ProjectManifest {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class DesignContract {
         private String shellPattern;
         private String contentMode;
@@ -123,6 +133,8 @@ public class ProjectManifest {
 
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class ChatMessage {
         private String role;
         private String content;

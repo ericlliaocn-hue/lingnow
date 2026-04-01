@@ -51,4 +51,4 @@ lingnow:
     api-key: sk-s8CgcDvsftJQb50MT7BMPdU22MwCJFcj397zWwGetAMiqleR
     base-url: https://api.linkapi.ai/v1
     model: "gpt-5.4-mini"
-    timeout-seconds: 1800
+    timeout-seconds: 180000

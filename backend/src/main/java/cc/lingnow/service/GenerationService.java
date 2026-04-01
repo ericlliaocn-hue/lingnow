@@ -78,9 +78,12 @@ public class GenerationService {
             manifest.getMetaData().put("lang", lang);
         }
 
-        if (overriddenMindMap != null && !overriddenMindMap.isEmpty()) {
+        if (shouldApplyMindMapOverride(manifest, overriddenMindMap)) {
             log.info("Applying frontend-driven mindmap override (length: {})", overriddenMindMap.length());
             manifest.setMindMap(overriddenMindMap);
+        } else if (overriddenMindMap != null && !overriddenMindMap.isBlank()) {
+            log.warn("Ignoring suspicious frontend mindmap override (length: {}) to preserve planning quality.",
+                    overriddenMindMap.length());
         }
         manifestContractValidator.normalize(manifest);
         dataEngineerAgent.normalizeExistingData(manifest);
@@ -315,5 +318,33 @@ public class GenerationService {
         } catch (NumberFormatException ignored) {
             return 0;
         }
+    }
+
+    private boolean shouldApplyMindMapOverride(ProjectManifest manifest, String overriddenMindMap) {
+        if (overriddenMindMap == null || overriddenMindMap.isBlank()) {
+            return false;
+        }
+
+        String trimmed = overriddenMindMap.trim();
+        if (trimmed.length() < 8) {
+            return false;
+        }
+
+        long overrideLineCount = trimmed.lines()
+                .map(String::trim)
+                .filter(line -> !line.isEmpty())
+                .count();
+
+        long primaryPageCount = manifest.getPages() == null
+                ? 0
+                : manifest.getPages().stream()
+                .filter(page -> "PRIMARY".equals(page.getNavRole()))
+                .count();
+
+        if (primaryPageCount > 1 && overrideLineCount < Math.min(primaryPageCount, 2)) {
+            return false;
+        }
+
+        return true;
     }
 }
