@@ -148,15 +148,47 @@ public class FunctionalAuditorAgent {
             if (containsAny(mainLower, "推荐策略", "recommendation strategy", "strategy card")) {
                 blockers.add("Community homepage still contains dashboard-style strategy panels.");
             }
+            if (contract != null && contract.isRequiresCategoryTabs()
+                    && !containsAny(htmlLower, "activecategory", "@click=\"activecategory", "@click='activecategory")) {
+                blockers.add("Community homepage is missing top-level category tabs with real filter state.");
+            }
+            if (containsAny(mainLower, "@click=\"activecategory", "@click='activecategory")) {
+                blockers.add("Community homepage still renders category tabs inside the page body instead of the top shell strip.");
+            }
+            if (contract != null && contract.isRequiresInteractiveFiltering()
+                    && !containsAny(mainLower, "activesignal", "searchquery", "getfilteredfeed")) {
+                blockers.add("Community homepage is missing live filtering for search, high-save, and hot-discussion modes.");
+            }
+            if (!containsAny(htmlLower, "authopen", "authmode", "登录", "注册")) {
+                blockers.add("Community homepage is missing a visible login/register entry flow in the header.");
+            }
+            if (countOccurrences(htmlLower, "fa-magnifying-glass") > 1 || countOccurrences(htmlLower, ">搜索<") > 0) {
+                blockers.add("Community homepage still contains a duplicate search action on the right side of the header.");
+            }
+            if (countOccurrences(htmlLower, "@click=\"authmode = 'register'; authopen = true\"") > 0
+                    || countOccurrences(htmlLower, "@click='authmode = 'register'; authopen = true'") > 0) {
+                blockers.add("Community homepage still exposes a second standalone register button in the header instead of a single login entry.");
+            }
         }
 
         if (contract != null && contract.isPrefersRealMedia()
                 && containsAny(mainLower, "placehold.co", "via.placeholder", "dummyimage.com")) {
             blockers.add("Community homepage still uses placeholder imagery instead of authentic-looking media.");
         }
+        String normalizedMainText = mainContent.replaceAll("<[^>]+>", " ").replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+        String normalizedIntent = manifest.getUserIntent() == null ? "" : manifest.getUserIntent().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+        if (!normalizedIntent.isBlank() && normalizedIntent.length() >= 6 && normalizedMainText.contains(normalizedIntent)) {
+            blockers.add("Homepage is leaking the raw user prompt into visible copy instead of product-facing language.");
+        }
+        if (containsAny(mainLower, "小红书", "content-first", "灵感发现流", "内容优先布局", "类似小红书")) {
+            blockers.add("Homepage is leaking internal benchmark or system language into visible copy.");
+        }
         String mockData = manifest.getMockData() == null ? "" : manifest.getMockData().toLowerCase(Locale.ROOT);
         if (containsAny(mockData, "\"封面图\":\"封面_", "\"作者头像\":\"头像_", "\"cover\":\"封面_", "\"avatar\":\"头像_")) {
             blockers.add("Mock data still contains non-URL media placeholders that will render as broken images.");
+        }
+        if (containsAny(mockData, "https://img.lingnow.cn/", "/mocks/")) {
+            blockers.add("Mock data still contains unstable mock-domain media URLs that can render as broken images.");
         }
 
         if (contract != null && contract.isRequiresSearch()

@@ -151,11 +151,13 @@ public class ManifestContractValidator {
                 .prefersWaterfallFeed(contentCommunity)
                 .maxAuxRailSections(contentCommunity ? 2 : 3)
                 .prefersRealMedia(contentCommunity)
+                .requiresCategoryTabs(contentCommunity)
+                .requiresInteractiveFiltering(contentCommunity)
                 .requiresSearch(requiresSearch)
                 .requiresComposer(requiresComposer)
                 .requiresDetailOverlay(requiresDetailOverlay)
                 .validationNotes(contentCommunity
-                        ? "Community/content archetype requires a feed-first homepage with visible cards, waterfall rhythm, authentic imagery, and a light auxiliary rail."
+                        ? "Community/content archetype requires a feed-first homepage with visible cards, waterfall rhythm, authentic imagery, top category tabs, and live filtering for search, high-save, and hot-discussion modes."
                         : "Normalized by contract validator")
                 .build();
     }

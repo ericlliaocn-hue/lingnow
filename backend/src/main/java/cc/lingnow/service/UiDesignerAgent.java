@@ -244,6 +244,7 @@ public class UiDesignerAgent {
                 - Generate compact horizontal pill navigation for PRIMARY routes.
                 - Each PRIMARY link SHOULD look like a discover/feed tab instead of a tall sidebar item.
                 - Each PRIMARY link: <a @click="hash='#ID'" :class="hash==='#ID'?'bg-rose-500 text-white shadow-lg shadow-rose-100':'bg-white text-slate-600'" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border border-slate-200 transition-all">
+                - DO NOT generate extra publish, search, login, register, or profile buttons in utility/personal fragments; the shell already owns those actions.
                 """
                 : """
                 SIDEBAR PURITY RULE:
@@ -287,10 +288,12 @@ public class UiDesignerAgent {
             logoHtml = normalizeHtmlFragment(logoHtml);
 
             if (contentFirst) {
-                sidebarHtml = buildFallbackPrimaryNav(routes, true);
+                sidebarHtml = buildFallbackPrimaryNav(manifest, routes, true);
+                utilityHtml = "";
+                personalHtml = "";
             } else if (sidebarHtml.isBlank()) {
                 log.warn("[Designer] Shell JSON parse returned empty sidebar. Using safe fallback nav.");
-                sidebarHtml = buildFallbackPrimaryNav(routes, contentFirst);
+                sidebarHtml = buildFallbackPrimaryNav(manifest, routes, contentFirst);
             }
             if (logoHtml.isBlank())
                 logoHtml = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
@@ -310,7 +313,7 @@ public class UiDesignerAgent {
             return template
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
                     .replace("{{LOGO_AREA}}", safeLogo)
-                    .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(routes, contentFirst))
+                    .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, routes, contentFirst))
                     .replace("{{UTILITY_BUTTONS}}", "")
                     .replace("{{PERSONAL_LINKS}}", "");
         }
@@ -329,9 +332,15 @@ public class UiDesignerAgent {
                 - The main column MUST be the primary attention sink: dense, scrollable, image-first feed cards.
                 - Prefer masonry / waterfall rhythm or visibly varied card heights over a rigid equal-height grid.
                 - Keep auxiliary content light: at most 1-2 small supporting modules, never a giant strategy/control panel.
+                - Category tabs belong in the shell's top strip; DO NOT render a second full category tab bar inside the hero/body.
                 - DO NOT create a persistent left sidebar or internal portal navigation inside the page body; shell navigation already exists.
                 - DO NOT add a second sticky search toolbar or duplicate publish/search strip inside the page body.
                 - Keep any hero/intro compact and content-leading, not a massive landing-page billboard.
+                - NEVER mention benchmark names or internal strategy language in visible copy (for example: 小红书, content-first, 灵感发现流, 内容优先布局).
+                - NEVER echo the raw user request as page copy, and never use generic H1 text like 首页 / Home / Overview as the main headline.
+                - Add a top category strip near the feed (for example: 推荐 / 穿搭 / 美食 / 旅行) and wire it to Alpine state like `activeCategory`.
+                - Search, category tabs, and social filters like `高收藏` / `实时热议` MUST visibly change the card list. Use Alpine state such as `searchQuery`, `activeCategory`, and `activeSignal`.
+                - Include a lightweight auth entry pattern in the shell/header (登录 / 注册 or equivalent) instead of showing a fully-signed-in avatar by default.
                 - Each card should feel social: creator avatar/name, topic tag, save/like/comment cues, and authentic photography.
                 - When mockData has cover/image/thumbUrl/avatar/gallery fields, USE them directly so the prototype shows realistic media.
                 """
@@ -404,6 +413,8 @@ public class UiDesignerAgent {
             int asideCount = countOccurrences(lower, "<aside");
             int stickyCount = countOccurrences(lower, "sticky top-");
             boolean hasWaterfallRhythm = containsAny(lower, "columns-", "break-inside-avoid", "waterfall");
+            boolean hasInteractiveFiltering = containsAny(lower, "activecategory", "activesignal", "searchquery", "getfilteredfeed");
+            boolean hasInBodyCategoryStrip = containsAny(lower, "@click=\"activecategory", "@click='activecategory");
             boolean hasPortalBias = asideCount > 1
                     || stickyCount > 0
                     || containsAny(lower, "grid grid-cols-12", "col-span-12 xl:col-span-2", "col-span-12 xl:col-span-3", "backdrop-blur border border-slate-200 shadow-sm p-5");
@@ -413,7 +424,10 @@ public class UiDesignerAgent {
                     && hasFeedInteraction
                     && articleCount >= minCards
                     && hasWaterfallRhythm
-                    && !hasPortalBias;
+                    && hasInteractiveFiltering
+                    && !hasInBodyCategoryStrip
+                    && !hasPortalBias
+                    && !hasInternalLanguageLeak(manifest, lower, visibleText);
         }
         return visibleText.length() >= 120 && contentSignals > 0;
     }
@@ -427,14 +441,19 @@ public class UiDesignerAgent {
         String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null
                 ? pageSpec.getDescription()
                 : manifest.getUserIntent());
-        String chips = buildFallbackChips(pageSpec);
-        String layoutBadge = zh ? "灵感发现流" : "Discovery feed";
+        boolean communityRoute = contentFirst && isContentFirstRoute(route);
+        String layoutBadge = zh ? "今日精选" : "Curated picks";
+        String surfaceLabel = communityRoute ? (zh ? "生活方式社区" : "Lifestyle community") : title;
+        String heroTitle = communityRoute ? (zh ? "今天的灵感，值得慢慢收藏" : "Fresh inspiration worth saving today") : title;
+        String heroDescription = communityRoute
+                ? (zh ? "从穿搭、旅行、探店到家居与生活方式内容，先刷真实内容，再决定收藏、关注与互动。" : "From style and travel to cafés and home ideas, browse real content first, then save, follow, and react.")
+                : description;
         String followLabel = zh ? "关注" : "Follow";
         String recommendTitle = zh ? "为你推荐" : "For you";
-        String recommendSubtitle = zh ? "像刷小红书一样往下翻，先看内容，再决定收藏与互动。" : "Scroll an inspiration feed first, then save, react, and dive deeper.";
+        String recommendSubtitle = zh ? "按你的兴趣持续更新，先看内容，再决定收藏、关注与互动。" : "Continuously updated by interest so you can browse, save, follow, and react.";
         String socialSignalOne = zh ? "高收藏" : "Most saved";
         String socialSignalTwo = zh ? "实时热议" : "Live now";
-        String socialSignalThree = zh ? "图文 / 视频" : "Photo / Video";
+        String socialSignalThree = zh ? "视频优先" : "Video first";
         String hotTopicTitle = zh ? "正在热议" : "Hot topics";
         String hotTopicHint = zh ? "今天大家都在刷这些关键词" : "What people are saving right now";
         String creatorPromptTitle = zh ? "创作者入口" : "Creator actions";
@@ -445,9 +464,12 @@ public class UiDesignerAgent {
         String cardTitleFallback = zh ? "一条值得收藏的灵感笔记" : "A post worth saving";
         String topicFallback = zh ? "今日灵感" : "Inspiration";
         String timeFallback = zh ? "2小时前" : "2h ago";
+        String emptyStateTitle = zh ? "暂时没有命中内容" : "No posts match yet";
+        String emptyStateHint = zh ? "换个分类、关键词或筛选方式，马上继续刷。" : "Try a different category, keyword, or signal to keep browsing.";
         String coverPool = buildRealMediaArrayJson(true);
         String avatarPool = buildRealMediaArrayJson(false);
         String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 6));
+        String hotTopics = buildHotTopicsJson(zh);
 
         String component = """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
@@ -456,17 +478,30 @@ public class UiDesignerAgent {
                       <div class="space-y-3">
                         <div class="flex flex-wrap items-center gap-3">
                           <span class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">__BADGE__</span>
-                          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__TITLE__</span>
+                          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__SURFACE_LABEL__</span>
                         </div>
-                        <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__TITLE__</h1>
-                        <p class="max-w-3xl text-sm leading-7 text-slate-600">__DESCRIPTION__</p>
-                        <div class="flex flex-wrap gap-3">__CHIPS__</div>
+                        <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
+                        <p class="max-w-3xl text-sm leading-7 text-slate-600">__HERO_DESCRIPTION__</p>
+                        <div class="flex flex-wrap gap-2">
+                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">先刷真实内容</span>
+                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">即时筛选高收藏与热议</span>
+                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">打开详情继续收藏和互动</span>
+                        </div>
                       </div>
                       <div class="flex flex-wrap gap-3 text-sm">
-                        <span class="rounded-full bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">__SIGNAL_ONE__</span>
-                        <span class="rounded-full bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">__SIGNAL_TWO__</span>
-                        <span class="rounded-full bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">__SIGNAL_THREE__</span>
-                        <span class="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white">__PRIMARY_CARDS__</span>
+                        <button
+                          @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'"
+                          :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'"
+                          class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
+                        <button
+                          @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'"
+                          :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'"
+                          class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
+                        <button
+                          @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'"
+                          :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'"
+                          class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
+                        <span class="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white" x-text="getFilteredFeed(__SEEDED_FEED__).length + '+'"></span>
                       </div>
                     </div>
                   </section>
@@ -478,14 +513,14 @@ public class UiDesignerAgent {
                           <h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2>
                           <p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p>
                         </div>
-                        <div class="hidden items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm ring-1 ring-slate-200 md:flex">
-                          <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">__SIGNAL_ONE__</span>
-                          <span class="rounded-full px-3 py-1 text-xs font-semibold text-slate-500">__SIGNAL_TWO__</span>
+                        <div class="hidden items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200 md:flex">
+                          <span class="text-xs font-semibold text-slate-500">筛选结果</span>
+                          <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white" x-text="getFilteredFeed(__SEEDED_FEED__).length"></span>
                         </div>
                       </div>
                 
                       <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
-                        <template x-for='(item, index) in ((Array.isArray(mockData) && mockData.length ? mockData : __SEEDED_FEED__).slice(0, __PRIMARY_CARDS__))' :key="(item.id || item.title || index) + '-' + index">
+                        <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
                           <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
                             <div class="overflow-hidden bg-slate-100" :class="index % 5 === 0 ? 'aspect-[4/6]' : (index % 5 === 1 ? 'aspect-[4/5]' : (index % 5 === 2 ? 'aspect-[4/4.8]' : (index % 5 === 3 ? 'aspect-[4/5.4]' : 'aspect-[4/6.2]')))">
                               <img :src='item.cover || item.image || item.thumbUrl || __COVER_POOL__[index % __COVER_POOL__.length]' class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
@@ -510,6 +545,7 @@ public class UiDesignerAgent {
                               </div>
                 
                               <div class="flex flex-wrap gap-2">
+                                <span class="rounded-full bg-slate-900/90 px-3 py-1 text-[11px] font-semibold text-white" x-text="item.mediaType || item.contentType || '__SIGNAL_THREE__'"></span>
                                 <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__', item.category || '__CATEGORY_FALLBACK__']))" :key="tag + '-' + tagIndex">
                                   <span class="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-500" x-text="'#' + tag"></span>
                                 </template>
@@ -532,6 +568,12 @@ public class UiDesignerAgent {
                             </div>
                           </article>
                         </template>
+                        <template x-if="!getFilteredFeed(__SEEDED_FEED__).length">
+                          <div class="rounded-[28px] border border-dashed border-slate-300 bg-white/80 p-8 text-center text-slate-500">
+                            <div class="text-lg font-bold text-slate-800">__EMPTY_STATE_TITLE__</div>
+                            <p class="mt-2 text-sm">__EMPTY_STATE_HINT__</p>
+                          </div>
+                        </template>
                       </div>
                     </div>
                 
@@ -545,10 +587,12 @@ public class UiDesignerAgent {
                           <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">Hot</span>
                         </div>
                         <div class="mt-4 space-y-3">
-                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#城市漫游</div>
-                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#今日妆容</div>
-                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#咖啡探店</div>
-                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#周末去哪儿</div>
+                          <template x-for="topic in __HOT_TOPICS__" :key="topic">
+                            <button
+                              @click="searchQuery = topic; activeSignal = 'hot'"
+                              class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
+                              x-text="'#' + topic"></button>
+                          </template>
                         </div>
                       </section>
                 
@@ -571,7 +615,9 @@ public class UiDesignerAgent {
                 .replace("__BADGE__", contentFirst ? layoutBadge : (zh ? "稳定导航布局" : "Stable navigation layout"))
                 .replace("__TITLE__", title)
                 .replace("__DESCRIPTION__", description)
-                .replace("__CHIPS__", chips)
+                .replace("__SURFACE_LABEL__", surfaceLabel)
+                .replace("__HERO_TITLE__", heroTitle)
+                .replace("__HERO_DESCRIPTION__", heroDescription)
                 .replace("__SIGNAL_ONE__", socialSignalOne)
                 .replace("__SIGNAL_TWO__", socialSignalTwo)
                 .replace("__SIGNAL_THREE__", socialSignalThree)
@@ -589,9 +635,12 @@ public class UiDesignerAgent {
                 .replace("__CARD_TITLE_FALLBACK__", cardTitleFallback)
                 .replace("__TOPIC_FALLBACK__", topicFallback)
                 .replace("__TIME_FALLBACK__", timeFallback)
+                .replace("__EMPTY_STATE_TITLE__", emptyStateTitle)
+                .replace("__EMPTY_STATE_HINT__", emptyStateHint)
                 .replace("__COVER_POOL__", coverPool)
                 .replace("__AVATAR_POOL__", avatarPool)
-                .replace("__SEEDED_FEED__", seededFeed);
+                .replace("__SEEDED_FEED__", seededFeed)
+                .replace("__HOT_TOPICS__", hotTopics);
     }
 
     private String buildRealMediaArrayJson(boolean cover) {
@@ -624,6 +673,18 @@ public class UiDesignerAgent {
         }
     }
 
+    private String buildHotTopicsJson(boolean zh) {
+        List<String> topics = zh
+                ? List.of("城市漫游", "今日妆容", "咖啡探店", "周末去哪儿")
+                : List.of("City walk", "Makeup today", "Coffee spots", "Weekend picks");
+        try {
+            return objectMapper.writeValueAsString(topics);
+        } catch (Exception e) {
+            log.warn("[Designer] Failed to serialize hot topics", e);
+            return "[]";
+        }
+    }
+
     private String buildSeededFeedJson(boolean zh, int count) {
         List<Map<String, Object>> cards = new ArrayList<>();
         cards.add(seedCard(
@@ -635,6 +696,8 @@ public class UiDesignerAgent {
                 "cover", "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200",
                 "location", zh ? "上海" : "Shanghai",
                 "time", zh ? "24分钟前" : "24m ago",
+                "category", zh ? "旅行" : "Travel",
+                "mediaType", zh ? "图文" : "Photo",
                 "likes", "2.9w",
                 "comments", "1741",
                 "collects", "2098",
@@ -649,6 +712,8 @@ public class UiDesignerAgent {
                 "cover", "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200",
                 "location", zh ? "广州" : "Guangzhou",
                 "time", zh ? "1小时前" : "1h ago",
+                "category", zh ? "彩妆" : "Beauty",
+                "mediaType", zh ? "视频" : "Video",
                 "likes", "1.8w",
                 "comments", "932",
                 "collects", "1608",
@@ -663,6 +728,8 @@ public class UiDesignerAgent {
                 "cover", "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200",
                 "location", zh ? "深圳" : "Shenzhen",
                 "time", zh ? "2小时前" : "2h ago",
+                "category", zh ? "旅行" : "Travel",
+                "mediaType", zh ? "图文" : "Photo",
                 "likes", "9.8k",
                 "comments", "614",
                 "collects", "1210",
@@ -677,6 +744,8 @@ public class UiDesignerAgent {
                 "cover", "https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1200",
                 "location", zh ? "杭州" : "Hangzhou",
                 "time", zh ? "3小时前" : "3h ago",
+                "category", zh ? "家居" : "Home",
+                "mediaType", zh ? "视频" : "Video",
                 "likes", "1.2w",
                 "comments", "802",
                 "collects", "1740",
@@ -691,6 +760,8 @@ public class UiDesignerAgent {
                 "cover", "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1200",
                 "location", zh ? "成都" : "Chengdu",
                 "time", zh ? "5小时前" : "5h ago",
+                "category", zh ? "美食" : "Food",
+                "mediaType", zh ? "图文" : "Photo",
                 "likes", "8.7k",
                 "comments", "503",
                 "collects", "1180",
@@ -705,6 +776,8 @@ public class UiDesignerAgent {
                 "cover", "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1200",
                 "location", zh ? "北京" : "Beijing",
                 "time", zh ? "6小时前" : "6h ago",
+                "category", zh ? "摄影" : "Photo",
+                "mediaType", zh ? "图文" : "Photo",
                 "likes", "1.4w",
                 "comments", "926",
                 "collects", "1863",
@@ -727,31 +800,43 @@ public class UiDesignerAgent {
         return card;
     }
 
-    private String buildFallbackChips(ProjectManifest.PageSpec pageSpec) {
-        List<String> tags = pageSpec != null && pageSpec.getComponents() != null && !pageSpec.getComponents().isEmpty()
-                ? pageSpec.getComponents().stream().limit(6).toList()
-                : List.of("发现灵感", "内容精选", "高赞互动", "趋势热点");
-        StringBuilder chips = new StringBuilder();
-        for (String tag : tags) {
-            chips.append("<span class=\"rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600\">#")
-                    .append(escapeHtml(tag))
-                    .append("</span>");
+    private String buildFallbackPrimaryNav(ProjectManifest manifest, List<Route> routes, boolean contentFirst) {
+        if (contentFirst) {
+            return buildFallbackCategoryNav(manifest, routes);
         }
-        return chips.toString();
-    }
-
-    private String buildFallbackPrimaryNav(List<Route> routes, boolean contentFirst) {
         StringBuilder fallbackNav = new StringBuilder();
         for (Route route : routes) {
-            fallbackNav.append(contentFirst
-                    ? String.format(
-                    "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-500 text-white shadow-lg shadow-rose-100':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all\">%s</a>\n",
-                    route.id, route.id, route.name)
-                    : String.format(
+            fallbackNav.append(String.format(
                     "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
                     route.id, route.id, route.name));
         }
         return fallbackNav.toString();
+    }
+
+    private String buildFallbackCategoryNav(ProjectManifest manifest, List<Route> routes) {
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        String homeRouteId = routes.stream()
+                .filter(this::isContentFirstRoute)
+                .map(route -> route.id)
+                .findFirst()
+                .orElse(routes.isEmpty() ? "pg1" : routes.get(0).id);
+        List<String> categories = zh
+                ? List.of("推荐", "穿搭", "美食", "彩妆", "家居", "旅行", "健身", "摄影")
+                : List.of("For you", "Style", "Food", "Beauty", "Home", "Travel", "Fitness", "Photo");
+        StringBuilder nav = new StringBuilder();
+        for (String category : categories) {
+            String normalizedCategory = escapeHtml(category);
+            String activeValue = ("推荐".equals(category) || "For you".equals(category)) ? "" : normalizedCategory;
+            nav.append(String.format(
+                    "<button @click=\"activeCategory='%s'; hash='#%s'\" :class=\"((!activeCategory && '%s'==='') || activeCategory === '%s')?'bg-slate-900 text-white shadow-lg shadow-slate-200':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
+                    activeValue,
+                    homeRouteId,
+                    activeValue,
+                    normalizedCategory,
+                    normalizedCategory
+            ));
+        }
+        return nav.toString();
     }
 
     private boolean isContentFirst(ProjectManifest manifest) {
@@ -797,6 +882,20 @@ public class UiDesignerAgent {
                 .replace("\\'", "'")
                 .replace("\\/", "/")
                 .trim();
+    }
+
+    private boolean hasInternalLanguageLeak(ProjectManifest manifest, String htmlLower, String visibleText) {
+        String normalizedVisible = visibleText == null ? "" : visibleText.toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+        String normalizedIntent = manifest.getUserIntent() == null ? "" : manifest.getUserIntent().toLowerCase(Locale.ROOT).replaceAll("\\s+", "");
+        boolean echoesPrompt = !normalizedIntent.isBlank() && normalizedIntent.length() >= 6 && normalizedVisible.contains(normalizedIntent);
+        boolean mentionsInternalLanguage = containsAny(htmlLower,
+                "小红书",
+                "content-first",
+                "内容优先布局",
+                "灵感发现流",
+                "类似小红书",
+                "discover feed");
+        return echoesPrompt || mentionsInternalLanguage;
     }
 
     private boolean containsAny(String source, String... tokens) {

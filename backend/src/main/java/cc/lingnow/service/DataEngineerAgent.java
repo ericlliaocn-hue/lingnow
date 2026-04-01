@@ -47,6 +47,8 @@ public class DataEngineerAgent {
     );
     private static final List<String> TOPIC_POOL_ZH = List.of("城市漫游", "穿搭灵感", "咖啡探店", "周末去哪儿", "本地生活", "轻运动", "高赞笔记", "今日热门");
     private static final List<String> TOPIC_POOL_EN = List.of("City walk", "Style notes", "Coffee spots", "Weekend picks", "Local life", "Light workout", "Most saved", "Trending");
+    private static final List<String> CATEGORY_POOL_ZH = List.of("穿搭", "美食", "彩妆", "家居", "旅行", "健身", "摄影", "情感");
+    private static final List<String> CATEGORY_POOL_EN = List.of("Style", "Food", "Beauty", "Home", "Travel", "Fitness", "Photo", "Relationships");
     private static final List<String> LOCATION_POOL_ZH = List.of("上海", "杭州", "深圳", "广州", "成都", "北京", "苏州", "厦门");
     private static final List<String> LOCATION_POOL_EN = List.of("Shanghai", "Hangzhou", "Shenzhen", "Guangzhou", "Chengdu", "Beijing", "Suzhou", "Xiamen");
     private static final List<String> CREATOR_POOL_ZH = List.of("慢生活研究所", "橘子美妆课", "露营小盒子", "周末城市探索", "一杯不晚", "衣橱整理局", "城市咖啡地图", "好物分享站");
@@ -191,11 +193,20 @@ public class DataEngineerAgent {
             node.put("route", "/home");
         }
 
-        if (isBlank(firstText(node, "category"))) {
-            node.put("category", pickFrom(index, zh ? TOPIC_POOL_ZH : TOPIC_POOL_EN));
+        String category = firstText(node, "category");
+        if (isBlank(category) || TOPIC_POOL_ZH.contains(category) || TOPIC_POOL_EN.contains(category)) {
+            node.put("category", pickFrom(index, zh ? CATEGORY_POOL_ZH : CATEGORY_POOL_EN));
         }
         if (isBlank(firstText(node, "topic"))) {
             node.put("topic", pickFrom(index + 1, zh ? TOPIC_POOL_ZH : TOPIC_POOL_EN));
+        }
+        if (isBlank(firstText(node, "mediaType", "contentType", "noteType"))) {
+            String mediaType = index % 4 == 1
+                    ? (zh ? "视频" : "Video")
+                    : (zh ? "图文" : "Photo");
+            node.put("mediaType", mediaType);
+            node.put("contentType", mediaType);
+            node.put("noteType", mediaType);
         }
         if (isBlank(firstText(node, "location"))) {
             node.put("location", pickFrom(index, zh ? LOCATION_POOL_ZH : LOCATION_POOL_EN));
@@ -225,6 +236,7 @@ public class DataEngineerAgent {
         if (!node.hasNonNull("tags") || !node.get("tags").isArray() || node.get("tags").isEmpty()) {
             ArrayNode tags = objectMapper.createArrayNode();
             tags.add(pickFrom(index, zh ? TOPIC_POOL_ZH : TOPIC_POOL_EN));
+            tags.add(pickFrom(index, zh ? CATEGORY_POOL_ZH : CATEGORY_POOL_EN));
             tags.add(pickFrom(index + 2, zh ? LOCATION_POOL_ZH : LOCATION_POOL_EN));
             tags.add(zh ? "高收藏" : "High save");
             node.set("tags", tags);
@@ -288,6 +300,23 @@ public class DataEngineerAgent {
             return false;
         }
         String lower = value.toLowerCase(Locale.ROOT);
-        return lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("data:image/");
+        if (!(lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("data:image/"))) {
+            return false;
+        }
+        if (lower.startsWith("data:image/")) {
+            return true;
+        }
+        return !isBlockedMockMediaUrl(value);
+    }
+
+    private boolean isBlockedMockMediaUrl(String value) {
+        try {
+            java.net.URI uri = java.net.URI.create(value);
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+            String path = uri.getPath() == null ? "" : uri.getPath().toLowerCase(Locale.ROOT);
+            return "img.lingnow.cn".equals(host) || path.contains("/mocks/");
+        } catch (Exception ignored) {
+            return true;
+        }
     }
 }

@@ -38,6 +38,14 @@ lingnow/
 
 详见：`docs/sequence-diagram.md`
 
+## 🧠 工作流与 Agent 架构
+
+详见：`docs/workflow-agent-architecture.md`
+
+## 🏛️ 默认架构入口
+
+详见：`ARCHITECTURE.md`
+
 ---
 
 ## 🛠️ 环境要求

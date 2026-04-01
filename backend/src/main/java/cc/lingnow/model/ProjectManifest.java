@@ -113,6 +113,8 @@ public class ProjectManifest {
         private boolean prefersWaterfallFeed;
         private int maxAuxRailSections;
         private boolean prefersRealMedia;
+        private boolean requiresCategoryTabs;
+        private boolean requiresInteractiveFiltering;
         private boolean requiresSearch;
         private boolean requiresComposer;
         private boolean requiresDetailOverlay;
