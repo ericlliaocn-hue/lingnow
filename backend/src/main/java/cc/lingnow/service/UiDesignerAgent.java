@@ -8,9 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 
 /**
@@ -323,6 +321,21 @@ public class UiDesignerAgent {
         String contextDescription = pageSpec != null ?
                 "ARCHITECT'S PLAN: " + pageSpec.getDescription() + "\nEXPECTED COMPONENTS: " + String.join(", ", pageSpec.getComponents()) :
                 "Generate a standard view for this feature.";
+        boolean contentCommunity = isContentFirst(manifest) && isContentFirstRoute(route);
+        String benchmarkInstruction = contentCommunity
+                ? """
+                BENCHMARK MODE (content community):
+                - Align to Xiaohongshu / Pinterest-style discovery surfaces instead of a dashboard or portal.
+                - The main column MUST be the primary attention sink: dense, scrollable, image-first feed cards.
+                - Prefer masonry / waterfall rhythm or visibly varied card heights over a rigid equal-height grid.
+                - Keep auxiliary content light: at most 1-2 small supporting modules, never a giant strategy/control panel.
+                - DO NOT create a persistent left sidebar or internal portal navigation inside the page body; shell navigation already exists.
+                - DO NOT add a second sticky search toolbar or duplicate publish/search strip inside the page body.
+                - Keep any hero/intro compact and content-leading, not a massive landing-page billboard.
+                - Each card should feel social: creator avatar/name, topic tag, save/like/comment cues, and authentic photography.
+                - When mockData has cover/image/thumbUrl/avatar/gallery fields, USE them directly so the prototype shows realistic media.
+                """
+                : "";
 
         String systemPrompt = String.format("""
                 %s
@@ -339,9 +352,11 @@ public class UiDesignerAgent {
                   @click="selectedItem = item; hash = '#detail'" class="cursor-pointer"
                 - Use Alpine.js x-for loop to render from mockData array.
                 
+                %s
+                
                 REQUIRED WRAPPER (start your output with exactly this):
                 <div x-show="hash === '#%s'" class="animate-fade-in pb-8">
-                """, handbook, route.id, route.id, route.id);
+                """, handbook, route.id, route.id, benchmarkInstruction, route.id);
 
         String userPrompt = String.format("Feature: %s (Route: #%s)\n%s\nUser Intent: %s\nMock Data example: %s",
                 route.name, route.id, contextDescription, manifest.getUserIntent(), manifest.getMockData());
@@ -356,14 +371,14 @@ public class UiDesignerAgent {
     }
 
     private String ensureRenderableComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, String componentHtml) {
-        if (isRenderableComponent(route, componentHtml)) {
+        if (isRenderableComponent(manifest, route, componentHtml)) {
             return componentHtml;
         }
         log.warn("[Designer] Component for {} returned sparse or invalid markup. Using deterministic fallback.", route.id);
         return buildFallbackComponent(manifest, route, pageSpec);
     }
 
-    private boolean isRenderableComponent(Route route, String componentHtml) {
+    private boolean isRenderableComponent(ProjectManifest manifest, Route route, String componentHtml) {
         if (componentHtml == null) {
             return false;
         }
@@ -385,7 +400,20 @@ public class UiDesignerAgent {
         boolean hasFeedInteraction = lower.contains("selecteditem = item")
                 && (lower.contains("hash = '#detail'") || lower.contains("hash='#detail'"));
         if (isContentFirstRoute(route)) {
-            return visibleText.length() >= 120 && contentSignals > 0 && hasFeedInteraction && countOccurrences(lower, "<article") > 0;
+            int articleCount = countOccurrences(lower, "<article");
+            int asideCount = countOccurrences(lower, "<aside");
+            int stickyCount = countOccurrences(lower, "sticky top-");
+            boolean hasWaterfallRhythm = containsAny(lower, "columns-", "break-inside-avoid", "waterfall");
+            boolean hasPortalBias = asideCount > 1
+                    || stickyCount > 0
+                    || containsAny(lower, "grid grid-cols-12", "col-span-12 xl:col-span-2", "col-span-12 xl:col-span-3", "backdrop-blur border border-slate-200 shadow-sm p-5");
+            int minCards = manifest.getDesignContract() != null ? Math.max(4, manifest.getDesignContract().getMinPrimaryCards() - 1) : 4;
+            return visibleText.length() >= 120
+                    && contentSignals > 0
+                    && hasFeedInteraction
+                    && articleCount >= minCards
+                    && hasWaterfallRhythm
+                    && !hasPortalBias;
         }
         return visibleText.length() >= 120 && contentSignals > 0;
     }
@@ -400,184 +428,303 @@ public class UiDesignerAgent {
                 ? pageSpec.getDescription()
                 : manifest.getUserIntent());
         String chips = buildFallbackChips(pageSpec);
-        String layoutClass = contentFirst
-                ? "grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.9fr)]"
-                : "grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]";
-        String layoutBadge = zh ? "内容优先布局" : "Content-first layout";
-        String heroStatLabel = zh ? "今日浏览" : "Today views";
-        String featuredLabel = zh ? "精选内容" : "Featured items";
-        String actionLabel = zh ? "互动动作" : "Actions";
-        String recommendTitle = zh ? "为你推荐" : "Recommended for you";
-        String recommendSubtitle = zh ? "基于浏览、收藏与停留行为智能排序" : "Ranked by browse, save, and dwell signals.";
-        String heatNowLabel = zh ? "实时热度" : "Live heat";
-        String personalizedLabel = zh ? "个性化推荐" : "Personalized";
-        String searchTitle = zh ? "搜索" : "Search";
-        String searchHint = zh ? "热门关键词" : "Trending keywords";
-        String searchPlaceholder = zh ? "搜索笔记 / 作者 / 话题" : "Search posts / authors / topics";
-        String rankingTitle = zh ? "社区热榜" : "Trending";
-        String rankingLive = zh ? "实时" : "Live";
-        String rankingItemOne = zh ? "#本周精选" : "#Weekly picks";
-        String rankingItemOneDesc = zh ? "社区讨论上升中" : "Community discussion rising";
-        String rankingItemTwo = zh ? "#高赞笔记" : "#Most saved";
-        String rankingItemTwoDesc = zh ? "值得收藏的灵感合集" : "Collections worth saving";
-        String fallbackDescription = zh
-                ? "当前还没有结构化 mockData，这里先保留一个可工作的内容位。后续数据工程阶段会把信息流卡片、标签、作者、互动数据补齐。"
-                : "Structured mockData is not ready yet, so this stays as a working content slot until the data stage fills in feed cards, tags, authors, and engagement stats.";
-        String authorFallback = zh ? "LingNow 用户" : "LingNow user";
-        String categoryFallback = zh ? "精选推荐" : "Featured";
-        String cardTitleFallback = zh ? "精选内容卡片" : "Featured story";
-        String topicFallback = zh ? "#灵感推荐" : "#Recommended";
+        String layoutBadge = zh ? "灵感发现流" : "Discovery feed";
+        String followLabel = zh ? "关注" : "Follow";
+        String recommendTitle = zh ? "为你推荐" : "For you";
+        String recommendSubtitle = zh ? "像刷小红书一样往下翻，先看内容，再决定收藏与互动。" : "Scroll an inspiration feed first, then save, react, and dive deeper.";
+        String socialSignalOne = zh ? "高收藏" : "Most saved";
+        String socialSignalTwo = zh ? "实时热议" : "Live now";
+        String socialSignalThree = zh ? "图文 / 视频" : "Photo / Video";
+        String hotTopicTitle = zh ? "正在热议" : "Hot topics";
+        String hotTopicHint = zh ? "今天大家都在刷这些关键词" : "What people are saving right now";
+        String creatorPromptTitle = zh ? "创作者入口" : "Creator actions";
+        String creatorPromptBody = zh ? "发布新内容、查看收藏反馈、继续完善详情页闭环。" : "Publish, review saves, and keep the detail flow tight.";
+        String authorFallback = zh ? "LingNow 创作者" : "LingNow creator";
+        String locationFallback = zh ? "城市生活" : "Local picks";
+        String categoryFallback = zh ? "生活方式" : "Lifestyle";
+        String cardTitleFallback = zh ? "一条值得收藏的灵感笔记" : "A post worth saving";
+        String topicFallback = zh ? "今日灵感" : "Inspiration";
+        String timeFallback = zh ? "2小时前" : "2h ago";
+        String coverPool = buildRealMediaArrayJson(true);
+        String avatarPool = buildRealMediaArrayJson(false);
+        String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 6));
 
-        return String.format("""
-                        <div x-show="hash === '#%s'" class="animate-fade-in pb-8 space-y-6">
-                          <section class="rounded-[32px] border border-slate-200 bg-gradient-to-br from-white via-white to-rose-50/60 p-8 shadow-sm">
-                            <div class="flex flex-wrap items-center gap-3">
-                              <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">%s</span>
-                              <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">%s</span>
-                            </div>
-                            <div class="%s mt-6">
-                              <div class="space-y-5">
-                                <div class="space-y-3">
-                                  <h1 class="text-4xl font-black tracking-tight text-slate-900">%s</h1>
-                                  <p class="max-w-2xl text-base leading-8 text-slate-600">%s</p>
-                                </div>
-                                <div class="flex flex-wrap gap-3">%s</div>
-                              </div>
-                              <div class="grid grid-cols-3 gap-3">
-                                <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div class="text-xs text-slate-500">%s</div>
-                                  <div class="mt-2 text-3xl font-black text-slate-900">1.2k</div>
-                                </div>
-                                <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div class="text-xs text-slate-500">%s</div>
-                                  <div class="mt-2 text-3xl font-black text-slate-900">%d</div>
-                                </div>
-                                <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                                  <div class="text-xs text-slate-500">%s</div>
-                                  <div class="mt-2 text-3xl font-black text-slate-900">3</div>
-                                </div>
-                              </div>
-                            </div>
-                          </section>
-                        
-                          <section class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.9fr)]">
-                            <div class="space-y-5">
-                              <div class="flex items-center justify-between">
-                                <div>
-                                  <h2 class="text-2xl font-black text-slate-900">%s</h2>
-                                  <p class="mt-1 text-sm text-slate-500">%s</p>
-                                </div>
-                                <div class="hidden items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm ring-1 ring-slate-200 md:flex">
-                                  <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">%s</span>
-                                  <span class="rounded-full px-3 py-1 text-xs font-semibold text-slate-500">%s</span>
-                                </div>
-                              </div>
-                              <div class="grid gap-5 md:grid-cols-2">
-                                <template x-for="(item, index) in (Array.isArray(mockData) ? mockData.slice(0, %d) : [])" :key="index">
-                                  <article @click="selectedItem = item; hash = '#detail'" class="group cursor-pointer overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                                    <div class="aspect-[4/5] overflow-hidden bg-slate-100">
-                                      <img :src="item.cover || item.image || item.thumbUrl || 'https://placehold.co/900x1200/F8FAFC/0F172A?text=LingNow'" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                                    </div>
-                                    <div class="space-y-3 p-5">
-                                      <div class="flex items-center gap-3">
-                                        <img :src="item.avatar || 'https://placehold.co/64x64/FDE68A/111827?text=U'" class="h-9 w-9 rounded-full border border-slate-200 object-cover" />
-                                        <div class="min-w-0">
-                                          <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '%s'"></div>
-                                          <div class="truncate text-xs text-slate-500" x-text="item.category || item.tag || '%s'"></div>
-                                        </div>
-                                      </div>
-                                      <div>
-                                        <h3 class="line-clamp-2 text-lg font-bold text-slate-900" x-text="item.title || item.name || '%s'"></h3>
-                                        <p class="mt-2 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '%s'"></p>
-                                      </div>
-                                      <div class="flex items-center justify-between text-xs text-slate-500">
-                                        <span x-text="item.location || item.topic || '%s'"></span>
-                                        <div class="flex items-center gap-3">
-                                          <span x-text="item.likes || item.likeCount || '2.9w'"></span>
-                                          <span x-text="item.comments || item.commentCount || '1.6k'"></span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </article>
-                                </template>
-                                <div x-show="!Array.isArray(mockData) || mockData.length === 0" class="rounded-[28px] border border-dashed border-slate-300 bg-white/90 p-8 text-sm leading-7 text-slate-500">
-                                  %s
-                                </div>
-                              </div>
-                            </div>
-                        
-                            <aside class="space-y-5">
-                              <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-                                <div class="flex items-center justify-between">
-                                  <h3 class="text-xl font-black text-slate-900">%s</h3>
-                                  <span class="text-xs font-semibold text-slate-400">%s</span>
-                                </div>
-                                <div class="mt-4 rounded-2xl bg-slate-50 p-3">
-                                  <div class="flex items-center gap-2 text-slate-400">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                    <span class="text-sm">%s</span>
-                                  </div>
-                                </div>
-                                <div class="mt-4 flex flex-wrap gap-2">%s</div>
-                              </section>
-                              <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-                                <div class="flex items-center justify-between">
-                                  <h3 class="text-xl font-black text-slate-900">%s</h3>
-                                  <span class="text-xs font-semibold text-emerald-600">%s</span>
-                                </div>
-                                <div class="mt-4 space-y-3">
-                                  <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                                    <div>
-                                      <div class="text-sm font-semibold text-slate-900">%s</div>
-                                      <div class="mt-1 text-xs text-slate-500">%s</div>
-                                    </div>
-                                    <div class="text-sm font-black text-slate-900">12.8w</div>
-                                  </div>
-                                  <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-                                    <div>
-                                      <div class="text-sm font-semibold text-slate-900">%s</div>
-                                      <div class="mt-1 text-xs text-slate-500">%s</div>
-                                    </div>
-                                    <div class="text-sm font-black text-slate-900">9.6w</div>
-                                  </div>
-                                </div>
-                              </section>
-                            </aside>
-                          </section>
+        String component = """
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
+                  <section class="rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm">
+                    <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                      <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                          <span class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">__BADGE__</span>
+                          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__TITLE__</span>
                         </div>
-                        """,
-                route.id,
-                title,
-                contentFirst ? layoutBadge : (zh ? "稳定导航布局" : "Stable navigation layout"),
-                layoutClass,
-                title,
-                description,
-                chips,
-                heroStatLabel,
-                featuredLabel,
-                primaryCards,
-                actionLabel,
-                recommendTitle,
-                recommendSubtitle,
-                heatNowLabel,
-                personalizedLabel,
-                primaryCards,
-                authorFallback,
-                categoryFallback,
-                cardTitleFallback,
-                description,
-                topicFallback,
-                fallbackDescription,
-                searchTitle,
-                searchHint,
-                searchPlaceholder,
-                chips,
-                rankingTitle,
-                rankingLive,
-                rankingItemOne,
-                rankingItemOneDesc,
-                rankingItemTwo,
-                rankingItemTwoDesc);
+                        <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__TITLE__</h1>
+                        <p class="max-w-3xl text-sm leading-7 text-slate-600">__DESCRIPTION__</p>
+                        <div class="flex flex-wrap gap-3">__CHIPS__</div>
+                      </div>
+                      <div class="flex flex-wrap gap-3 text-sm">
+                        <span class="rounded-full bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">__SIGNAL_ONE__</span>
+                        <span class="rounded-full bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">__SIGNAL_TWO__</span>
+                        <span class="rounded-full bg-white px-4 py-2 font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">__SIGNAL_THREE__</span>
+                        <span class="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white">__PRIMARY_CARDS__</span>
+                      </div>
+                    </div>
+                  </section>
+                
+                  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+                    <div class="space-y-5">
+                      <div class="flex items-end justify-between gap-4">
+                        <div>
+                          <h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2>
+                          <p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p>
+                        </div>
+                        <div class="hidden items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm ring-1 ring-slate-200 md:flex">
+                          <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">__SIGNAL_ONE__</span>
+                          <span class="rounded-full px-3 py-1 text-xs font-semibold text-slate-500">__SIGNAL_TWO__</span>
+                        </div>
+                      </div>
+                
+                      <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
+                        <template x-for='(item, index) in ((Array.isArray(mockData) && mockData.length ? mockData : __SEEDED_FEED__).slice(0, __PRIMARY_CARDS__))' :key="(item.id || item.title || index) + '-' + index">
+                          <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                            <div class="overflow-hidden bg-slate-100" :class="index % 5 === 0 ? 'aspect-[4/6]' : (index % 5 === 1 ? 'aspect-[4/5]' : (index % 5 === 2 ? 'aspect-[4/4.8]' : (index % 5 === 3 ? 'aspect-[4/5.4]' : 'aspect-[4/6.2]')))">
+                              <img :src='item.cover || item.image || item.thumbUrl || __COVER_POOL__[index % __COVER_POOL__.length]' class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                            </div>
+                            <div class="space-y-3 p-4">
+                              <div class="flex items-center gap-3">
+                                <img :src='item.avatar || item.authorAvatar || __AVATAR_POOL__[index % __AVATAR_POOL__.length]' class="h-10 w-10 rounded-full border border-white object-cover shadow-sm" />
+                                <div class="min-w-0">
+                                  <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
+                                  <div class="truncate text-xs text-slate-500">
+                                    <span x-text="item.location || '__LOCATION_FALLBACK__'"></span>
+                                    <span class="mx-1">·</span>
+                                    <span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span>
+                                  </div>
+                                </div>
+                                <button class="ml-auto rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-500">__FOLLOW_LABEL__</button>
+                              </div>
+                
+                              <div>
+                                <h3 class="line-clamp-2 text-lg font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
+                                <p class="mt-2 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '__DESCRIPTION__'"></p>
+                              </div>
+                
+                              <div class="flex flex-wrap gap-2">
+                                <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__', item.category || '__CATEGORY_FALLBACK__']))" :key="tag + '-' + tagIndex">
+                                  <span class="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-500" x-text="'#' + tag"></span>
+                                </template>
+                              </div>
+                
+                              <div class="grid grid-cols-3 gap-2 rounded-2xl bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
+                                <div class="space-y-1">
+                                  <div class="font-semibold text-slate-900" x-text="item.likes || item.likeCount || '2.9w'"></div>
+                                  <div>点赞</div>
+                                </div>
+                                <div class="space-y-1">
+                                  <div class="font-semibold text-slate-900" x-text="item.comments || item.commentCount || '1.6k'"></div>
+                                  <div>评论</div>
+                                </div>
+                                <div class="space-y-1">
+                                  <div class="font-semibold text-slate-900" x-text="item.collects || item.saves || '8.4k'"></div>
+                                  <div>收藏</div>
+                                </div>
+                              </div>
+                            </div>
+                          </article>
+                        </template>
+                      </div>
+                    </div>
+                
+                    <aside class="space-y-4 xl:sticky xl:top-24">
+                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                          <div>
+                            <h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3>
+                            <p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p>
+                          </div>
+                          <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">Hot</span>
+                        </div>
+                        <div class="mt-4 space-y-3">
+                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#城市漫游</div>
+                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#今日妆容</div>
+                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#咖啡探店</div>
+                          <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800">#周末去哪儿</div>
+                        </div>
+                      </section>
+                
+                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-900">__CREATOR_PROMPT_TITLE__</h3>
+                        <p class="mt-2 text-sm leading-7 text-slate-500">__CREATOR_PROMPT_BODY__</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                          <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">发布</span>
+                          <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">收藏反馈</span>
+                          <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">详情闭环</span>
+                        </div>
+                      </section>
+                    </aside>
+                  </section>
+                </div>
+                """;
+
+        return component
+                .replace("__ID__", route.id)
+                .replace("__BADGE__", contentFirst ? layoutBadge : (zh ? "稳定导航布局" : "Stable navigation layout"))
+                .replace("__TITLE__", title)
+                .replace("__DESCRIPTION__", description)
+                .replace("__CHIPS__", chips)
+                .replace("__SIGNAL_ONE__", socialSignalOne)
+                .replace("__SIGNAL_TWO__", socialSignalTwo)
+                .replace("__SIGNAL_THREE__", socialSignalThree)
+                .replace("__PRIMARY_CARDS__", Integer.toString(primaryCards))
+                .replace("__RECOMMEND_TITLE__", recommendTitle)
+                .replace("__RECOMMEND_SUBTITLE__", recommendSubtitle)
+                .replace("__HOT_TOPIC_TITLE__", hotTopicTitle)
+                .replace("__HOT_TOPIC_HINT__", hotTopicHint)
+                .replace("__CREATOR_PROMPT_TITLE__", creatorPromptTitle)
+                .replace("__CREATOR_PROMPT_BODY__", creatorPromptBody)
+                .replace("__FOLLOW_LABEL__", followLabel)
+                .replace("__AUTHOR_FALLBACK__", authorFallback)
+                .replace("__LOCATION_FALLBACK__", locationFallback)
+                .replace("__CATEGORY_FALLBACK__", categoryFallback)
+                .replace("__CARD_TITLE_FALLBACK__", cardTitleFallback)
+                .replace("__TOPIC_FALLBACK__", topicFallback)
+                .replace("__TIME_FALLBACK__", timeFallback)
+                .replace("__COVER_POOL__", coverPool)
+                .replace("__AVATAR_POOL__", avatarPool)
+                .replace("__SEEDED_FEED__", seededFeed);
+    }
+
+    private String buildRealMediaArrayJson(boolean cover) {
+        List<String> media = cover
+                ? List.of(
+                "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200",
+                "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200",
+                "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200",
+                "https://images.unsplash.com/photo-1496747611176-843222e1e57c?q=80&w=1200",
+                "https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1200",
+                "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200",
+                "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1200",
+                "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1200"
+        )
+                : List.of(
+                "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256",
+                "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
+                "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256",
+                "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=256",
+                "https://images.unsplash.com/photo-1504257432389-52343af06ae3?q=80&w=256",
+                "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?q=80&w=256",
+                "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256",
+                "https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?q=80&w=256"
+        );
+        try {
+            return objectMapper.writeValueAsString(media);
+        } catch (Exception e) {
+            log.warn("[Designer] Failed to serialize seeded media array", e);
+            return "[]";
+        }
+    }
+
+    private String buildSeededFeedJson(boolean zh, int count) {
+        List<Map<String, Object>> cards = new ArrayList<>();
+        cards.add(seedCard(
+                "id", "seed-1",
+                "title", zh ? "上海法租界一日漫游路线，适合拍照也适合慢慢逛" : "A photo-friendly city walk through Shanghai's French Concession",
+                "author", zh ? "小鹿在上海" : "Lulu in Shanghai",
+                "avatar", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256",
+                "description", zh ? "把咖啡馆、街角书店和安静老洋房串成一条舒服路线，周末照着走就很出片。" : "A soft weekend route with cafés, bookstores, and old lanes that feels effortless on camera.",
+                "cover", "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200",
+                "location", zh ? "上海" : "Shanghai",
+                "time", zh ? "24分钟前" : "24m ago",
+                "likes", "2.9w",
+                "comments", "1741",
+                "collects", "2098",
+                "tags", List.of(zh ? "城市漫游" : "City walk", zh ? "法租界" : "Old lane", zh ? "出片路线" : "Photo route")
+        ));
+        cards.add(seedCard(
+                "id", "seed-2",
+                "title", zh ? "三分钟学会韩系清透妆，通勤也能很精神" : "A three-minute clean makeup routine for commuting days",
+                "author", zh ? "橘子美妆课" : "Glow Journal",
+                "avatar", "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256",
+                "description", zh ? "底妆轻一点、眼下提亮一点，通勤也能有干净的镜头感。" : "Lighter base, brighter under-eyes, and enough polish to feel camera-ready.",
+                "cover", "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200",
+                "location", zh ? "广州" : "Guangzhou",
+                "time", zh ? "1小时前" : "1h ago",
+                "likes", "1.8w",
+                "comments", "932",
+                "collects", "1608",
+                "tags", List.of(zh ? "今日妆容" : "Makeup", zh ? "通勤" : "Commute", zh ? "干净感" : "Clean look")
+        ));
+        cards.add(seedCard(
+                "id", "seed-3",
+                "title", zh ? "露营小盒子：深圳周末亲子露营清单" : "Weekend camping checklist for young families",
+                "author", zh ? "露营小盒子" : "Camp Notes",
+                "avatar", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
+                "description", zh ? "轻量装备、好收纳的餐具和夜晚保暖细节，一次整理齐全。" : "A lightweight family-ready camping kit with storage, meals, and nighttime warmth covered.",
+                "cover", "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200",
+                "location", zh ? "深圳" : "Shenzhen",
+                "time", zh ? "2小时前" : "2h ago",
+                "likes", "9.8k",
+                "comments", "614",
+                "collects", "1210",
+                "tags", List.of(zh ? "亲子露营" : "Family camp", zh ? "装备清单" : "Gear list", zh ? "本地生活" : "Local life")
+        ));
+        cards.add(seedCard(
+                "id", "seed-4",
+                "title", zh ? "一杯不晚：新手家庭咖啡角怎么搭" : "How to build a beginner-friendly home coffee corner",
+                "author", zh ? "一杯不晚" : "Coffee Route",
+                "avatar", "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256",
+                "description", zh ? "半自动和全自动咖啡机怎么选，预算、清洁和噪音一次说清楚。" : "Picking between semi-auto and super-auto with budget, maintenance, and noise in mind.",
+                "cover", "https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1200",
+                "location", zh ? "杭州" : "Hangzhou",
+                "time", zh ? "3小时前" : "3h ago",
+                "likes", "1.2w",
+                "comments", "802",
+                "collects", "1740",
+                "tags", List.of(zh ? "咖啡角" : "Coffee setup", zh ? "家居改造" : "Home upgrade", zh ? "好物清单" : "Gear picks")
+        ));
+        cards.add(seedCard(
+                "id", "seed-5",
+                "title", zh ? "成都人气火锅店排队攻略，少踩雷也能吃得尽兴" : "A better way to plan a hotpot night in Chengdu",
+                "author", zh ? "周末城市探索" : "City Notes",
+                "avatar", "https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?q=80&w=256",
+                "description", zh ? "营业时间、排号节奏、附近小吃和拍照位，出门前先看这一篇。" : "Timing, queue rhythm, nearby snacks, and where to sit before you head out.",
+                "cover", "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1200",
+                "location", zh ? "成都" : "Chengdu",
+                "time", zh ? "5小时前" : "5h ago",
+                "likes", "8.7k",
+                "comments", "503",
+                "collects", "1180",
+                "tags", List.of(zh ? "成都美食" : "Chengdu food", zh ? "排队攻略" : "Queue tips", zh ? "本地生活" : "Local life")
+        ));
+        cards.add(seedCard(
+                "id", "seed-6",
+                "title", zh ? "北京胡同咖啡地图：适合午后散步的 6 家店" : "Six hutong cafés perfect for an afternoon walk",
+                "author", zh ? "城市咖啡地图" : "Local Picks",
+                "avatar", "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=256",
+                "description", zh ? "从安静院子到有窗景的吧台，顺着地图慢慢逛会很舒服。" : "A slow café route with courtyards, window seats, and a soft walking pace.",
+                "cover", "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1200",
+                "location", zh ? "北京" : "Beijing",
+                "time", zh ? "6小时前" : "6h ago",
+                "likes", "1.4w",
+                "comments", "926",
+                "collects", "1863",
+                "tags", List.of(zh ? "胡同咖啡" : "Hutong café", zh ? "城市漫游" : "City walk", zh ? "周末去哪儿" : "Weekend picks")
+        ));
+
+        try {
+            return objectMapper.writeValueAsString(cards.subList(0, Math.min(cards.size(), Math.max(count, 4))));
+        } catch (Exception e) {
+            log.warn("[Designer] Failed to serialize seeded feed cards", e);
+            return "[]";
+        }
+    }
+
+    private Map<String, Object> seedCard(Object... keyValues) {
+        Map<String, Object> card = new LinkedHashMap<>();
+        for (int index = 0; index < keyValues.length; index += 2) {
+            card.put(String.valueOf(keyValues[index]), keyValues[index + 1]);
+        }
+        return card;
     }
 
     private String buildFallbackChips(ProjectManifest.PageSpec pageSpec) {

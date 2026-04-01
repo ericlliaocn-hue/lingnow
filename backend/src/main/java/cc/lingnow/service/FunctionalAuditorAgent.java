@@ -122,9 +122,41 @@ public class FunctionalAuditorAgent {
             if (articleCount == 0) {
                 blockers.add("Content-first homepage is missing visible article cards in the main feed.");
             }
+            if (articleCount < minPrimaryCards) {
+                blockers.add("Content-first homepage does not expose enough feed cards for a strong first screen.");
+            }
             if (!containsAny(mainLower, "selecteditem = item; hash = '#detail'", "selecteditem = item; hash='#detail'")) {
                 blockers.add("Content-first homepage is missing a valid detail handoff on feed cards.");
             }
+            if (contract != null && contract.isPrefersWaterfallFeed()
+                    && !containsAny(mainLower, "columns-", "break-inside-avoid", "waterfall")) {
+                blockers.add("Content-first homepage should use a waterfall / masonry feed rhythm instead of a rigid portal grid.");
+            }
+            if (countOccurrences(mainLower, "<aside") > 1
+                    || containsAny(mainLower, "grid grid-cols-12", "col-span-12 xl:col-span-2", "col-span-12 xl:col-span-3")) {
+                blockers.add("Content-first homepage still contains portal-like internal sidebars.");
+            }
+            if (countOccurrences(mainLower, "sticky top-") > 0) {
+                blockers.add("Content-first homepage still contains sticky in-body scaffolding that competes with the shell header.");
+            }
+            if (contract != null && contract.getMaxAuxRailSections() > 0) {
+                int auxSections = countOccurrences(mainLower, "data-aux-section=");
+                if (auxSections > contract.getMaxAuxRailSections()) {
+                    blockers.add("Auxiliary right-rail modules are too heavy for a feed-first community homepage.");
+                }
+            }
+            if (containsAny(mainLower, "推荐策略", "recommendation strategy", "strategy card")) {
+                blockers.add("Community homepage still contains dashboard-style strategy panels.");
+            }
+        }
+
+        if (contract != null && contract.isPrefersRealMedia()
+                && containsAny(mainLower, "placehold.co", "via.placeholder", "dummyimage.com")) {
+            blockers.add("Community homepage still uses placeholder imagery instead of authentic-looking media.");
+        }
+        String mockData = manifest.getMockData() == null ? "" : manifest.getMockData().toLowerCase(Locale.ROOT);
+        if (containsAny(mockData, "\"封面图\":\"封面_", "\"作者头像\":\"头像_", "\"cover\":\"封面_", "\"avatar\":\"头像_")) {
+            blockers.add("Mock data still contains non-URL media placeholders that will render as broken images.");
         }
 
         if (contract != null && contract.isRequiresSearch()

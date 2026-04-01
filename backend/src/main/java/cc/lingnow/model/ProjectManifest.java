@@ -110,6 +110,9 @@ public class ProjectManifest {
         private String contentMode;
         private int minPrimarySections;
         private int minPrimaryCards;
+        private boolean prefersWaterfallFeed;
+        private int maxAuxRailSections;
+        private boolean prefersRealMedia;
         private boolean requiresSearch;
         private boolean requiresComposer;
         private boolean requiresDetailOverlay;

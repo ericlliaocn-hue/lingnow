@@ -148,11 +148,14 @@ public class ManifestContractValidator {
                 .contentMode(contentMode)
                 .minPrimarySections((int) Math.max(1, Math.min(primaryCount, 4)))
                 .minPrimaryCards(contentCommunity ? 6 : ("CONTENT_FIRST".equals(contentMode) ? 4 : 2))
+                .prefersWaterfallFeed(contentCommunity)
+                .maxAuxRailSections(contentCommunity ? 2 : 3)
+                .prefersRealMedia(contentCommunity)
                 .requiresSearch(requiresSearch)
                 .requiresComposer(requiresComposer)
                 .requiresDetailOverlay(requiresDetailOverlay)
                 .validationNotes(contentCommunity
-                        ? "Community/content archetype requires a feed-first homepage with visible cards and detail handoff."
+                        ? "Community/content archetype requires a feed-first homepage with visible cards, waterfall rhythm, authentic imagery, and a light auxiliary rail."
                         : "Normalized by contract validator")
                 .build();
     }

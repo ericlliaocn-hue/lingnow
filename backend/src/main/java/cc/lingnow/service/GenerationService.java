@@ -83,6 +83,7 @@ public class GenerationService {
             manifest.setMindMap(overriddenMindMap);
         }
         manifestContractValidator.normalize(manifest);
+        dataEngineerAgent.normalizeExistingData(manifest);
         manifest.getMetaData().put("design_ready", "false");
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
@@ -112,6 +113,7 @@ public class GenerationService {
             manifest.getMetaData().put("lang", lang);
         }
         manifestContractValidator.normalize(manifest);
+        dataEngineerAgent.normalizeExistingData(manifest);
         manifest.getMetaData().put("design_ready", "false");
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
