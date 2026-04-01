@@ -957,11 +957,14 @@ public class UiDesignerAgent {
         String avatarPool = buildRealMediaArrayJson(false, profile);
         String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 6), profile);
         String hotTopics = buildHotTopicsJson(zh, profile);
-        return """
+        String color = profile.vibeColor();
+        String accentColor = color.replace("-500", "").replace("-400", "");
+
+        String html = """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
                   <!-- AI Hydration Indicator -->
                   <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center justify-between">
-                    <div class="flex items-center gap-2 px-3 py-1.5 bg-rose-500/90 backdrop-blur shadow-lg shadow-rose-200 border border-rose-400 rounded-full">
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-__ACCENT__/90 backdrop-blur shadow-lg shadow-__ACCENT__/20 border border-__ACCENT__/30 rounded-full">
                       <span class="flex h-2 w-2 relative">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                         <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
@@ -969,11 +972,11 @@ public class UiDesignerAgent {
                       <span class="text-[10px] font-black text-white uppercase tracking-widest">AI Polishing in Progress</span>
                     </div>
                   </div>
-                  <section class="rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm">
+                  <section class="rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-sm">
                     <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                       <div class="space-y-3">
                         <div class="flex flex-wrap items-center gap-3">
-                          <span class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">__BADGE__</span>
+                          <span class="inline-flex items-center rounded-full bg-__ACCENT__/10 px-3 py-1 text-xs font-semibold text-__ACCENT__">__BADGE__</span>
                           <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__SURFACE_LABEL__</span>
                         </div>
                         <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
@@ -992,42 +995,40 @@ public class UiDesignerAgent {
                     </div>
                   </section>
                   <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-                    <div class="space-y-5">
+                    <div class="space-y-4">
                       <div class="flex items-end justify-between gap-4">
-                        <div>
-                          <h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2>
-                          <p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p>
-                        </div>
+                        <div><h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2><p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p></div>
                       </div>
                       <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
                         <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
-                          <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                          <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
                             <div class="overflow-hidden bg-slate-100" :class="index % 5 === 0 ? 'aspect-[4/6]' : (index % 5 === 1 ? 'aspect-[4/5]' : (index % 5 === 2 ? 'aspect-[4/4.8]' : (index % 5 === 3 ? 'aspect-[4/5.4]' : 'aspect-[4/6.2]')))">
                               <img :src='item.cover || item.image || item.thumbUrl || __COVER_POOL__[index % __COVER_POOL__.length]' class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                             </div>
                             <div class="space-y-3 p-4">
                               <div class="flex items-center gap-3">
                                 <img :src='item.avatar || item.authorAvatar || __AVATAR_POOL__[index % __AVATAR_POOL__.length]' class="h-10 w-10 rounded-full border border-white object-cover shadow-sm" />
-                                <div class="min-w-0">
+                                <div class="min-w-0 flex-1">
                                   <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
-                                  <div class="truncate text-xs text-slate-500"><span x-text="item.location || '__LOCATION_FALLBACK__'"></span><span class="mx-1">·</span><span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span></div>
+                                  <div class="truncate text-[10px] text-slate-500"><span x-text="item.location || '__LOCATION_FALLBACK__'"></span><span class="mx-1">·</span><span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span></div>
                                 </div>
-                                <button class="ml-auto rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-500">__FOLLOW_LABEL__</button>
+                                <button class="ml-auto rounded-full bg-__ACCENT__/10 px-3 py-1 text-[10px] font-bold text-__ACCENT__">__FOLLOW_LABEL__</button>
                               </div>
                               <div>
-                                <h3 class="line-clamp-2 text-lg font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
-                                <p class="mt-2 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '__DESCRIPTION__'"></p>
+                                <h3 class="line-clamp-2 text-base font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
+                                <p class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500" x-text="item.description || item.content || item.summary || '__DESCRIPTION__'"></p>
                               </div>
                               <div class="flex flex-wrap gap-2">
-                                <span class="rounded-full bg-slate-900/90 px-3 py-1 text-[11px] font-semibold text-white" x-text="item.mediaType || item.contentType || '__SIGNAL_THREE__'"></span>
-                                <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__', item.category || '__CATEGORY_FALLBACK__']))" :key="tag + '-' + tagIndex">
-                                  <span class="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-500" x-text="'#' + tag"></span>
+                                <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 2) : [item.topic || '__TOPIC_FALLBACK__']))" :key="tag + '-' + tagIndex">
+                                  <span class="rounded-full bg-__ACCENT__/5 px-2 py-0.5 text-[10px] font-semibold text-__ACCENT__" x-text="'#' + tag"></span>
                                 </template>
                               </div>
-                              <div class="grid grid-cols-3 gap-2 rounded-2xl bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
-                                <div class="space-y-1"><div class="font-semibold text-slate-900" x-text="item.likes || item.likeCount || '2.9w'"></div><div>点赞</div></div>
-                                <div class="space-y-1"><div class="font-semibold text-slate-900" x-text="item.comments || item.commentCount || '1.6k'"></div><div>评论</div></div>
-                                <div class="space-y-1"><div class="font-semibold text-slate-900" x-text="item.collects || item.saves || '8.4k'"></div><div>收藏</div></div>
+                              <div class="flex items-center justify-between pt-2 border-t border-slate-50 text-[10px] text-slate-400">
+                                <div class="flex items-center gap-3">
+                                  <span class="flex items-center gap-1"><span x-text="item.likes || '2.9w'"></span><span class="scale-75">❤️</span></span>
+                                  <span class="flex items-center gap-1"><span x-text="item.comments || '1.6k'"></span><span class="scale-75">💬</span></span>
+                                </div>
+                                <span class="rounded-full bg-slate-900 text-white px-2 py-0.5 scale-90" x-text="item.mediaType || 'Video'"></span>
                               </div>
                             </div>
                           </article>
@@ -1035,10 +1036,10 @@ public class UiDesignerAgent {
                       </div>
                     </div>
                     <aside class="space-y-4 xl:sticky xl:top-24">
-                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                      <section data-aux-section="true" class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
                         <div class="flex items-center justify-between">
                           <div><h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3><p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p></div>
-                          <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">Hot</span>
+                          <span class="rounded-full bg-__ACCENT__/10 px-3 py-1 text-xs font-semibold text-__ACCENT__">Hot</span>
                         </div>
                         <div class="mt-4 space-y-3">
                           <template x-for="topic in __HOT_TOPICS__" :key="topic">
@@ -1050,7 +1051,9 @@ public class UiDesignerAgent {
                   </section>
                 </div>
                 """
-                .replace("__ID__", route.id)
+                .replace("__ACCENT__", accentColor);
+
+        return html.replace("__ID__", route.id)
                 .replace("__BADGE__", zh ? "当前社区首页" : "Current community home")
                 .replace("__SURFACE_LABEL__", zh ? profile.surfaceLabelZh() : profile.surfaceLabelEn())
                 .replace("__HERO_TITLE__", zh ? profile.heroTitleZh() : profile.heroTitleEn())
@@ -1087,20 +1090,23 @@ public class UiDesignerAgent {
         String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
         String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 4), profile);
         String hotTopics = buildHotTopicsJson(zh, profile);
+        String color = profile.vibeColor();
+        String accentColor = color.replace("-500", "").replace("-400", "");
+
         String html = """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
                   <!-- AI Hydration Indicator -->
-                  <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center gap-2 px-3 py-1.5 w-fit bg-slate-900/90 backdrop-blur shadow-lg border border-slate-700 rounded-full">
+                  <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center gap-2 px-3 py-1.5 w-fit bg-__ACCENT__/90 backdrop-blur shadow-lg border border-__ACCENT__/30 rounded-full">
                     <span class="flex h-2 w-2 relative">
-                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                      <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-400"></span>
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                     </span>
                     <span class="text-[10px] font-black text-white uppercase tracking-widest">AI Hydrating Details</span>
                   </div>
-                  <section class="rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm">
+                  <section class="rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-sm">
                     <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                       <div class="space-y-3">
-                        <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">__SURFACE_LABEL__</span>
+                        <span class="inline-flex items-center rounded-full bg-__ACCENT__/10 px-3 py-1 text-xs font-semibold text-__ACCENT__">__SURFACE_LABEL__</span>
                         <h1 class="max-w-4xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
                         <p class="max-w-4xl text-sm leading-7 text-slate-600">__HERO_DESCRIPTION__</p>
                       </div>
@@ -1116,7 +1122,7 @@ public class UiDesignerAgent {
                       <div class="flex items-end justify-between gap-4">
                         <div><h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2><p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p></div>
                       </div>
-                      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                      <div class="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
                         <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
                           <article @click="selectedItem = item; hash = '#detail'" class="cursor-pointer border-b border-slate-100 p-5 transition hover:bg-slate-50 last:border-b-0">
                             <div class="flex gap-4">
@@ -1133,13 +1139,13 @@ public class UiDesignerAgent {
                                 <div class="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
                                   <span class="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700" x-text="item.mediaType || item.contentType || '__SIGNAL_THREE__'"></span>
                                   <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__']))" :key="tag + '-' + tagIndex">
-                                    <span class="rounded-full bg-slate-100 px-3 py-1" x-text="'#' + tag"></span>
+                                    <span class="rounded-full bg-__ACCENT__/5 px-3 py-1 text-__ACCENT__ font-semibold" x-text="'#' + tag"></span>
                                   </template>
                                 </div>
-                                <div class="mt-4 flex items-center gap-5 text-xs text-slate-500">
-                                  <span x-text="'__SIGNAL_ONE__: ' + (item.collects || item.saves || '1.2k')"></span>
-                                  <span x-text="'__SIGNAL_TWO__: ' + (item.comments || item.commentCount || '320')"></span>
-                                  <span x-text="'__SIGNAL_THREE__: ' + (item.likes || item.likeCount || '2.4k')"></span>
+                                <div class="mt-4 flex items-center gap-5 text-[11px] text-slate-400 font-medium">
+                                  <span class="flex items-center gap-1">__SIGNAL_ONE__: <span class="text-slate-900" x-text="(item.collects || item.saves || '1.2k')"></span></span>
+                                  <span class="flex items-center gap-1">__SIGNAL_TWO__: <span class="text-slate-900" x-text="(item.comments || item.commentCount || '320')"></span></span>
+                                  <span class="flex items-center gap-1">__SIGNAL_THREE__: <span class="text-slate-900" x-text="(item.likes || item.likeCount || '2.4k')"></span></span>
                                 </div>
                               </div>
                               <div class="hidden w-40 shrink-0 overflow-hidden rounded-2xl bg-slate-100 lg:block" x-show="item.cover || item.image || item.thumbUrl">
@@ -1151,10 +1157,13 @@ public class UiDesignerAgent {
                       </div>
                     </div>
                     <aside class="space-y-4">
-                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                        <h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3>
-                        <p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p>
-                        <div class="mt-4 space-y-3">
+                      <section data-aux-section="true" class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                           <h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3>
+                           <span class="rounded-full bg-__ACCENT__/10 px-2 py-0.5 text-[10px] font-bold text-__ACCENT__">Trends</span>
+                        </div>
+                        <p class="mb-4 text-xs text-slate-500">__HOT_TOPIC_HINT__</p>
+                        <div class="space-y-3">
                           <template x-for="topic in __HOT_TOPICS__" :key="topic">
                             <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100" x-text="'#' + topic"></button>
                           </template>
@@ -1163,7 +1172,8 @@ public class UiDesignerAgent {
                     </aside>
                   </section>
                 </div>
-                """;
+                """
+                .replace("__ACCENT__", accentColor);
 
         return html.replace("__ID__", route.id)
                 .replace("__SURFACE_LABEL__", zh ? profile.surfaceLabelZh() : profile.surfaceLabelEn())
@@ -1189,18 +1199,31 @@ public class UiDesignerAgent {
 
     private ShapeSurfaceProfile buildShapeSurfaceProfile(ProjectManifest manifest) {
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        String intent = manifest.getUserIntent() != null ? manifest.getUserIntent().toLowerCase(Locale.ROOT) : "";
+        
         ProjectManifest.LayoutRhythm layout = contract != null && contract.getLayoutRhythm() != null ? contract.getLayoutRhythm() : ProjectManifest.LayoutRhythm.COMPACT_CARD;
         ProjectManifest.PrimaryGoal primaryGoal = contract != null && contract.getPrimaryGoal() != null ? contract.getPrimaryGoal() : ProjectManifest.PrimaryGoal.READ;
         ProjectManifest.UiTone uiTone = contract != null && contract.getUiTone() != null ? contract.getUiTone() : ProjectManifest.UiTone.PROFESSIONAL;
         ProjectManifest.MediaWeight mediaWeight = contract != null && contract.getMediaWeight() != null ? contract.getMediaWeight() : ProjectManifest.MediaWeight.MIXED;
-        boolean discoveryLikeSurface = primaryGoal == ProjectManifest.PrimaryGoal.DISCOVER
+
+        // Force Waterfall for known visual discovery intents
+        boolean forceWaterfall = containsAny(intent, "小红书", "xiaohongshu", "瀑布流", "waterfall", "pinterest", "instagram", "发现", "discovery");
+        if (forceWaterfall) {
+            layout = ProjectManifest.LayoutRhythm.WATERFALL;
+            mediaWeight = ProjectManifest.MediaWeight.VISUAL_HEAVY;
+        }
+
+        boolean discoveryLikeSurface = forceWaterfall || (primaryGoal == ProjectManifest.PrimaryGoal.DISCOVER
                 && (uiTone == ProjectManifest.UiTone.LIVELY
                 || uiTone == ProjectManifest.UiTone.PLAZA
-                || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY);
+                || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY));
+
+        String vibeColor = detectVibeColor(manifest);
 
         if (layout == ProjectManifest.LayoutRhythm.WATERFALL || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY || discoveryLikeSurface) {
             return new ShapeSurfaceProfile(
                     layout,
+                    vibeColor,
                     List.of("推荐", "风格", "体验", "旅行", "生活"),
                     List.of("For you", "Style", "Experiences", "Travel", "Life"),
                     List.of("城市漫游", "今日灵感", "热门清单", "周末去处"),
@@ -1228,6 +1251,7 @@ public class UiDesignerAgent {
         if (layout == ProjectManifest.LayoutRhythm.THREAD || primaryGoal == ProjectManifest.PrimaryGoal.DISCUSS) {
             return new ShapeSurfaceProfile(
                     layout,
+                    vibeColor,
                     List.of("推荐", "最新", "精华", "版块", "问答"),
                     List.of("For you", "Latest", "Best", "Boards", "Q&A"),
                     List.of("热门帖子", "高质量回复", "最新更新", "技术问答"),
@@ -1254,6 +1278,7 @@ public class UiDesignerAgent {
 
         return new ShapeSurfaceProfile(
                 layout,
+                vibeColor,
                 List.of("推荐", "前端", "后端", "人工智能", "架构"),
                 List.of("For you", "Frontend", "Backend", "AI", "Architecture"),
                 List.of("AI 编程", "系统设计", "工程效率", "开源实践"),
@@ -1384,11 +1409,23 @@ public class UiDesignerAgent {
                 zh ? "评论" : "Comments");
     }
 
+    private String detectVibeColor(ProjectManifest manifest) {
+        String intent = manifest.getUserIntent() != null ? manifest.getUserIntent().toLowerCase(Locale.ROOT) : "";
+        if (containsAny(intent, "粉", "pink", "rose", "lively", "活泼", "小红书", "xhs", "xiaohongshu"))
+            return "rose-500";
+        if (containsAny(intent, "蓝", "blue", "ocean", "sky", "专业", "professional")) return "indigo-500";
+        if (containsAny(intent, "绿", "green", "nature", "forest", "fresh", "清新")) return "emerald-500";
+        if (containsAny(intent, "黄", "yellow", "gold", "warm", "温馨")) return "amber-500";
+        if (containsAny(intent, "黑", "dark", "night", "luxury", "高级")) return "slate-900";
+        return "indigo-500"; // Default
+    }
+
     /**
      * Internal Route metadata
      */
     private record ShapeSurfaceProfile(
             ProjectManifest.LayoutRhythm layoutRhythm,
+            String vibeColor,
             List<String> categoriesZh,
             List<String> categoriesEn,
             List<String> hotTopicsZh,
