@@ -2,6 +2,7 @@ package cc.lingnow.service;
 
 import cc.lingnow.llm.LlmClient;
 import cc.lingnow.model.ProjectManifest;
+import cc.lingnow.util.JsonUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -95,44 +96,7 @@ public class ProductArchitectAgent {
             log.debug("Architect LLM raw response: {}", response);
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
-            // Set Archetype and Mindmap
-            manifest.setArchetype(root.path("archetype").asText("DASHBOARD"));
-            manifest.setOverview(root.path("overview").asText("Application Overview"));
-            manifest.setMindMap(root.path("mindMap").asText());
-
-            // Parse features
-            List<ProjectManifest.Feature> features = new ArrayList<>();
-            root.path("features").forEach(f -> {
-                features.add(ProjectManifest.Feature.builder()
-                        .name(f.path("name").asText())
-                        .description(f.path("description").asText())
-                        .priority(ProjectManifest.Feature.Priority.valueOf(f.path("priority").asText("MEDIUM").toUpperCase()))
-                        .build());
-            });
-            manifest.setFeatures(features);
-
-            // Parse pages
-            List<ProjectManifest.PageSpec> pages = new ArrayList<>();
-            root.path("pages").forEach(p -> {
-                List<String> components = new ArrayList<>();
-                p.path("components").forEach(c -> components.add(c.asText()));
-                
-                pages.add(ProjectManifest.PageSpec.builder()
-                        .route(p.path("route").asText())
-                        .description(p.path("description").asText())
-                        .navType(p.path("navType").asText("NAV_ANCHOR"))
-                        .navRole(p.path("navRole").asText("PRIMARY"))
-                        .components(components)
-                        .build());
-            });
-            manifest.setPages(pages);
-
-            // Parse and Save Task Flows to MetaData
-            if (!root.path("taskFlows").isMissingNode()) {
-                if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
-                manifest.getMetaData().put("taskFlows", root.path("taskFlows").toString());
-                log.info("[Architect] Defined {} Task Flows for verification.", root.path("taskFlows").size());
-            }
+            applyArchitecture(manifest, root);
             
             log.info("Architect analysis complete. Total features: {}, pages: {}", 
                 manifest.getFeatures() != null ? manifest.getFeatures().size() : 0, 
@@ -162,12 +126,14 @@ public class ProductArchitectAgent {
                 4. DATA FIDELITY: Ensure 5+ specific data fields per component (e.g. thumbUrl, authorBadge, readTime).
                 
                 CURRENT PRD:
+                User Intent: %s
                 Mindmap: %s
                 Pages: %s
+                Task Flows: %s
                 
                 OUTPUT: If perfect, respond with "STABLE". If not, respond with the UPDATED JSON only (same schema as Architect).
                 5. LANGUAGE: %s
-                """, manifest.getUserIntent(), manifest.getMindMap(), manifest.getPages().toString(), langInstruction);
+                """, manifest.getUserIntent(), manifest.getMindMap(), manifest.getPages().toString(), manifest.getTaskFlows(), langInstruction);
 
         try {
             String response = llmClient.chat(auditPrompt, "Audit and Refine requested.");
@@ -180,23 +146,7 @@ public class ProductArchitectAgent {
             log.info("[Architect] Audit found gaps. Applying Genetic Patch to PRD...");
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
-            if (!root.path("mindMap").isMissingNode()) {
-                manifest.setMindMap(root.path("mindMap").asText());
-            }
-            // Update pages if refined
-            if (!root.path("pages").isMissingNode()) {
-                List<ProjectManifest.PageSpec> pages = new ArrayList<>();
-                root.path("pages").forEach(p -> {
-                    List<String> components = new ArrayList<>();
-                    p.path("components").forEach(c -> components.add(c.asText()));
-                    pages.add(ProjectManifest.PageSpec.builder()
-                            .route(p.path("route").asText())
-                            .description(p.path("description").asText())
-                            .components(components)
-                            .build());
-                });
-                manifest.setPages(pages);
-            }
+            applyArchitecture(manifest, root);
             log.info("[Architect] PRD Refined successfully.");
 
         } catch (Exception e) {
@@ -213,5 +163,75 @@ public class ProductArchitectAgent {
             return cleaned.substring(firstBrace, lastBrace + 1);
         }
         return "{}";
+    }
+
+    private void applyArchitecture(ProjectManifest manifest, JsonNode root) {
+        if (!root.path("archetype").isMissingNode()) {
+            manifest.setArchetype(root.path("archetype").asText("DASHBOARD"));
+        }
+        if (!root.path("overview").isMissingNode()) {
+            manifest.setOverview(root.path("overview").asText("Application Overview"));
+        }
+        if (!root.path("mindMap").isMissingNode()) {
+            manifest.setMindMap(root.path("mindMap").asText());
+        }
+        if (!root.path("features").isMissingNode()) {
+            manifest.setFeatures(parseFeatures(root.path("features")));
+        }
+        if (!root.path("pages").isMissingNode()) {
+            manifest.setPages(parsePages(root.path("pages")));
+        }
+        if (!root.path("taskFlows").isMissingNode()) {
+            List<ProjectManifest.TaskFlow> taskFlows = parseTaskFlows(root.path("taskFlows"));
+            manifest.setTaskFlows(taskFlows);
+            if (manifest.getMetaData() == null) {
+                manifest.setMetaData(new HashMap<>());
+            }
+            manifest.getMetaData().put("taskFlows", JsonUtils.toJson(taskFlows));
+            log.info("[Architect] Defined {} Task Flows for verification.", taskFlows.size());
+        }
+    }
+
+    private List<ProjectManifest.Feature> parseFeatures(JsonNode featureNodes) {
+        List<ProjectManifest.Feature> features = new ArrayList<>();
+        featureNodes.forEach(featureNode -> {
+            features.add(ProjectManifest.Feature.builder()
+                    .name(featureNode.path("name").asText())
+                    .description(featureNode.path("description").asText())
+                    .priority(ProjectManifest.Feature.Priority.valueOf(featureNode.path("priority").asText("MEDIUM").toUpperCase()))
+                    .build());
+        });
+        return features;
+    }
+
+    private List<ProjectManifest.PageSpec> parsePages(JsonNode pageNodes) {
+        List<ProjectManifest.PageSpec> pages = new ArrayList<>();
+        pageNodes.forEach(pageNode -> {
+            List<String> components = new ArrayList<>();
+            pageNode.path("components").forEach(componentNode -> components.add(componentNode.asText()));
+
+            pages.add(ProjectManifest.PageSpec.builder()
+                    .route(pageNode.path("route").asText())
+                    .description(pageNode.path("description").asText())
+                    .navType(pageNode.path("navType").asText("NAV_ANCHOR"))
+                    .navRole(pageNode.path("navRole").asText("PRIMARY"))
+                    .components(components)
+                    .build());
+        });
+        return pages;
+    }
+
+    private List<ProjectManifest.TaskFlow> parseTaskFlows(JsonNode taskFlowNodes) {
+        List<ProjectManifest.TaskFlow> taskFlows = new ArrayList<>();
+        taskFlowNodes.forEach(taskFlowNode -> {
+            List<String> steps = new ArrayList<>();
+            taskFlowNode.path("steps").forEach(stepNode -> steps.add(stepNode.asText()));
+            taskFlows.add(ProjectManifest.TaskFlow.builder()
+                    .id(taskFlowNode.path("id").asText())
+                    .description(taskFlowNode.path("description").asText())
+                    .steps(steps)
+                    .build());
+        });
+        return taskFlows;
     }
 }

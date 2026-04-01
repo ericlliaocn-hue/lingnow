@@ -93,6 +93,8 @@ public class ManifestRegistry {
                 .metaDataJson(JsonUtils.toJson(m.getMetaData()))
                 .techStackJson(JsonUtils.toJson(m.getTechStack()))
                 .mindMap(m.getMindMap())
+                .taskFlowsJson(JsonUtils.toJson(m.getTaskFlows()))
+                .designContractJson(JsonUtils.toJson(m.getDesignContract()))
                 .mockData(m.getMockData())
                 .uxStrategyJson(JsonUtils.toJson(m.getUxStrategy()))
                 .archetype(m.getArchetype())
@@ -122,6 +124,10 @@ public class ManifestRegistry {
                 .techStack(JsonUtils.fromJson(e.getTechStackJson(), new TypeReference<>() {
                 }))
                 .mindMap(e.getMindMap())
+                .taskFlows(JsonUtils.fromJson(e.getTaskFlowsJson(), new TypeReference<>() {
+                }))
+                .designContract(JsonUtils.fromJson(e.getDesignContractJson(), new TypeReference<>() {
+                }))
                 .mockData(e.getMockData())
                 .uxStrategy(JsonUtils.fromJson(e.getUxStrategyJson(), new TypeReference<>() {
                 }))

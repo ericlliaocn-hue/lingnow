@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 
 /**
@@ -101,7 +102,12 @@ public class UiDesignerAgent {
                 }
                 ProjectManifest.PageSpec pageSpec = findPageSpec(manifest, route);
                 log.info("Generating component for: {} (#{}) using Context: {}", route.name, route.id, (pageSpec != null));
-                String componentHtml = generateComponent(manifest, route, pageSpec, lang);
+                String componentHtml = ensureRenderableComponent(
+                        manifest,
+                        route,
+                        pageSpec,
+                        generateComponent(manifest, route, pageSpec, lang)
+                );
                 contentSlots.append(componentHtml).append("\n");
                 count++;
             }
@@ -222,7 +228,8 @@ public class UiDesignerAgent {
     }
 
     private String generateShell(ProjectManifest manifest, List<Route> routes, String lang) {
-        String template = readResource("/templates/StandardShell.html");
+        boolean contentFirst = isContentFirst(manifest);
+        String template = readResource(contentFirst ? "/templates/ContentFirstShell.html" : "/templates/StandardShell.html");
         String handbook = loadHandbook();
 
         // Categorize routes by navRole
@@ -232,6 +239,20 @@ public class UiDesignerAgent {
             String role = (spec != null && spec.getNavRole() != null) ? spec.getNavRole() : "PRIMARY";
             navContext.append(String.format("- Route: #%s, Name: %s, Role: %s\n", r.id, r.name, role));
         }
+
+        String navPlacementInstruction = contentFirst
+                ? """
+                PRIMARY NAV MODE:
+                - Generate compact horizontal pill navigation for PRIMARY routes.
+                - Each PRIMARY link SHOULD look like a discover/feed tab instead of a tall sidebar item.
+                - Each PRIMARY link: <a @click="hash='#ID'" :class="hash==='#ID'?'bg-rose-500 text-white shadow-lg shadow-rose-100':'bg-white text-slate-600'" class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold border border-slate-200 transition-all">
+                """
+                : """
+                SIDEBAR PURITY RULE:
+                - ONLY generate <a> tags for routes with 'Role: PRIMARY'.
+                - UTILITY and PERSONAL roles MUST NOT appear in the sidebar.
+                - Each sidebar link: <a @click="hash='#ID'" :class="hash==='#ID'?'bg-rose-50 text-rose-600 font-semibold':''" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm">
+                """;
 
         String systemPrompt = String.format("""
                 %s
@@ -243,16 +264,13 @@ public class UiDesignerAgent {
                 - Output ONLY a JSON object with these four string keys: logo, sidebar, utility, personal.
                 - Each value is an HTML FRAGMENT (a few tags, not a full document).
                 
-                SIDEBAR PURITY RULE:
-                - ONLY generate <a> tags for routes with 'Role: PRIMARY'.
-                - UTILITY and PERSONAL roles MUST NOT appear in the sidebar.
-                - Each sidebar link: <a @click="hash='#ID'" :class="hash==='#ID'?'bg-rose-50 text-rose-600 font-semibold':''" class="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm">
+                %s
                 
                 DESIGN DNA: %s
                 
                 JSON OUTPUT FORMAT (respond ONLY with this, no extra text):
                 {"logo": "<HTML_FRAGMENT>", "sidebar": "<HTML_FRAGMENT>", "utility": "<HTML_FRAGMENT>", "personal": "<HTML_FRAGMENT>"}
-                """, handbook, getDynamicDNA(manifest));
+                """, handbook, navPlacementInstruction, getDynamicDNA(manifest));
 
         String userPrompt = String.format("Architecture Context:\n%s\nLanguage: %s", navContext, lang);
 
@@ -265,16 +283,16 @@ public class UiDesignerAgent {
             String utilityHtml = root.path("utility").asText();
             String personalHtml = root.path("personal").asText();
 
-            // Validate: if sidebar is empty or JSON parse failed, use a safe fallback
-            if (sidebarHtml.isBlank()) {
+            sidebarHtml = normalizeHtmlFragment(sidebarHtml);
+            utilityHtml = normalizeHtmlFragment(utilityHtml);
+            personalHtml = normalizeHtmlFragment(personalHtml);
+            logoHtml = normalizeHtmlFragment(logoHtml);
+
+            if (contentFirst) {
+                sidebarHtml = buildFallbackPrimaryNav(routes, true);
+            } else if (sidebarHtml.isBlank()) {
                 log.warn("[Designer] Shell JSON parse returned empty sidebar. Using safe fallback nav.");
-                StringBuilder fallbackNav = new StringBuilder();
-                for (Route r : routes) {
-                    fallbackNav.append(String.format(
-                            "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
-                            r.id, r.id, r.name));
-                }
-                sidebarHtml = fallbackNav.toString();
+                sidebarHtml = buildFallbackPrimaryNav(routes, contentFirst);
             }
             if (logoHtml.isBlank())
                 logoHtml = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
@@ -290,17 +308,11 @@ public class UiDesignerAgent {
         } catch (Exception e) {
             log.error("Shell fragment generation failed, using minimal safe fallback shell", e);
             // Safe fallback: build sidebar from routes list directly
-            StringBuilder fallbackNav = new StringBuilder();
-            for (Route r : routes) {
-                fallbackNav.append(String.format(
-                        "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
-                        r.id, r.id, r.name));
-            }
             String safeLogo = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
             return template
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
                     .replace("{{LOGO_AREA}}", safeLogo)
-                    .replace("{{SIDEBAR_NAV}}", fallbackNav.toString())
+                    .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(routes, contentFirst))
                     .replace("{{UTILITY_BUTTONS}}", "")
                     .replace("{{PERSONAL_LINKS}}", "");
         }
@@ -341,6 +353,315 @@ public class UiDesignerAgent {
             log.error("Failed to generate component for {}", route.id, e);
             return "<!-- Error generating " + route.id + " -->";
         }
+    }
+
+    private String ensureRenderableComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, String componentHtml) {
+        if (isRenderableComponent(route, componentHtml)) {
+            return componentHtml;
+        }
+        log.warn("[Designer] Component for {} returned sparse or invalid markup. Using deterministic fallback.", route.id);
+        return buildFallbackComponent(manifest, route, pageSpec);
+    }
+
+    private boolean isRenderableComponent(Route route, String componentHtml) {
+        if (componentHtml == null) {
+            return false;
+        }
+        String trimmed = componentHtml.trim();
+        if (trimmed.isEmpty() || trimmed.startsWith("<!-- Error")) {
+            return false;
+        }
+        if (!trimmed.startsWith("<") || !trimmed.contains("hash === '#" + route.id + "'")) {
+            return false;
+        }
+        if (trimmed.contains("\\'") || trimmed.contains("\\\"")) {
+            return false;
+        }
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        String visibleText = trimmed.replaceAll("<[^>]+>", " ").replaceAll("\\s+", " ").trim();
+        int contentSignals = countOccurrences(lower, "<section")
+                + countOccurrences(lower, "<article")
+                + countOccurrences(lower, "x-for=");
+        boolean hasFeedInteraction = lower.contains("selecteditem = item")
+                && (lower.contains("hash = '#detail'") || lower.contains("hash='#detail'"));
+        if (isContentFirstRoute(route)) {
+            return visibleText.length() >= 120 && contentSignals > 0 && hasFeedInteraction && countOccurrences(lower, "<article") > 0;
+        }
+        return visibleText.length() >= 120 && contentSignals > 0;
+    }
+
+    private String buildFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        boolean contentFirst = isContentFirst(manifest);
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        int primaryCards = contract != null ? Math.max(contract.getMinPrimaryCards(), 4) : 4;
+        String title = escapeHtml(route.name);
+        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null
+                ? pageSpec.getDescription()
+                : manifest.getUserIntent());
+        String chips = buildFallbackChips(pageSpec);
+        String layoutClass = contentFirst
+                ? "grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,0.9fr)]"
+                : "grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.8fr)]";
+        String layoutBadge = zh ? "内容优先布局" : "Content-first layout";
+        String heroStatLabel = zh ? "今日浏览" : "Today views";
+        String featuredLabel = zh ? "精选内容" : "Featured items";
+        String actionLabel = zh ? "互动动作" : "Actions";
+        String recommendTitle = zh ? "为你推荐" : "Recommended for you";
+        String recommendSubtitle = zh ? "基于浏览、收藏与停留行为智能排序" : "Ranked by browse, save, and dwell signals.";
+        String heatNowLabel = zh ? "实时热度" : "Live heat";
+        String personalizedLabel = zh ? "个性化推荐" : "Personalized";
+        String searchTitle = zh ? "搜索" : "Search";
+        String searchHint = zh ? "热门关键词" : "Trending keywords";
+        String searchPlaceholder = zh ? "搜索笔记 / 作者 / 话题" : "Search posts / authors / topics";
+        String rankingTitle = zh ? "社区热榜" : "Trending";
+        String rankingLive = zh ? "实时" : "Live";
+        String rankingItemOne = zh ? "#本周精选" : "#Weekly picks";
+        String rankingItemOneDesc = zh ? "社区讨论上升中" : "Community discussion rising";
+        String rankingItemTwo = zh ? "#高赞笔记" : "#Most saved";
+        String rankingItemTwoDesc = zh ? "值得收藏的灵感合集" : "Collections worth saving";
+        String fallbackDescription = zh
+                ? "当前还没有结构化 mockData，这里先保留一个可工作的内容位。后续数据工程阶段会把信息流卡片、标签、作者、互动数据补齐。"
+                : "Structured mockData is not ready yet, so this stays as a working content slot until the data stage fills in feed cards, tags, authors, and engagement stats.";
+        String authorFallback = zh ? "LingNow 用户" : "LingNow user";
+        String categoryFallback = zh ? "精选推荐" : "Featured";
+        String cardTitleFallback = zh ? "精选内容卡片" : "Featured story";
+        String topicFallback = zh ? "#灵感推荐" : "#Recommended";
+
+        return String.format("""
+                        <div x-show="hash === '#%s'" class="animate-fade-in pb-8 space-y-6">
+                          <section class="rounded-[32px] border border-slate-200 bg-gradient-to-br from-white via-white to-rose-50/60 p-8 shadow-sm">
+                            <div class="flex flex-wrap items-center gap-3">
+                              <span class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">%s</span>
+                              <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">%s</span>
+                            </div>
+                            <div class="%s mt-6">
+                              <div class="space-y-5">
+                                <div class="space-y-3">
+                                  <h1 class="text-4xl font-black tracking-tight text-slate-900">%s</h1>
+                                  <p class="max-w-2xl text-base leading-8 text-slate-600">%s</p>
+                                </div>
+                                <div class="flex flex-wrap gap-3">%s</div>
+                              </div>
+                              <div class="grid grid-cols-3 gap-3">
+                                <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                                  <div class="text-xs text-slate-500">%s</div>
+                                  <div class="mt-2 text-3xl font-black text-slate-900">1.2k</div>
+                                </div>
+                                <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                                  <div class="text-xs text-slate-500">%s</div>
+                                  <div class="mt-2 text-3xl font-black text-slate-900">%d</div>
+                                </div>
+                                <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+                                  <div class="text-xs text-slate-500">%s</div>
+                                  <div class="mt-2 text-3xl font-black text-slate-900">3</div>
+                                </div>
+                              </div>
+                            </div>
+                          </section>
+                        
+                          <section class="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(300px,0.9fr)]">
+                            <div class="space-y-5">
+                              <div class="flex items-center justify-between">
+                                <div>
+                                  <h2 class="text-2xl font-black text-slate-900">%s</h2>
+                                  <p class="mt-1 text-sm text-slate-500">%s</p>
+                                </div>
+                                <div class="hidden items-center gap-2 rounded-full bg-white px-2 py-1 shadow-sm ring-1 ring-slate-200 md:flex">
+                                  <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">%s</span>
+                                  <span class="rounded-full px-3 py-1 text-xs font-semibold text-slate-500">%s</span>
+                                </div>
+                              </div>
+                              <div class="grid gap-5 md:grid-cols-2">
+                                <template x-for="(item, index) in (Array.isArray(mockData) ? mockData.slice(0, %d) : [])" :key="index">
+                                  <article @click="selectedItem = item; hash = '#detail'" class="group cursor-pointer overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                                    <div class="aspect-[4/5] overflow-hidden bg-slate-100">
+                                      <img :src="item.cover || item.image || item.thumbUrl || 'https://placehold.co/900x1200/F8FAFC/0F172A?text=LingNow'" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                                    </div>
+                                    <div class="space-y-3 p-5">
+                                      <div class="flex items-center gap-3">
+                                        <img :src="item.avatar || 'https://placehold.co/64x64/FDE68A/111827?text=U'" class="h-9 w-9 rounded-full border border-slate-200 object-cover" />
+                                        <div class="min-w-0">
+                                          <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '%s'"></div>
+                                          <div class="truncate text-xs text-slate-500" x-text="item.category || item.tag || '%s'"></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <h3 class="line-clamp-2 text-lg font-bold text-slate-900" x-text="item.title || item.name || '%s'"></h3>
+                                        <p class="mt-2 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '%s'"></p>
+                                      </div>
+                                      <div class="flex items-center justify-between text-xs text-slate-500">
+                                        <span x-text="item.location || item.topic || '%s'"></span>
+                                        <div class="flex items-center gap-3">
+                                          <span x-text="item.likes || item.likeCount || '2.9w'"></span>
+                                          <span x-text="item.comments || item.commentCount || '1.6k'"></span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </article>
+                                </template>
+                                <div x-show="!Array.isArray(mockData) || mockData.length === 0" class="rounded-[28px] border border-dashed border-slate-300 bg-white/90 p-8 text-sm leading-7 text-slate-500">
+                                  %s
+                                </div>
+                              </div>
+                            </div>
+                        
+                            <aside class="space-y-5">
+                              <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                                <div class="flex items-center justify-between">
+                                  <h3 class="text-xl font-black text-slate-900">%s</h3>
+                                  <span class="text-xs font-semibold text-slate-400">%s</span>
+                                </div>
+                                <div class="mt-4 rounded-2xl bg-slate-50 p-3">
+                                  <div class="flex items-center gap-2 text-slate-400">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    <span class="text-sm">%s</span>
+                                  </div>
+                                </div>
+                                <div class="mt-4 flex flex-wrap gap-2">%s</div>
+                              </section>
+                              <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                                <div class="flex items-center justify-between">
+                                  <h3 class="text-xl font-black text-slate-900">%s</h3>
+                                  <span class="text-xs font-semibold text-emerald-600">%s</span>
+                                </div>
+                                <div class="mt-4 space-y-3">
+                                  <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                                    <div>
+                                      <div class="text-sm font-semibold text-slate-900">%s</div>
+                                      <div class="mt-1 text-xs text-slate-500">%s</div>
+                                    </div>
+                                    <div class="text-sm font-black text-slate-900">12.8w</div>
+                                  </div>
+                                  <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                                    <div>
+                                      <div class="text-sm font-semibold text-slate-900">%s</div>
+                                      <div class="mt-1 text-xs text-slate-500">%s</div>
+                                    </div>
+                                    <div class="text-sm font-black text-slate-900">9.6w</div>
+                                  </div>
+                                </div>
+                              </section>
+                            </aside>
+                          </section>
+                        </div>
+                        """,
+                route.id,
+                title,
+                contentFirst ? layoutBadge : (zh ? "稳定导航布局" : "Stable navigation layout"),
+                layoutClass,
+                title,
+                description,
+                chips,
+                heroStatLabel,
+                featuredLabel,
+                primaryCards,
+                actionLabel,
+                recommendTitle,
+                recommendSubtitle,
+                heatNowLabel,
+                personalizedLabel,
+                primaryCards,
+                authorFallback,
+                categoryFallback,
+                cardTitleFallback,
+                description,
+                topicFallback,
+                fallbackDescription,
+                searchTitle,
+                searchHint,
+                searchPlaceholder,
+                chips,
+                rankingTitle,
+                rankingLive,
+                rankingItemOne,
+                rankingItemOneDesc,
+                rankingItemTwo,
+                rankingItemTwoDesc);
+    }
+
+    private String buildFallbackChips(ProjectManifest.PageSpec pageSpec) {
+        List<String> tags = pageSpec != null && pageSpec.getComponents() != null && !pageSpec.getComponents().isEmpty()
+                ? pageSpec.getComponents().stream().limit(6).toList()
+                : List.of("发现灵感", "内容精选", "高赞互动", "趋势热点");
+        StringBuilder chips = new StringBuilder();
+        for (String tag : tags) {
+            chips.append("<span class=\"rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600\">#")
+                    .append(escapeHtml(tag))
+                    .append("</span>");
+        }
+        return chips.toString();
+    }
+
+    private String buildFallbackPrimaryNav(List<Route> routes, boolean contentFirst) {
+        StringBuilder fallbackNav = new StringBuilder();
+        for (Route route : routes) {
+            fallbackNav.append(contentFirst
+                    ? String.format(
+                    "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-500 text-white shadow-lg shadow-rose-100':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all\">%s</a>\n",
+                    route.id, route.id, route.name)
+                    : String.format(
+                    "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
+                    route.id, route.id, route.name));
+        }
+        return fallbackNav.toString();
+    }
+
+    private boolean isContentFirst(ProjectManifest manifest) {
+        return manifest.getDesignContract() != null
+                && "CONTENT_FIRST".equalsIgnoreCase(manifest.getDesignContract().getContentMode());
+    }
+
+    private boolean isContentFirstRoute(Route route) {
+        String lower = route.name == null ? "" : route.name.toLowerCase(Locale.ROOT);
+        return containsAny(lower, "首页", "推荐", "发现", "feed", "discover", "home");
+    }
+
+    private int countOccurrences(String source, String token) {
+        if (source == null || token == null || token.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        int index = 0;
+        while ((index = source.indexOf(token, index)) != -1) {
+            count++;
+            index += token.length();
+        }
+        return count;
+    }
+
+    private String escapeHtml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;");
+    }
+
+    private String normalizeHtmlFragment(String fragment) {
+        if (fragment == null || fragment.isBlank()) {
+            return "";
+        }
+        return fragment
+                .replace("\\\"", "\"")
+                .replace("\\'", "'")
+                .replace("\\/", "/")
+                .trim();
+    }
+
+    private boolean containsAny(String source, String... tokens) {
+        if (source == null) {
+            return false;
+        }
+        for (String token : tokens) {
+            if (source.contains(token.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -433,18 +754,18 @@ public class UiDesignerAgent {
                 startIndex += 7; // Length of ```html
                 int endIndex = response.lastIndexOf("```");
                 if (endIndex != -1 && endIndex > startIndex) {
-                    return response.substring(startIndex, endIndex).trim();
+                    return normalizeHtmlFragment(response.substring(startIndex, endIndex));
                 }
             }
             // Fallback: If no markers found, but it might be pure HTML anyway
             if (response.trim().startsWith("<")) {
-                return response.trim();
+                return normalizeHtmlFragment(response);
             }
             log.warn("No valid HTML code block found in response.");
-            return response;
+            return normalizeHtmlFragment(response);
         } catch (Exception e) {
             log.warn("Failed to extract HTML snippet from LLM output. Returning raw response.");
-            return response;
+            return normalizeHtmlFragment(response);
         }
     }
 }

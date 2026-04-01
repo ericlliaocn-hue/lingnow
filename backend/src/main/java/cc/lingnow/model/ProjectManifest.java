@@ -27,6 +27,8 @@ public class ProjectManifest {
     private List<Feature> features;
     private List<PageSpec> pages;
     private String mindMap;        // Mermaid diagram
+    private List<TaskFlow> taskFlows;
+    private DesignContract designContract;
     private String mockData;       // Simulated JSON data
     private Map<String, String> techStack;
     
@@ -91,6 +93,27 @@ public class ProjectManifest {
         private String navType; // v1.7: Semantic Type (NAV_ANCHOR | CONTEXT_WIDGET | LEAF_DETAIL)
         private String navRole; // v1.8: UX Role (PRIMARY | UTILITY | OVERLAY | PERSONAL)
         private List<String> components;
+    }
+
+    @Data
+    @Builder
+    public static class TaskFlow {
+        private String id;
+        private String description;
+        private List<String> steps;
+    }
+
+    @Data
+    @Builder
+    public static class DesignContract {
+        private String shellPattern;
+        private String contentMode;
+        private int minPrimarySections;
+        private int minPrimaryCards;
+        private boolean requiresSearch;
+        private boolean requiresComposer;
+        private boolean requiresDetailOverlay;
+        private String validationNotes;
     }
 
     @Data

@@ -1,5 +1,5 @@
 <script setup>
-import {computed, onMounted, ref, watch} from 'vue'
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import axios from 'axios'
 import {
@@ -33,6 +33,7 @@ const error = ref(null)
 const locale = ref(localStorage.getItem('lingnow_lang') || 'ZH')
 const history = ref([])
 const isHistoryOpen = ref(false)
+const AUTH_REQUIRED_MESSAGE = '登录已失效，请重新登录'
 
 const i18n = computed(() => ({
   ZH: {
@@ -83,15 +84,18 @@ const toggleLang = () => {
 }
 
 const fetchHistory = async () => {
+  if (!ensureAuthenticated()) return
   try {
     const res = await axios.get('/api/projects/all')
     history.value = res.data
   } catch (err) {
+    if (isAuthError(err)) return
     console.error('Failed to fetch history', err)
   }
 }
 
 const loadProject = async (id) => {
+  if (!ensureAuthenticated()) return
   if (!id) return
   if (result.value && result.value.id === id) return // Already loaded
 
@@ -100,14 +104,17 @@ const loadProject = async (id) => {
   error.value = null
   try {
     const res = await axios.get(`/api/projects/${id}`)
-    result.value = res.data
+    const normalizedProject = normalizeWorkbenchResult(res.data)
+    result.value = normalizedProject
     currentSessionId.value = id
     isHistoryOpen.value = false
-    activeTab.value = 'plan'
+    isDesignStarted.value = !!normalizedProject?.prototypeHtml
+    activeTab.value = resolveActiveTab(normalizedProject)
     if (route.params.id !== id) {
       router.push(`/project/${id}`)
     }
   } catch (err) {
+    if (isAuthError(err)) return
     console.error('Failed to load project', err)
     error.value = '加载项目失败'
     result.value = null
@@ -134,7 +141,66 @@ const sandpackFiles = computed(() => {
 })
 
 const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
-const authData = ref({username: 'eric', password: 'anbs,23t'})
+const isAuthenticated = computed(() => !!user.value?.token)
+
+const enterLoginState = (message = AUTH_REQUIRED_MESSAGE) => {
+  isHistoryOpen.value = false
+  isDesignStarted.value = false
+  result.value = null
+  history.value = []
+  error.value = message
+  user.value = null
+  localStorage.removeItem('user')
+  const redirect = route.fullPath && route.fullPath !== '/login' ? route.fullPath : '/'
+  if (route.path !== '/login') {
+    router.replace({name: 'Login', query: {redirect}})
+  }
+}
+
+const ensureAuthenticated = (message = AUTH_REQUIRED_MESSAGE) => {
+  if (isAuthenticated.value) return true
+  enterLoginState(message)
+  return false
+}
+
+const isAuthError = (err) => {
+  const status = err?.response?.status
+  const message = String(err?.response?.data?.error || err?.response?.data?.message || err?.message || '')
+  return status === 401
+      || status === 403
+      || message.includes('未能读取到有效 token')
+      || message.toLowerCase().includes('token')
+}
+
+const formatVersionLabel = (version) => String(version || '0.0.1').replace(/^v/i, '')
+
+const normalizeWorkbenchResult = (payload) => {
+  if (!payload) return null
+
+  const manifest = payload.manifest ? payload.manifest : payload
+  const files = payload.files ?? manifest.files ?? manifest.generatedFiles ?? {}
+  const dependencies = payload.dependencies ?? manifest.dependencies ?? {}
+
+  return {
+    ...manifest,
+    title: payload.title ?? manifest.title,
+    description: payload.description ?? manifest.description,
+    files,
+    generatedFiles: manifest.generatedFiles ?? files,
+    dependencies,
+    snapshots: manifest.snapshots ?? [],
+    version: manifest.version ?? '0.0.1'
+  }
+}
+
+const hasGeneratedFiles = (project) => Object.keys(project?.files || {}).length > 0
+
+const resolveActiveTab = (project) => {
+  if (!project) return 'plan'
+  if (hasGeneratedFiles(project)) return 'preview'
+  if (project.prototypeHtml) return 'design'
+  return 'plan'
+}
 
 // Inspector & Versioning State
 // Inspector & Versioning State
@@ -142,7 +208,12 @@ const activeTab = ref('plan')
 const selectedNode = ref(null)
 const isDesignStarted = ref(false)
 const snapshots = computed(() => result.value?.snapshots || [])
-const currentVersion = computed(() => result.value?.version || '0.0.1')
+const currentVersion = computed(() => formatVersionLabel(result.value?.version))
+const canStartCoding = computed(() =>
+    result.value?.metaData?.design_ready === 'true' &&
+    !!result.value?.prototypeHtml &&
+    !hasGeneratedFiles(result.value)
+)
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '未知'
@@ -212,32 +283,33 @@ const removeChild = (parent, index) => {
   syncTreeToMindMap()
 }
 
-axios.interceptors.request.use(config => {
-  if (user.value && user.value.token) {
+const requestInterceptorId = axios.interceptors.request.use(config => {
+  const url = String(config.url || '')
+  const isAuthRequest = url.includes('/api/auth/login') || url.includes('/api/auth/register')
+  if (!isAuthRequest && !isAuthenticated.value) {
+    enterLoginState()
+    return Promise.reject(new Error('AUTH_REQUIRED'))
+  }
+  if (isAuthenticated.value) {
     config.headers['satoken'] = user.value.token
   }
   return config
 }, error => Promise.reject(error))
 
-const handleAuth = async () => {
-  if (!authData.value.username || !authData.value.password) return
-  loading.value = true
-  try {
-    const res = await axios.post('/api/auth/login', authData.value)
-    user.value = res.data
-    localStorage.setItem('user', JSON.stringify(user.value))
-    window.location.reload()
-  } catch (err) {
-    error.value = '认证失败'
-  } finally {
-    loading.value = false
-  }
-}
+const responseInterceptorId = axios.interceptors.response.use(
+    response => response,
+    error => {
+      if (isAuthError(error)) {
+        enterLoginState()
+      }
+      return Promise.reject(error)
+    }
+)
 
 const handleLogout = () => {
   user.value = null
   localStorage.removeItem('user')
-  window.location.reload()
+  enterLoginState('请重新登录继续使用 LingNow')
 }
 
 watch(isDebugMode, (newVal) => {
@@ -263,12 +335,14 @@ onMounted(async () => {
     })
   }
 
+  if (!ensureAuthenticated('请先登录继续使用 LingNow')) {
+    return
+  }
+
   if (route.params.id) {
     loadProject(route.params.id)
   }
   fetchHistory() // Ensure history is loaded on mount
-
-  if (!user.value) return
   window.addEventListener('message', (event) => {
     if (!event.data || !event.data.type) return
     if (event.data.type === 'lingnow-inspect') {
@@ -296,8 +370,21 @@ onMounted(async () => {
   })
 })
 
+onUnmounted(() => {
+  if (typeof requestInterceptorId === 'number') {
+    axios.interceptors.request.eject(requestInterceptorId)
+  }
+  if (typeof responseInterceptorId === 'number') {
+    axios.interceptors.response.eject(responseInterceptorId)
+  }
+})
+
 watch(() => route.params.id, (newId) => {
   console.log('Route ID changed to:', newId)
+  if (!isAuthenticated.value) {
+    if (newId) enterLoginState()
+    return
+  }
   if (newId) {
     if (!result.value || result.value.id !== newId) {
       loadProject(newId)
@@ -311,6 +398,7 @@ const currentSessionId = ref(`session-${Date.now()}`)
 const generationPhase = ref('idle')
 
 const handleGenerate = async () => {
+  if (!ensureAuthenticated()) return
   if (!prompt.value.trim() || loading.value) return
   loading.value = true
   error.value = null
@@ -326,7 +414,7 @@ const handleGenerate = async () => {
       lang: locale.value
     })
 
-    result.value = planRes.data
+    result.value = normalizeWorkbenchResult(planRes.data)
     activeTab.value = 'plan' // Switch to Plan tab to show the mindmap
     isDesignStarted.value = false
     
@@ -334,6 +422,7 @@ const handleGenerate = async () => {
       router.push(`/project/${sessionId}`)
     }
   } catch (err) {
+    if (isAuthError(err)) return
     console.error('Generation failed', err)
     error.value = '规划失败'
   } finally {
@@ -343,6 +432,7 @@ const handleGenerate = async () => {
 }
 
 const handleStartDesign = async () => {
+  if (!ensureAuthenticated()) return
   if (loading.value) return
   loading.value = true
   generationPhase.value = 'DESIGNING'
@@ -354,11 +444,12 @@ const handleStartDesign = async () => {
       lang: locale.value,
       mindMap: activeMindMap
     })
-    result.value = designRes.data
+    result.value = normalizeWorkbenchResult(designRes.data)
     isDesignStarted.value = true
     activeTab.value = 'design'
     fetchHistory()
   } catch (err) {
+    if (isAuthError(err)) return
     error.value = '视觉设计失败'
   } finally {
     loading.value = false
@@ -376,6 +467,7 @@ const updateNodeLive = () => {
 }
 
 const handleSaveSnapshot = async () => {
+  if (!ensureAuthenticated()) return
   try {
     const iframe = document.querySelector('iframe')
     const html = iframe.contentWindow.document.documentElement.outerHTML
@@ -384,36 +476,43 @@ const handleSaveSnapshot = async () => {
       html: html,
       summary: 'Manual refinement'
     })
-    result.value = res.data
-    alert('Version ' + result.value.version + ' saved successfully!')
+    result.value = normalizeWorkbenchResult(res.data)
+    alert('Version ' + formatVersionLabel(result.value.version) + ' saved successfully!')
   } catch (err) {
+    if (isAuthError(err)) return
     alert('Save failed')
   }
 }
 
 const handleRollback = async (version) => {
+  if (!ensureAuthenticated()) return
   try {
     const res = await axios.post('/api/generate/rollback', {
       sessionId: currentSessionId.value,
       version: version
     })
-    result.value = res.data
+    result.value = normalizeWorkbenchResult(res.data)
+    isDesignStarted.value = !!result.value?.prototypeHtml
     activeTab.value = 'design'
   } catch (err) {
+    if (isAuthError(err)) return
     alert('Rollback failed')
   }
 }
 
 const handleConfirm = async () => {
+  if (!ensureAuthenticated()) return
   loading.value = true
   generationPhase.value = 'CODING'
   try {
     const response = await axios.post('/api/generate/develop', {
       sessionId: currentSessionId.value
     })
-    result.value = response.data
+    result.value = normalizeWorkbenchResult(response.data)
+    isDesignStarted.value = true
     activeTab.value = 'preview'
   } catch (err) {
+    if (isAuthError(err)) return
     error.value = '编码失败'
   } finally {
     loading.value = false
@@ -530,6 +629,7 @@ const resetProject = () => {
   error.value = null
   generationPhase.value = 'idle'
   activeTab.value = 'plan'
+  isDesignStarted.value = false
   if (route.path !== '/') router.push('/')
 }
 
@@ -866,7 +966,9 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
                    @click="handleRollback(s.version)">
                 <div class="flex flex-col">
                   <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-black text-white group-hover:text-blue-400">v{{ s.version }}</span>
+                    <span class="text-[10px] font-black text-white group-hover:text-blue-400">v{{
+                        formatVersionLabel(s.version)
+                      }}</span>
                     <span class="text-[8px] text-gray-600 font-mono">{{ formatDate(s.timestamp) }}</span>
                   </div>
                   <span class="text-[9px] text-gray-500 line-clamp-1">{{ s.summary || 'Snapshot' }}</span>
@@ -876,7 +978,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
             </div>
           </div>
 
-          <button v-if="result?.status === 'DONE'"
+          <button v-if="canStartCoding"
                   class="w-full py-4 bg-white text-black font-black rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl"
                   @click="handleConfirm">
             立即编码交付
@@ -900,7 +1002,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
               <div class="flex justify-between items-start mb-2">
                 <p class="text-xs text-white font-bold line-clamp-1 leading-relaxed flex-1">{{ proj.userIntent }}</p>
                 <span class="text-[8px] px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded font-black">{{
-                    proj.version
+                    formatVersionLabel(proj.version)
                   }}</span>
               </div>
               <div class="flex items-center justify-between">

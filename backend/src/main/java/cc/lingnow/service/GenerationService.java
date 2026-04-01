@@ -25,6 +25,7 @@ public class GenerationService {
     private final ManifestRegistry manifestRegistry;
     private final IndustryIntelligenceAgent intelligenceAgent;
     private final ProductArchitectAgent architectAgent;
+    private final ManifestContractValidator manifestContractValidator;
     private final DataEngineerAgent dataEngineerAgent;
     private final VisualDNAAgent visualDNAAgent;
     private final UiDesignerAgent designerAgent;
@@ -52,6 +53,8 @@ public class GenerationService {
         intelligenceAgent.synthesizeStrategy(manifest);
 
         architectAgent.analyze(manifest);
+        manifestContractValidator.normalize(manifest);
+        manifest.getMetaData().put("design_ready", "false");
 
         // Phase 1.5: Data Engineering & Visual DNA Synthesis
         dataEngineerAgent.generateData(manifest);
@@ -79,27 +82,15 @@ public class GenerationService {
             log.info("Applying frontend-driven mindmap override (length: {})", overriddenMindMap.length());
             manifest.setMindMap(overriddenMindMap);
         }
+        manifestContractValidator.normalize(manifest);
+        manifest.getMetaData().put("design_ready", "false");
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
         manifestRegistry.save(manifest);
 
         designerAgent.design(manifest);
-
-        // Phase 2.4: Functional Logic Audit (UX Verification)
-        String taskFlows = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("taskFlows", "No flows defined") : "No flows defined";
-        String auditResult = "No audit performed.";
-        if (manifest.getPrototypeHtml() != null) {
-            String archetype = manifest.getArchetype() != null ? manifest.getArchetype() : "DASHBOARD";
-            auditResult = functionalAuditorAgent.verify(manifest.getPrototypeHtml(), manifest.getUserIntent(), taskFlows, archetype, manifest.getUxStrategy());
-            if (manifest.getMetaData() == null) manifest.setMetaData(new java.util.HashMap<>());
-            manifest.getMetaData().put("functional_audit_result", auditResult);
-        }
-
-        // Phase 2.5: Auto-Repair - Self-healing logic verification (Now with Logic Audit input!)
-        if (manifest.getPrototypeHtml() != null) {
-            String repairedHtml = autoRepairAgent.checkAndFix(manifest.getPrototypeHtml(), manifest.getUserIntent(), manifest.getMockData(), auditResult);
-            manifest.setPrototypeHtml(repairedHtml);
-        }
+        runPrototypeQualityPass(manifest);
+        manifest.setStatus(ProjectManifest.ProjectStatus.QA);
 
         // Initial snapshot after design
         createSnapshot(manifest, "Initial Design");
@@ -116,7 +107,19 @@ public class GenerationService {
         ProjectManifest manifest = manifestRegistry.get(sessionId);
         if (manifest == null) throw new RuntimeException("Manifest not found for session: " + sessionId);
 
+        if (lang != null) {
+            if (manifest.getMetaData() == null) manifest.setMetaData(new HashMap<>());
+            manifest.getMetaData().put("lang", lang);
+        }
+        manifestContractValidator.normalize(manifest);
+        manifest.getMetaData().put("design_ready", "false");
+
+        manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
+        manifestRegistry.save(manifest);
+
         designerAgent.redesign(manifest, instructions);
+        runPrototypeQualityPass(manifest);
+        manifest.setStatus(ProjectManifest.ProjectStatus.QA);
         createSnapshot(manifest, "AI Revision: " + instructions);
 
         manifestRegistry.save(manifest);
@@ -128,6 +131,8 @@ public class GenerationService {
         if (manifest == null) throw new RuntimeException("Manifest not found");
 
         manifest.setPrototypeHtml(html);
+        runPrototypeQualityPass(manifest);
+        manifest.setStatus(ProjectManifest.ProjectStatus.QA);
         createSnapshot(manifest, summary != null ? summary : "Manual Save");
         
         manifestRegistry.save(manifest);
@@ -147,6 +152,8 @@ public class GenerationService {
                         manifest.setVersion(s.getVersion());
                     });
         }
+        runPrototypeQualityPass(manifest);
+        manifest.setStatus(ProjectManifest.ProjectStatus.QA);
         
         manifestRegistry.save(manifest);
         return manifest;
@@ -154,25 +161,7 @@ public class GenerationService {
 
     private void createSnapshot(ProjectManifest manifest, String summary) {
         if (manifest.getSnapshots() == null) manifest.setSnapshots(new ArrayList<>());
-
-        // Version increment logic: handle both "0.0.1" and "v1.0.0"
-        String current = manifest.getVersion();
-        if (current == null) current = "0.0.0";
-
-        String cleanVersion = current.startsWith("v") ? current.substring(1) : current;
-        String[] parts = cleanVersion.split("\\.");
-
-        String nextVersion;
-        if (parts.length >= 3) {
-            int major = Integer.parseInt(parts[0]);
-            int minor = Integer.parseInt(parts[1]);
-            int patch = Integer.parseInt(parts[2]) + 1;
-            nextVersion = String.format("%d.%d.%d", major, minor, patch);
-        } else {
-            nextVersion = cleanVersion + ".1";
-        }
-
-        if (current.startsWith("v")) nextVersion = "v" + nextVersion;
+        String nextVersion = incrementPatchVersion(manifest.getVersion());
 
         manifest.setVersion(nextVersion);
 
@@ -200,10 +189,10 @@ public class GenerationService {
             manifest.setChangeLog(new ArrayList<>());
             manifest.getChangeLog().add("Initial project creation: " + manifest.getUserIntent());
         } else {
-            String current = manifest.getVersion().substring(1);
-            String[] parts = current.split("\\.");
-            int patch = Integer.parseInt(parts[2]) + 1;
-            manifest.setVersion("v" + parts[0] + "." + parts[1] + "." + patch);
+            manifest.setVersion(incrementPatchVersion(manifest.getVersion()));
+            if (manifest.getChangeLog() == null) {
+                manifest.setChangeLog(new ArrayList<>());
+            }
             manifest.getChangeLog().add("Iterative update (" + manifest.getVersion() + "): " + manifest.getUserIntent());
         }
         manifestRegistry.save(manifest);
@@ -272,5 +261,57 @@ public class GenerationService {
 
     public List<ProjectHistoryDto> getHistory() {
         return manifestRegistry.listHistory();
+    }
+
+    private void runPrototypeQualityPass(ProjectManifest manifest) {
+        if (manifest.getPrototypeHtml() == null) {
+            return;
+        }
+        if (manifest.getMetaData() == null) {
+            manifest.setMetaData(new HashMap<>());
+        }
+
+        FunctionalAuditorAgent.AuditOutcome auditOutcome = functionalAuditorAgent.verify(manifest);
+        String auditResult = auditOutcome.getSummary();
+
+        if (!auditOutcome.isPassed()) {
+            String repairedHtml = autoRepairAgent.checkAndFix(
+                    manifest.getPrototypeHtml(),
+                    manifest.getUserIntent(),
+                    manifest.getMockData(),
+                    auditResult
+            );
+            manifest.setPrototypeHtml(repairedHtml);
+            auditOutcome = functionalAuditorAgent.verify(manifest);
+            auditResult = auditOutcome.getSummary();
+        }
+
+        manifest.getMetaData().put("functional_audit_result", auditResult);
+        manifest.getMetaData().put("design_ready", String.valueOf(auditOutcome.isPassed()));
+    }
+
+    private String incrementPatchVersion(String currentVersion) {
+        String version = (currentVersion == null || currentVersion.isBlank()) ? "0.0.0" : currentVersion.trim();
+        boolean hasPrefix = version.startsWith("v") || version.startsWith("V");
+        String cleanVersion = hasPrefix ? version.substring(1) : version;
+        String[] parts = cleanVersion.split("\\.");
+
+        int major = parseVersionPart(parts, 0);
+        int minor = parseVersionPart(parts, 1);
+        int patch = parseVersionPart(parts, 2) + 1;
+
+        String nextVersion = String.format("%d.%d.%d", major, minor, patch);
+        return hasPrefix ? "v" + nextVersion : nextVersion;
+    }
+
+    private int parseVersionPart(String[] parts, int index) {
+        if (parts.length <= index) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(parts[index]);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
     }
 }

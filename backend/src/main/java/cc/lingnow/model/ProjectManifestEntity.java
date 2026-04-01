@@ -64,6 +64,12 @@ public class ProjectManifestEntity {
     private String mindMap; // Text tree for mindmap
 
     @Column(columnDefinition = "LONGTEXT")
+    private String taskFlowsJson;
+
+    @Column(columnDefinition = "TEXT")
+    private String designContractJson;
+
+    @Column(columnDefinition = "LONGTEXT")
     private String mockData; // Captured JSON mock data
 
     @Column(columnDefinition = "TEXT")
