@@ -6,9 +6,10 @@
 
 1. 工作流与 Agent 架构总览：`/Users/eric/workspace/lingnow/docs/workflow-agent-architecture.md`
 2. 生成流程时序图：`/Users/eric/workspace/lingnow/docs/sequence-diagram.md`
-3. 核心后端编排：`/Users/eric/workspace/lingnow/backend/src/main/java/cc/lingnow/service/GenerationService.java`
-4. 核心状态模型：`/Users/eric/workspace/lingnow/backend/src/main/java/cc/lingnow/model/ProjectManifest.java`
-5. 前端工作台：`/Users/eric/workspace/lingnow/frontend/src/views/Workbench.vue`
+3. 产品形态推导器计划：`/Users/eric/workspace/lingnow/docs/product-shape-inference-plan.md`
+4. 核心后端编排：`/Users/eric/workspace/lingnow/backend/src/main/java/cc/lingnow/service/GenerationService.java`
+5. 核心状态模型：`/Users/eric/workspace/lingnow/backend/src/main/java/cc/lingnow/model/ProjectManifest.java`
+6. 前端工作台：`/Users/eric/workspace/lingnow/frontend/src/views/Workbench.vue`
 
 ## 这套系统怎么理解
 

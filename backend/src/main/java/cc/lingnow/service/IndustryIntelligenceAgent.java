@@ -42,11 +42,9 @@ public class IndustryIntelligenceAgent {
         String systemPrompt = String.format("""
                 %s
                 
-                YOUR GOAL: Analyze the user's intent and synthesize a "UX Strategy" based on industry-leading benchmarks.
+                GOAL: Analyze user intent and synthesize a JSON UX Strategy.
                 
-                OUTPUT: Respond ONLY with a pure JSON object.
-                
-                JSON Schema:
+                OUTPUT ONLY PURE JSON:
                 {
                     "industry_soul": "string",
                     "benchmarks": ["string"],

@@ -111,11 +111,61 @@ public class ProjectManifest {
         private List<String> steps;
     }
 
+    public enum PrimaryGoal {
+        READ, DISCOVER, COMPARE, DISCUSS, MONITOR, TRANSACT, LEARN
+    }
+
+    public enum ContentUnit {
+        ARTICLE, POST, THREAD, QA, LISTING, DASHBOARD, NEWS_STORY, MIXED
+    }
+
+    public enum ConsumptionMode {
+        READ_FIRST, DISCOVER_FIRST, VERIFY_FIRST, DISCUSS_FIRST, REAL_TIME_FIRST
+    }
+
+    public enum MediaWeight {
+        TEXT_HEAVY, MIXED, VISUAL_HEAVY, VIDEO_HEAVY
+    }
+
+    public enum LayoutRhythm {
+        LIST, COMPACT_CARD, WATERFALL, THREAD, EDITORIAL, DASHBOARD
+    }
+
+    public enum ContentDensity {
+        LOW, MEDIUM, HIGH
+    }
+
+    public enum SignalPriority {
+        AUTHOR_TRUST, HEAT, RECENCY, DISCUSSION, SAVE_RATE, PRICE, STATUS, PROGRESS, EDITORIAL
+    }
+
+    public enum NavigationMode {
+        TOPIC_TAB, SUBFORUM, CHANNEL, CATEGORY, UTILITY_FIRST
+    }
+
+    public enum MainLoop {
+        READ_SAVE, SCROLL_DISCOVER, ASK_ANSWER, POST_REPLY, COMPARE_BUY, MONITOR_ACT, LEARN_CONTINUE
+    }
+
+    public enum UiTone {
+        PROFESSIONAL, EDITORIAL, LIVELY, FORUM, PLAZA, ENTERPRISE
+    }
+
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
     public static class DesignContract {
+        private PrimaryGoal primaryGoal;
+        private ContentUnit contentUnit;
+        private ConsumptionMode consumptionMode;
+        private MediaWeight mediaWeight;
+        private LayoutRhythm layoutRhythm;
+        private ContentDensity contentDensity;
+        private List<SignalPriority> signalPriority;
+        private NavigationMode navigationMode;
+        private MainLoop mainLoop;
+        private UiTone uiTone;
         private String shellPattern;
         private String contentMode;
         private int minPrimarySections;

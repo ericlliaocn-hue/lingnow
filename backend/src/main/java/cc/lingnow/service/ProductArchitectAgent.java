@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 
 /**
@@ -68,23 +70,23 @@ public class ProductArchitectAgent {
             String systemPrompt = String.format("""
                     %s
                     
-                    YOUR GOAL: Synthesize a COMPLETE Application Ecosystem with process-aware navigation.
+                    GOAL: Synthesize Application Ecosystem with process-aware navigation.
                     
-                    TASKS:
-                    1. Define semantic navRole (PRIMARY, UTILITY, OVERLAY, PERSONAL).
-                    2. Enforce the PROCESS GUARANTEE.
-                    3. Ensure high DATA DENSITY (8+ fields).
+                    CONSTRAINTS:
+                    - Define navRole (PRIMARY, UTILITY, OVERLAY, PERSONAL).
+                    - High DATA DENSITY (5+ components per surface).
+                    - features: 6-8 max, pages: 10 max, primary pages: 5 max.
                     
                     LANGUAGE: %s
-                    STRATEGY CONTEXT: %s
+                    STRATEGY: %s
                     
-                    JSON Schema: {
+                    STRICT JSON SCHEMA: {
                         "archetype": "string",
                         "overview": "string",
-                        "mindMap": "string (PRIMARY nodes only)",
+                        "mindMap": "string",
                         "features": [{"name": "string", "description": "string", "priority": "HIGH|MEDIUM|LOW"}],
-                        "pages": [{"route": "string", "description": "string", "navType": "NAV_ANCHOR|CONTEXT_WIDGET|LEAF_DETAIL", "navRole": "PRIMARY|UTILITY|OVERLAY|PERSONAL", "components": ["List of component names"]}],
-                        "taskFlows": [{"id": "flow_x", "description": "Loop description", "steps": ["Entry -> Action -> Success"]}]
+                        "pages": [{"route": "string", "description": "string", "navType": "NAV_ANCHOR|CONTEXT_WIDGET|LEAF_DETAIL", "navRole": "PRIMARY|UTILITY|OVERLAY|PERSONAL", "components": ["List of names"]}],
+                        "taskFlows": [{"id": "id", "description": "desc", "steps": ["Entry -> Action -> Success"]}]
                     }
                     """, handbook, langInstruction, uxStrategyContext);
             
@@ -97,6 +99,7 @@ public class ProductArchitectAgent {
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
             applyArchitecture(manifest, root);
+            compressArchitecture(manifest);
             
             log.info("Architect analysis complete. Total features: {}, pages: {}", 
                 manifest.getFeatures() != null ? manifest.getFeatures().size() : 0, 
@@ -114,26 +117,48 @@ public class ProductArchitectAgent {
     private void refineArchitecture(ProjectManifest manifest, String langInstruction) {
         log.info("[Architect] Starting Integrity Audit (Self-Refinement)...");
 
+        DeterministicAudit audit = runDeterministicAudit(manifest);
+        if (audit.stable()) {
+            log.info("[Architect] Structural audit passed: PRD is mission-stable.");
+            return;
+        }
+
+        applyDeterministicPatches(manifest, audit.gaps());
+
+        // Final structural check after patching
+        DeterministicAudit patchedAudit = runDeterministicAudit(manifest);
+        if (patchedAudit.stable()) {
+            log.info("[Architect] PRD patched and stabilized without LLM refinement.");
+            return;
+        }
+
+        log.info("[Architect] Gaps remain after deterministic patching: {}. Triggering LLM refinement.", patchedAudit.gaps());
+
         String auditPrompt = String.format("""
                 You are a Senior Product Quality Auditor.
-                
-                YOUR GOAL: Review the PRD for mission-critical 'Implicit Essentials' and 'Semantic Integrity'.
-                
-                SCRUTINY CHECKLIST:
-                1. IMPLICIT ESSENTIALS: If the industry is social/content, does it have a 'Reply/Comment' flow and 'Post' action? REJECT if it's just a 'Reader' with no UGC.
-                2. NAVIGATION SEMANTICS: Are Detail pages correctly labeled as LEAF_DETAIL (not in Mindmap)? 
-                3. ECOSYSTEM CONNECTIVITY: Is there a way to get from a detail page back to the discovery feed? 
-                4. DATA FIDELITY: Ensure 5+ specific data fields per component (e.g. thumbUrl, authorBadge, readTime).
-                
-                CURRENT PRD:
+                        
+                        YOUR GOAL: Review the PRD only for the unresolved gaps listed below and return a corrected JSON if needed.
+                        
+                        UNRESOLVED GAPS:
+                        %s
+                        
+                        CURRENT PRD SUMMARY:
                 User Intent: %s
                 Mindmap: %s
-                Pages: %s
-                Task Flows: %s
-                
-                OUTPUT: If perfect, respond with "STABLE". If not, respond with the UPDATED JSON only (same schema as Architect).
-                5. LANGUAGE: %s
-                """, manifest.getUserIntent(), manifest.getMindMap(), manifest.getPages().toString(), manifest.getTaskFlows(), langInstruction);
+                        Pages Summary: %s
+                        Task Flows Summary: %s
+                        
+                        OUTPUT:
+                        - If already acceptable: respond with "STABLE"
+                        - Otherwise: respond with UPDATED JSON only (same schema as Architect)
+                        LANGUAGE: %s
+                        """,
+                String.join("\n", audit.gaps()),
+                manifest.getUserIntent(),
+                manifest.getMindMap(),
+                summarizePages(manifest),
+                summarizeTaskFlows(manifest),
+                langInstruction);
 
         try {
             String response = llmClient.chat(auditPrompt, "Audit and Refine requested.");
@@ -147,11 +172,158 @@ public class ProductArchitectAgent {
             JsonNode root = objectMapper.readTree(cleanJsonResponse(response));
 
             applyArchitecture(manifest, root);
+            compressArchitecture(manifest);
             log.info("[Architect] PRD Refined successfully.");
 
         } catch (Exception e) {
             log.warn("[Architect] Refinement pass skipped or failed: {}", e.getMessage());
         }
+    }
+
+    private DeterministicAudit runDeterministicAudit(ProjectManifest manifest) {
+        List<String> gaps = new ArrayList<>();
+        String source = ((manifest.getUserIntent() == null ? "" : manifest.getUserIntent()) + " "
+                + (manifest.getArchetype() == null ? "" : manifest.getArchetype()) + " "
+                + (manifest.getOverview() == null ? "" : manifest.getOverview())).toLowerCase(Locale.ROOT);
+        boolean contentOrSocial = containsAny(source, "community", "content", "social", "feed", "小红书", "社区", "内容", "发现", "分享", "种草");
+
+        boolean hasOverlay = manifest.getPages() != null && manifest.getPages().stream()
+                .anyMatch(page -> "OVERLAY".equalsIgnoreCase(page.getNavRole()));
+        if (!hasOverlay) {
+            gaps.add("Missing detail overlay page.");
+        }
+
+        boolean hasPublishAction = manifest.getPages() != null && manifest.getPages().stream()
+                .anyMatch(page -> "UTILITY".equalsIgnoreCase(page.getNavRole())
+                        && containsAny(page.getRoute(), "publish", "upload", "post", "发布"));
+        if (contentOrSocial && !hasPublishAction) {
+            gaps.add("Content/social product is missing a utility publish action.");
+        }
+
+        boolean hasCommentFlow = manifest.getTaskFlows() != null && manifest.getTaskFlows().stream()
+                .anyMatch(flow -> containsAny(flow.getDescription(), "comment", "reply", "评论", "回复")
+                        || (flow.getSteps() != null && flow.getSteps().stream().anyMatch(step -> containsAny(step, "comment", "reply", "评论", "回复"))));
+        if (contentOrSocial && !hasCommentFlow) {
+            gaps.add("Content/social product is missing a comment or reply loop.");
+        }
+
+        boolean hasReturnToFeed = manifest.getTaskFlows() != null && manifest.getTaskFlows().stream()
+                .anyMatch(flow -> flow.getSteps() != null && flow.getSteps().stream().anyMatch(step -> containsAny(step, "返回", "back", "return", "继续浏览", "continue browsing", "推荐流", "discovery feed")));
+        if (!hasReturnToFeed) {
+            gaps.add("Task flows do not clearly describe return-to-feed continuity from detail views.");
+        }
+
+        boolean dataDenseEnough = manifest.getPages() != null && manifest.getPages().stream()
+                .allMatch(page -> page.getComponents() != null && page.getComponents().size() >= 5);
+        if (!dataDenseEnough) {
+            gaps.add("One or more pages do not expose enough component/data hints for downstream data generation.");
+        }
+
+        return new DeterministicAudit(gaps.isEmpty(), gaps);
+    }
+
+    private void applyDeterministicPatches(ProjectManifest manifest, List<String> gaps) {
+        if (gaps == null || gaps.isEmpty()) {
+            return;
+        }
+        if (manifest.getPages() == null) {
+            manifest.setPages(new ArrayList<>());
+        }
+        if (manifest.getTaskFlows() == null) {
+            manifest.setTaskFlows(new ArrayList<>());
+        }
+
+        if (gaps.contains("Missing detail overlay page.")) {
+            manifest.getPages().add(ProjectManifest.PageSpec.builder()
+                    .route("/detail")
+                    .description("Universal detail overlay for immersive viewing and interaction continuity.")
+                    .navType("LEAF_DETAIL")
+                    .navRole("OVERLAY")
+                    .components(List.of("Hero Media", "Content Body", "Interaction Bar", "Comments", "Related Items"))
+                    .build());
+        }
+
+        if (gaps.contains("Content/social product is missing a utility publish action.")) {
+            manifest.getPages().add(ProjectManifest.PageSpec.builder()
+                    .route("/publish")
+                    .description("Utility publishing entry for creating posts or articles without occupying primary navigation.")
+                    .navType("CONTEXT_WIDGET")
+                    .navRole("UTILITY")
+                    .components(List.of("Title Input", "Content Editor", "Media Upload", "Tag Picker", "Publish CTA"))
+                    .build());
+        }
+
+        if (gaps.contains("Content/social product is missing a comment or reply loop.")) {
+            manifest.getTaskFlows().add(ProjectManifest.TaskFlow.builder()
+                    .id("flow_comment_reply")
+                    .description("Users can enter a detail view, comment, reply, and see the thread update immediately.")
+                    .steps(List.of(
+                            "ENTRY: Open the detail view from a discovery or content card",
+                            "ACTION: Add a comment or reply to an existing thread",
+                            "FEEDBACK: Comment thread updates instantly and interaction counts increase"
+                    ))
+                    .build());
+        }
+
+        if (gaps.contains("Task flows do not clearly describe return-to-feed continuity from detail views.")) {
+            manifest.getTaskFlows().add(ProjectManifest.TaskFlow.builder()
+                    .id("flow_return_to_feed")
+                    .description("Users return from detail view back into the discovery/feed context without losing browsing continuity.")
+                    .steps(List.of(
+                            "ENTRY: Open a detail view from the main discovery feed",
+                            "ACTION: Close the detail overlay or navigate back",
+                            "FEEDBACK: The user returns to the original feed context and can continue browsing"
+                    ))
+                    .build());
+        }
+    }
+
+    private String summarizePages(ProjectManifest manifest) {
+        if (manifest.getPages() == null || manifest.getPages().isEmpty()) {
+            return "No pages";
+        }
+        return manifest.getPages().stream()
+                .map(page -> page.getRoute() + " [" + page.getNavRole() + "/" + page.getNavType() + "] components="
+                        + (page.getComponents() == null ? 0 : page.getComponents().size()))
+                .reduce((a, b) -> a + "\n- " + b)
+                .map(summary -> "- " + summary)
+                .orElse("No pages");
+    }
+
+    private String summarizeTaskFlows(ProjectManifest manifest) {
+        if (manifest.getTaskFlows() == null || manifest.getTaskFlows().isEmpty()) {
+            return "No task flows";
+        }
+        return manifest.getTaskFlows().stream()
+                .map(flow -> flow.getId() + ": " + flow.getDescription())
+                .reduce((a, b) -> a + "\n- " + b)
+                .map(summary -> "- " + summary)
+                .orElse("No task flows");
+    }
+
+    private boolean containsAny(String source, String... tokens) {
+        if (source == null) {
+            return false;
+        }
+        String normalized = source.toLowerCase(Locale.ROOT);
+        for (String token : tokens) {
+            if (normalized.contains(token.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<ProjectManifest.Feature> parseFeatures(JsonNode featureNodes) {
+        List<ProjectManifest.Feature> features = new ArrayList<>();
+        featureNodes.forEach(featureNode -> {
+            features.add(ProjectManifest.Feature.builder()
+                    .name(featureNode.path("name").asText())
+                    .description(featureNode.path("description").asText())
+                    .priority(ProjectManifest.Feature.Priority.valueOf(featureNode.path("priority").asText("MEDIUM").toUpperCase()))
+                    .build());
+        });
+        return features.stream().limit(8).collect(Collectors.toCollection(ArrayList::new));
     }
 
     private String cleanJsonResponse(String response) {
@@ -192,23 +364,15 @@ public class ProductArchitectAgent {
         }
     }
 
-    private List<ProjectManifest.Feature> parseFeatures(JsonNode featureNodes) {
-        List<ProjectManifest.Feature> features = new ArrayList<>();
-        featureNodes.forEach(featureNode -> {
-            features.add(ProjectManifest.Feature.builder()
-                    .name(featureNode.path("name").asText())
-                    .description(featureNode.path("description").asText())
-                    .priority(ProjectManifest.Feature.Priority.valueOf(featureNode.path("priority").asText("MEDIUM").toUpperCase()))
-                    .build());
-        });
-        return features;
-    }
-
     private List<ProjectManifest.PageSpec> parsePages(JsonNode pageNodes) {
         List<ProjectManifest.PageSpec> pages = new ArrayList<>();
         pageNodes.forEach(pageNode -> {
             List<String> components = new ArrayList<>();
-            pageNode.path("components").forEach(componentNode -> components.add(componentNode.asText()));
+            pageNode.path("components").forEach(componentNode -> {
+                if (components.size() < 6) {
+                    components.add(componentNode.asText());
+                }
+            });
 
             pages.add(ProjectManifest.PageSpec.builder()
                     .route(pageNode.path("route").asText())
@@ -232,6 +396,76 @@ public class ProductArchitectAgent {
                     .steps(steps)
                     .build());
         });
-        return taskFlows;
+        return taskFlows.stream().limit(5).collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private void compressArchitecture(ProjectManifest manifest) {
+        if (manifest.getFeatures() != null) {
+            manifest.setFeatures(manifest.getFeatures().stream().limit(8).collect(Collectors.toCollection(ArrayList::new)));
+        }
+
+        if (manifest.getPages() != null && !manifest.getPages().isEmpty()) {
+            List<ProjectManifest.PageSpec> primary = manifest.getPages().stream()
+                    .filter(page -> "PRIMARY".equalsIgnoreCase(page.getNavRole()))
+                    .limit(5)
+                    .collect(Collectors.toCollection(ArrayList::new));
+            List<ProjectManifest.PageSpec> utility = manifest.getPages().stream()
+                    .filter(page -> "UTILITY".equalsIgnoreCase(page.getNavRole()))
+                    .limit(2)
+                    .collect(Collectors.toCollection(ArrayList::new));
+            List<ProjectManifest.PageSpec> overlay = manifest.getPages().stream()
+                    .filter(page -> "OVERLAY".equalsIgnoreCase(page.getNavRole()))
+                    .limit(2)
+                    .collect(Collectors.toCollection(ArrayList::new));
+            List<ProjectManifest.PageSpec> personal = manifest.getPages().stream()
+                    .filter(page -> "PERSONAL".equalsIgnoreCase(page.getNavRole()))
+                    .limit(1)
+                    .collect(Collectors.toCollection(ArrayList::new));
+
+            List<ProjectManifest.PageSpec> compacted = new ArrayList<>();
+            compacted.addAll(primary);
+            compacted.addAll(utility);
+            compacted.addAll(overlay);
+            compacted.addAll(personal);
+            manifest.setPages(compacted.stream()
+                    .map(page -> ProjectManifest.PageSpec.builder()
+                            .route(page.getRoute())
+                            .description(page.getDescription())
+                            .navType(page.getNavType())
+                            .navRole(page.getNavRole())
+                            .components(page.getComponents() == null ? List.of() : page.getComponents().stream().distinct().limit(6).toList())
+                            .build())
+                    .collect(Collectors.toCollection(ArrayList::new)));
+            manifest.setMindMap(buildCompactMindMap(manifest.getPages()));
+        }
+
+        if (manifest.getTaskFlows() != null) {
+            manifest.setTaskFlows(manifest.getTaskFlows().stream().limit(5).collect(Collectors.toCollection(ArrayList::new)));
+        }
+    }
+
+    private String buildCompactMindMap(List<ProjectManifest.PageSpec> pages) {
+        if (pages == null || pages.isEmpty()) {
+            return "";
+        }
+        return pages.stream()
+                .filter(page -> "PRIMARY".equalsIgnoreCase(page.getNavRole()))
+                .map(page -> presentableRoute(page.getRoute(), page.getDescription()))
+                .distinct()
+                .limit(5)
+                .collect(Collectors.joining("\n"));
+    }
+
+    private String presentableRoute(String route, String description) {
+        if (route != null && !route.isBlank()) {
+            String cleaned = route.replace("/", "").replace(":", "").trim();
+            if (!cleaned.isBlank()) {
+                return cleaned;
+            }
+        }
+        return description == null ? "overview" : description;
+    }
+
+    private record DeterministicAudit(boolean stable, List<String> gaps) {
     }
 }

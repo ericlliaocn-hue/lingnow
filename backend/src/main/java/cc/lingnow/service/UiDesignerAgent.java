@@ -85,34 +85,47 @@ public class UiDesignerAgent {
                 overlayRoutes.add(new Route("detail", "内容详情", "OVERLAY"));
             }
 
+            boolean deterministicContentFirst = shouldUseDeterministicContentFirstPipeline(manifest);
+            if (deterministicContentFirst) {
+                log.info("[Designer] Using deterministic shape-aligned pipeline for content-first prototype generation.");
+            }
+
             // STEP 1: Generate App Shell
             log.info("Step 1: Generating Application Layout Shell with {} primary routes...", primaryRoutes.size());
             String shellHtml = generateShell(manifest, primaryRoutes, lang);
 
-            // STEP 2: Generate Page Components
-            log.info("Step 2: Generating Feature Components (Context Bridge Active)...");
-            StringBuilder contentSlots = new StringBuilder();
-            int count = 0;
-            for (Route route : primaryRoutes) {
-                if (count >= 6) {
-                    log.info("Reached maximum of 6 primary pages. Skipping the rest.");
-                    break;
-                }
+            // STEP 2: Generate Page Components (Parallel Execution)
+            log.info("Step 2: Generating Feature Components (Parallel Bridge Active)...");
+            List<java.util.concurrent.CompletableFuture<String>> futures = new ArrayList<>();
+            for (Route route : primaryRoutes.stream().limit(6).toList()) {
                 ProjectManifest.PageSpec pageSpec = findPageSpec(manifest, route);
-                log.info("Generating component for: {} (#{}) using Context: {}", route.name, route.id, (pageSpec != null));
-                String componentHtml = ensureRenderableComponent(
-                        manifest,
-                        route,
-                        pageSpec,
-                        generateComponent(manifest, route, pageSpec, lang)
-                );
-                contentSlots.append(componentHtml).append("\n");
-                count++;
+                futures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    try {
+                        log.info("[Designer] Starting parallel generation for: {}", route.id);
+                        String rawHtml = generateComponent(manifest, route, pageSpec, lang);
+                        return ensureRenderableComponent(manifest, route, pageSpec, rawHtml);
+                    } catch (Exception e) {
+                        log.error("[Designer] Parallel component generation failed for {}: {}", route.id, e.getMessage());
+                        return buildFallbackComponent(manifest, route, pageSpec);
+                    }
+                }));
+            }
+
+            StringBuilder contentSlots = new StringBuilder();
+            for (java.util.concurrent.CompletableFuture<String> future : futures) {
+                try {
+                    // Timeout after 60 seconds per page (effectively parallel)
+                    contentSlots.append(future.get(60, java.util.concurrent.TimeUnit.SECONDS)).append("\n");
+                } catch (Exception e) {
+                    log.error("[Designer] Feature component future timed out or failed", e);
+                }
             }
 
             // STEP 2b: Generate Detail Modal Component (OVERLAY slot)
             log.info("Step 2b: Generating Detail Modal for OVERLAY routes...");
-            String modalHtml = generateDetailModal(manifest, overlayRoutes.get(0), lang);
+            String modalHtml = deterministicContentFirst
+                    ? buildFallbackDetailModal(lang)
+                    : generateDetailModal(manifest, overlayRoutes.get(0), lang);
 
             // STEP 3: Assembly
             log.info("Step 3: Assembling prototype...");
@@ -141,6 +154,50 @@ public class UiDesignerAgent {
             log.error("Prototype multi-step design failed", e);
             throw new RuntimeException("UI Design pipeline failed: " + e.getMessage());
         }
+    }
+
+    public void rebuildShapeAlignedPrototype(ProjectManifest manifest) {
+        log.info("[Designer] Creating industrial-grade instant seed prototype for: {}", manifest.getUserIntent());
+        String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
+        List<Route> routes = extractRoutes(manifest);
+
+        List<Route> primaryRoutes = routes.stream().filter(r -> !"OVERLAY".equals(r.navType)).toList();
+        List<Route> overlayRoutes = routes.stream().filter(r -> "OVERLAY".equals(r.navType)).toList();
+        if (overlayRoutes.isEmpty()) {
+            overlayRoutes = List.of(new Route("detail", "内容详情", "OVERLAY"));
+        }
+
+        boolean contentFirst = isContentFirst(manifest);
+        String template = readResource(contentFirst ? "/templates/ContentFirstShell.html" : "/templates/StandardShell.html");
+
+        // Phase 1: Build the Shell (Instant Frame)
+        String shell = template
+                .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
+                .replace("{{LOGO_AREA}}", "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>")
+                .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, primaryRoutes, contentFirst))
+                .replace("{{UTILITY_BUTTONS}}", "")
+                .replace("{{PERSONAL_LINKS}}", "");
+
+        // Add Default Hash Init to prevent blank screen
+        if (!primaryRoutes.isEmpty()) {
+            String firstId = primaryRoutes.get(0).id;
+            shell = shell.replace("hash: window.location.hash || '#pg1'", "hash: window.location.hash || '#" + firstId + "'");
+        }
+
+        // Phase 2: Build Deterministic Fallback Pages (Instant Content)
+        StringBuilder contentSlots = new StringBuilder();
+        for (Route route : primaryRoutes) {
+            contentSlots.append(buildFallbackComponent(manifest, route, findPageSpec(manifest, route))).append("\n");
+        }
+
+        String modalHtml = buildFallbackDetailModal(lang);
+        String finalHtml = shell
+                .replace("{{MOCK_DATA}}", "[]")
+                .replace("{{MODAL_SLOT}}", modalHtml)
+                .replace("{{CONTENT_SLOTS}}", contentSlots.toString())
+                .replace("{{CONTENT_SLOT}}", contentSlots.toString());
+
+        manifest.setPrototypeHtml(finalHtml);
     }
 
     private List<Route> extractRoutes(ProjectManifest manifest) {
@@ -230,6 +287,16 @@ public class UiDesignerAgent {
         String template = readResource(contentFirst ? "/templates/ContentFirstShell.html" : "/templates/StandardShell.html");
         String handbook = loadHandbook();
 
+        if (contentFirst) {
+            String safeLogo = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
+            return template
+                    .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
+                    .replace("{{LOGO_AREA}}", safeLogo)
+                    .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, routes, true))
+                    .replace("{{UTILITY_BUTTONS}}", "")
+                    .replace("{{PERSONAL_LINKS}}", "");
+        }
+
         // Categorize routes by navRole
         StringBuilder navContext = new StringBuilder("PAGE ROLES & ROUTES:\n");
         for (Route r : routes) {
@@ -287,11 +354,7 @@ public class UiDesignerAgent {
             personalHtml = normalizeHtmlFragment(personalHtml);
             logoHtml = normalizeHtmlFragment(logoHtml);
 
-            if (contentFirst) {
-                sidebarHtml = buildFallbackPrimaryNav(manifest, routes, true);
-                utilityHtml = "";
-                personalHtml = "";
-            } else if (sidebarHtml.isBlank()) {
+            if (sidebarHtml.isBlank()) {
                 log.warn("[Designer] Shell JSON parse returned empty sidebar. Using safe fallback nav.");
                 sidebarHtml = buildFallbackPrimaryNav(manifest, routes, contentFirst);
             }
@@ -325,26 +388,7 @@ public class UiDesignerAgent {
                 "ARCHITECT'S PLAN: " + pageSpec.getDescription() + "\nEXPECTED COMPONENTS: " + String.join(", ", pageSpec.getComponents()) :
                 "Generate a standard view for this feature.";
         boolean contentCommunity = isContentFirst(manifest) && isContentFirstRoute(route);
-        String benchmarkInstruction = contentCommunity
-                ? """
-                BENCHMARK MODE (content community):
-                - Align to Xiaohongshu / Pinterest-style discovery surfaces instead of a dashboard or portal.
-                - The main column MUST be the primary attention sink: dense, scrollable, image-first feed cards.
-                - Prefer masonry / waterfall rhythm or visibly varied card heights over a rigid equal-height grid.
-                - Keep auxiliary content light: at most 1-2 small supporting modules, never a giant strategy/control panel.
-                - Category tabs belong in the shell's top strip; DO NOT render a second full category tab bar inside the hero/body.
-                - DO NOT create a persistent left sidebar or internal portal navigation inside the page body; shell navigation already exists.
-                - DO NOT add a second sticky search toolbar or duplicate publish/search strip inside the page body.
-                - Keep any hero/intro compact and content-leading, not a massive landing-page billboard.
-                - NEVER mention benchmark names or internal strategy language in visible copy (for example: 小红书, content-first, 灵感发现流, 内容优先布局).
-                - NEVER echo the raw user request as page copy, and never use generic H1 text like 首页 / Home / Overview as the main headline.
-                - Add a top category strip near the feed (for example: 推荐 / 穿搭 / 美食 / 旅行) and wire it to Alpine state like `activeCategory`.
-                - Search, category tabs, and social filters like `高收藏` / `实时热议` MUST visibly change the card list. Use Alpine state such as `searchQuery`, `activeCategory`, and `activeSignal`.
-                - Include a lightweight auth entry pattern in the shell/header (登录 / 注册 or equivalent) instead of showing a fully-signed-in avatar by default.
-                - Each card should feel social: creator avatar/name, topic tag, save/like/comment cues, and authentic photography.
-                - When mockData has cover/image/thumbUrl/avatar/gallery fields, USE them directly so the prototype shows realistic media.
-                """
-                : "";
+        String benchmarkInstruction = contentCommunity ? buildShapeInstruction(manifest) : "";
 
         String systemPrompt = String.format("""
                 %s
@@ -380,6 +424,10 @@ public class UiDesignerAgent {
     }
 
     private String ensureRenderableComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, String componentHtml) {
+        if (shouldUseDeterministicContentFallback(manifest, route)) {
+            log.info("[Designer] Route {} is using deterministic shape fallback to preserve layout rhythm.", route.id);
+            return buildFallbackComponent(manifest, route, pageSpec);
+        }
         if (isRenderableComponent(manifest, route, componentHtml)) {
             return componentHtml;
         }
@@ -408,7 +456,7 @@ public class UiDesignerAgent {
                 + countOccurrences(lower, "x-for=");
         boolean hasFeedInteraction = lower.contains("selecteditem = item")
                 && (lower.contains("hash = '#detail'") || lower.contains("hash='#detail'"));
-        if (isContentFirstRoute(route)) {
+        if (isContentFirstRoute(route) && manifest.getDesignContract() != null) {
             int articleCount = countOccurrences(lower, "<article");
             int asideCount = countOccurrences(lower, "<aside");
             int stickyCount = countOccurrences(lower, "sticky top-");
@@ -419,11 +467,16 @@ public class UiDesignerAgent {
                     || stickyCount > 0
                     || containsAny(lower, "grid grid-cols-12", "col-span-12 xl:col-span-2", "col-span-12 xl:col-span-3", "backdrop-blur border border-slate-200 shadow-sm p-5");
             int minCards = manifest.getDesignContract() != null ? Math.max(4, manifest.getDesignContract().getMinPrimaryCards() - 1) : 4;
+            ProjectManifest.LayoutRhythm layoutRhythm = manifest.getDesignContract().getLayoutRhythm();
+            boolean requiresWaterfall = layoutRhythm == ProjectManifest.LayoutRhythm.WATERFALL;
+            boolean requiresThreadList = layoutRhythm == ProjectManifest.LayoutRhythm.THREAD || layoutRhythm == ProjectManifest.LayoutRhythm.LIST;
+            boolean hasStructuredListSignals = containsAny(lower, "divide-y", "space-y-4", "grid-cols-1", "border-b border-slate");
             return visibleText.length() >= 120
                     && contentSignals > 0
                     && hasFeedInteraction
                     && articleCount >= minCards
-                    && hasWaterfallRhythm
+                    && (!requiresWaterfall || hasWaterfallRhythm)
+                    && (!requiresThreadList || hasStructuredListSignals || articleCount >= minCards)
                     && hasInteractiveFiltering
                     && !hasInBodyCategoryStrip
                     && !hasPortalBias
@@ -432,219 +485,126 @@ public class UiDesignerAgent {
         return visibleText.length() >= 120 && contentSignals > 0;
     }
 
+    private boolean shouldUseDeterministicContentFallback(ProjectManifest manifest, Route route) {
+        if (manifest == null || manifest.getDesignContract() == null || !isContentFirstRoute(route)) {
+            return false;
+        }
+        ProjectManifest.LayoutRhythm rhythm = manifest.getDesignContract().getLayoutRhythm();
+        return rhythm == ProjectManifest.LayoutRhythm.LIST
+                || rhythm == ProjectManifest.LayoutRhythm.THREAD
+                || rhythm == ProjectManifest.LayoutRhythm.EDITORIAL;
+    }
+
+    private boolean shouldUseDeterministicContentFirstPipeline(ProjectManifest manifest) {
+        if (manifest == null || manifest.getDesignContract() == null || !isContentFirst(manifest)) {
+            return false;
+        }
+        ProjectManifest.LayoutRhythm rhythm = manifest.getDesignContract().getLayoutRhythm();
+        return rhythm == ProjectManifest.LayoutRhythm.WATERFALL
+                || rhythm == ProjectManifest.LayoutRhythm.LIST
+                || rhythm == ProjectManifest.LayoutRhythm.THREAD
+                || rhythm == ProjectManifest.LayoutRhythm.EDITORIAL
+                || manifest.getDesignContract().getMediaWeight() == ProjectManifest.MediaWeight.VISUAL_HEAVY
+                || manifest.getDesignContract().getMediaWeight() == ProjectManifest.MediaWeight.TEXT_HEAVY;
+    }
+
     private String buildFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
+        if (manifest.getDesignContract() != null && isContentFirst(manifest) && isContentFirstRoute(route)) {
+            ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
+            if (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL) {
+                return buildWaterfallFallbackComponent(manifest, route, pageSpec, profile);
+            }
+            return buildStructuredFeedFallbackComponent(manifest, route, pageSpec, profile);
+        }
+        return buildGenericFallbackComponent(manifest, route, pageSpec);
+    }
+
+    private String buildGenericFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
-        boolean contentFirst = isContentFirst(manifest);
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
-        int primaryCards = contract != null ? Math.max(contract.getMinPrimaryCards(), 4) : 4;
         String title = escapeHtml(route.name);
         String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null
                 ? pageSpec.getDescription()
                 : manifest.getUserIntent());
-        boolean communityRoute = contentFirst && isContentFirstRoute(route);
-        String layoutBadge = zh ? "今日精选" : "Curated picks";
-        String surfaceLabel = communityRoute ? (zh ? "生活方式社区" : "Lifestyle community") : title;
-        String heroTitle = communityRoute ? (zh ? "今天的灵感，值得慢慢收藏" : "Fresh inspiration worth saving today") : title;
-        String heroDescription = communityRoute
-                ? (zh ? "从穿搭、旅行、探店到家居与生活方式内容，先刷真实内容，再决定收藏、关注与互动。" : "From style and travel to cafés and home ideas, browse real content first, then save, follow, and react.")
-                : description;
-        String followLabel = zh ? "关注" : "Follow";
-        String recommendTitle = zh ? "为你推荐" : "For you";
-        String recommendSubtitle = zh ? "按你的兴趣持续更新，先看内容，再决定收藏、关注与互动。" : "Continuously updated by interest so you can browse, save, follow, and react.";
-        String socialSignalOne = zh ? "高收藏" : "Most saved";
-        String socialSignalTwo = zh ? "实时热议" : "Live now";
-        String socialSignalThree = zh ? "视频优先" : "Video first";
-        String hotTopicTitle = zh ? "正在热议" : "Hot topics";
-        String hotTopicHint = zh ? "今天大家都在刷这些关键词" : "What people are saving right now";
-        String creatorPromptTitle = zh ? "创作者入口" : "Creator actions";
-        String creatorPromptBody = zh ? "发布新内容、查看收藏反馈、继续完善详情页闭环。" : "Publish, review saves, and keep the detail flow tight.";
-        String authorFallback = zh ? "LingNow 创作者" : "LingNow creator";
-        String locationFallback = zh ? "城市生活" : "Local picks";
-        String categoryFallback = zh ? "生活方式" : "Lifestyle";
-        String cardTitleFallback = zh ? "一条值得收藏的灵感笔记" : "A post worth saving";
-        String topicFallback = zh ? "今日灵感" : "Inspiration";
-        String timeFallback = zh ? "2小时前" : "2h ago";
-        String emptyStateTitle = zh ? "暂时没有命中内容" : "No posts match yet";
-        String emptyStateHint = zh ? "换个分类、关键词或筛选方式，马上继续刷。" : "Try a different category, keyword, or signal to keep browsing.";
-        String coverPool = buildRealMediaArrayJson(true);
-        String avatarPool = buildRealMediaArrayJson(false);
-        String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 6));
-        String hotTopics = buildHotTopicsJson(zh);
-
-        String component = """
+        String eyebrow = contract != null && contract.getUiTone() == ProjectManifest.UiTone.ENTERPRISE
+                ? (zh ? "关键指标总览" : "Key overview")
+                : (zh ? "结构化内容页" : "Structured content page");
+        return """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
                   <section class="rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm">
-                    <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                      <div class="space-y-3">
-                        <div class="flex flex-wrap items-center gap-3">
-                          <span class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">__BADGE__</span>
-                          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__SURFACE_LABEL__</span>
-                        </div>
-                        <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
-                        <p class="max-w-3xl text-sm leading-7 text-slate-600">__HERO_DESCRIPTION__</p>
-                        <div class="flex flex-wrap gap-2">
-                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">先刷真实内容</span>
-                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">即时筛选高收藏与热议</span>
-                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">打开详情继续收藏和互动</span>
-                        </div>
-                      </div>
-                      <div class="flex flex-wrap gap-3 text-sm">
-                        <button
-                          @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'"
-                          :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'"
-                          class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
-                        <button
-                          @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'"
-                          :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'"
-                          class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
-                        <button
-                          @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'"
-                          :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'"
-                          class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
-                        <span class="rounded-full bg-slate-900 px-4 py-2 font-semibold text-white" x-text="getFilteredFeed(__SEEDED_FEED__).length + '+'"></span>
-                      </div>
-                    </div>
+                    <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">__EYEBROW__</span>
+                    <h1 class="mt-4 text-3xl font-black tracking-tight text-slate-900">__TITLE__</h1>
+                    <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600">__DESCRIPTION__</p>
                   </section>
-                
-                  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
-                    <div class="space-y-5">
-                      <div class="flex items-end justify-between gap-4">
-                        <div>
-                          <h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2>
-                          <p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p>
-                        </div>
-                        <div class="hidden items-center gap-2 rounded-full bg-white px-3 py-2 shadow-sm ring-1 ring-slate-200 md:flex">
-                          <span class="text-xs font-semibold text-slate-500">筛选结果</span>
-                          <span class="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white" x-text="getFilteredFeed(__SEEDED_FEED__).length"></span>
-                        </div>
-                      </div>
-                
-                      <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
-                        <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
-                          <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
-                            <div class="overflow-hidden bg-slate-100" :class="index % 5 === 0 ? 'aspect-[4/6]' : (index % 5 === 1 ? 'aspect-[4/5]' : (index % 5 === 2 ? 'aspect-[4/4.8]' : (index % 5 === 3 ? 'aspect-[4/5.4]' : 'aspect-[4/6.2]')))">
-                              <img :src='item.cover || item.image || item.thumbUrl || __COVER_POOL__[index % __COVER_POOL__.length]' class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                            </div>
-                            <div class="space-y-3 p-4">
-                              <div class="flex items-center gap-3">
-                                <img :src='item.avatar || item.authorAvatar || __AVATAR_POOL__[index % __AVATAR_POOL__.length]' class="h-10 w-10 rounded-full border border-white object-cover shadow-sm" />
-                                <div class="min-w-0">
-                                  <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
-                                  <div class="truncate text-xs text-slate-500">
-                                    <span x-text="item.location || '__LOCATION_FALLBACK__'"></span>
-                                    <span class="mx-1">·</span>
-                                    <span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span>
-                                  </div>
-                                </div>
-                                <button class="ml-auto rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-500">__FOLLOW_LABEL__</button>
-                              </div>
-                
-                              <div>
-                                <h3 class="line-clamp-2 text-lg font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
-                                <p class="mt-2 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '__DESCRIPTION__'"></p>
-                              </div>
-                
-                              <div class="flex flex-wrap gap-2">
-                                <span class="rounded-full bg-slate-900/90 px-3 py-1 text-[11px] font-semibold text-white" x-text="item.mediaType || item.contentType || '__SIGNAL_THREE__'"></span>
-                                <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__', item.category || '__CATEGORY_FALLBACK__']))" :key="tag + '-' + tagIndex">
-                                  <span class="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-500" x-text="'#' + tag"></span>
-                                </template>
-                              </div>
-                
-                              <div class="grid grid-cols-3 gap-2 rounded-2xl bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
-                                <div class="space-y-1">
-                                  <div class="font-semibold text-slate-900" x-text="item.likes || item.likeCount || '2.9w'"></div>
-                                  <div>点赞</div>
-                                </div>
-                                <div class="space-y-1">
-                                  <div class="font-semibold text-slate-900" x-text="item.comments || item.commentCount || '1.6k'"></div>
-                                  <div>评论</div>
-                                </div>
-                                <div class="space-y-1">
-                                  <div class="font-semibold text-slate-900" x-text="item.collects || item.saves || '8.4k'"></div>
-                                  <div>收藏</div>
-                                </div>
-                              </div>
-                            </div>
-                          </article>
-                        </template>
-                        <template x-if="!getFilteredFeed(__SEEDED_FEED__).length">
-                          <div class="rounded-[28px] border border-dashed border-slate-300 bg-white/80 p-8 text-center text-slate-500">
-                            <div class="text-lg font-bold text-slate-800">__EMPTY_STATE_TITLE__</div>
-                            <p class="mt-2 text-sm">__EMPTY_STATE_HINT__</p>
-                          </div>
-                        </template>
-                      </div>
+                  <section class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <div class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Overview</div>
+                        <div class="mt-3 text-lg font-bold text-slate-900">__TITLE__</div>
+                        <p class="mt-2 text-sm leading-6 text-slate-600">__DESCRIPTION__</p>
+                      </article>
+                      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <div class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Signals</div>
+                        <ul class="mt-3 space-y-2 text-sm text-slate-600">
+                          <li>• __SIGNAL_A__</li>
+                          <li>• __SIGNAL_B__</li>
+                          <li>• __SIGNAL_C__</li>
+                        </ul>
+                      </article>
+                      <article class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                        <div class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Flow</div>
+                        <p class="mt-3 text-sm leading-6 text-slate-600">__FLOW__</p>
+                      </article>
                     </div>
-                
-                    <aside class="space-y-4 xl:sticky xl:top-24">
-                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                        <div class="flex items-center justify-between">
-                          <div>
-                            <h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3>
-                            <p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p>
-                          </div>
-                          <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">Hot</span>
-                        </div>
-                        <div class="mt-4 space-y-3">
-                          <template x-for="topic in __HOT_TOPICS__" :key="topic">
-                            <button
-                              @click="searchQuery = topic; activeSignal = 'hot'"
-                              class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100"
-                              x-text="'#' + topic"></button>
-                          </template>
-                        </div>
-                      </section>
-                
-                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-                        <h3 class="text-lg font-black text-slate-900">__CREATOR_PROMPT_TITLE__</h3>
-                        <p class="mt-2 text-sm leading-7 text-slate-500">__CREATOR_PROMPT_BODY__</p>
-                        <div class="mt-4 flex flex-wrap gap-2">
-                          <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">发布</span>
-                          <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">收藏反馈</span>
-                          <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">详情闭环</span>
-                        </div>
-                      </section>
-                    </aside>
                   </section>
                 </div>
-                """;
-
-        return component
+                """
                 .replace("__ID__", route.id)
-                .replace("__BADGE__", contentFirst ? layoutBadge : (zh ? "稳定导航布局" : "Stable navigation layout"))
+                .replace("__EYEBROW__", eyebrow)
                 .replace("__TITLE__", title)
                 .replace("__DESCRIPTION__", description)
-                .replace("__SURFACE_LABEL__", surfaceLabel)
-                .replace("__HERO_TITLE__", heroTitle)
-                .replace("__HERO_DESCRIPTION__", heroDescription)
-                .replace("__SIGNAL_ONE__", socialSignalOne)
-                .replace("__SIGNAL_TWO__", socialSignalTwo)
-                .replace("__SIGNAL_THREE__", socialSignalThree)
-                .replace("__PRIMARY_CARDS__", Integer.toString(primaryCards))
-                .replace("__RECOMMEND_TITLE__", recommendTitle)
-                .replace("__RECOMMEND_SUBTITLE__", recommendSubtitle)
-                .replace("__HOT_TOPIC_TITLE__", hotTopicTitle)
-                .replace("__HOT_TOPIC_HINT__", hotTopicHint)
-                .replace("__CREATOR_PROMPT_TITLE__", creatorPromptTitle)
-                .replace("__CREATOR_PROMPT_BODY__", creatorPromptBody)
-                .replace("__FOLLOW_LABEL__", followLabel)
-                .replace("__AUTHOR_FALLBACK__", authorFallback)
-                .replace("__LOCATION_FALLBACK__", locationFallback)
-                .replace("__CATEGORY_FALLBACK__", categoryFallback)
-                .replace("__CARD_TITLE_FALLBACK__", cardTitleFallback)
-                .replace("__TOPIC_FALLBACK__", topicFallback)
-                .replace("__TIME_FALLBACK__", timeFallback)
-                .replace("__EMPTY_STATE_TITLE__", emptyStateTitle)
-                .replace("__EMPTY_STATE_HINT__", emptyStateHint)
-                .replace("__COVER_POOL__", coverPool)
-                .replace("__AVATAR_POOL__", avatarPool)
-                .replace("__SEEDED_FEED__", seededFeed)
-                .replace("__HOT_TOPICS__", hotTopics);
+                .replace("__SIGNAL_A__", zh ? "模块结构清晰" : "Clear module structure")
+                .replace("__SIGNAL_B__", zh ? "支持后续迭代扩展" : "Ready for iterative expansion")
+                .replace("__SIGNAL_C__", zh ? "可继续补齐真实数据" : "Ready for richer real data")
+                .replace("__FLOW__", zh ? "从当前模块进入详情或下一步操作，保持结构稳定并等待更精细的内容生成。" : "Move from this module into detail or the next action while keeping the structure stable for richer content generation.");
     }
 
-    private String buildRealMediaArrayJson(boolean cover) {
+    private String buildShapeInstruction(ProjectManifest manifest) {
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        if (contract == null) {
+            return "";
+        }
+        ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
+        String signalHints = profile.signalOneEn() + ", " + profile.signalTwoEn() + ", " + profile.signalThreeEn();
+        return String.format("""
+                        SHAPE CONTRACT MODE:
+                        - Build the route from the declared product shape, not from any brand benchmark.
+                        - Consumption mode: %s.
+                        - Media weight: %s.
+                        - Layout rhythm: %s.
+                        - Content density: %s.
+                        - Main loop: %s.
+                        - Primary signals to surface: %s.
+                        - UI tone: %s.
+                        - Category strip should use domain-fit labels such as: %s.
+                        - If the layout rhythm is WATERFALL, use varied card heights and strong cover media.
+                        - If the layout rhythm is LIST or THREAD, prioritize title, summary, author, tags, discussion, and metadata before oversized imagery.
+                        - Keep auxiliary content light and functional.
+                        - Never mention internal system language or product benchmark names in visible copy.
+                        """,
+                safeEnumName(contract.getConsumptionMode()),
+                safeEnumName(contract.getMediaWeight()),
+                safeEnumName(contract.getLayoutRhythm()),
+                safeEnumName(contract.getContentDensity()),
+                safeEnumName(contract.getMainLoop()),
+                signalHints,
+                safeEnumName(contract.getUiTone()),
+                String.join(" / ", profile.categoriesZh()));
+    }
+
+    private String buildRealMediaArrayJson(boolean cover, ShapeSurfaceProfile profile) {
         List<String> media = cover
+                ? (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL
                 ? List.of(
                 "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200",
                 "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200",
@@ -655,6 +615,16 @@ public class UiDesignerAgent {
                 "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?q=80&w=1200",
                 "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1200"
         )
+                : List.of(
+                "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=1200",
+                "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200",
+                "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1200",
+                "https://images.unsplash.com/photo-1517180102446-f3ece451e9d8?q=80&w=1200",
+                "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200",
+                "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1200",
+                "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?q=80&w=1200",
+                "https://images.unsplash.com/photo-1511376777868-611b54f68947?q=80&w=1200"
+        ))
                 : List.of(
                 "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256",
                 "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
@@ -673,10 +643,8 @@ public class UiDesignerAgent {
         }
     }
 
-    private String buildHotTopicsJson(boolean zh) {
-        List<String> topics = zh
-                ? List.of("城市漫游", "今日妆容", "咖啡探店", "周末去哪儿")
-                : List.of("City walk", "Makeup today", "Coffee spots", "Weekend picks");
+    private String buildHotTopicsJson(boolean zh, ShapeSurfaceProfile profile) {
+        List<String> topics = zh ? profile.hotTopicsZh() : profile.hotTopicsEn();
         try {
             return objectMapper.writeValueAsString(topics);
         } catch (Exception e) {
@@ -685,7 +653,14 @@ public class UiDesignerAgent {
         }
     }
 
-    private String buildSeededFeedJson(boolean zh, int count) {
+    private String buildSeededFeedJson(boolean zh, int count, ShapeSurfaceProfile profile) {
+        if (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL) {
+            return buildLifestyleSeededFeedJson(zh, count);
+        }
+        return buildKnowledgeSeededFeedJson(zh, count);
+    }
+
+    private String buildLifestyleSeededFeedJson(boolean zh, int count) {
         List<Map<String, Object>> cards = new ArrayList<>();
         cards.add(seedCard(
                 "id", "seed-1",
@@ -792,6 +767,80 @@ public class UiDesignerAgent {
         }
     }
 
+    private String buildKnowledgeSeededFeedJson(boolean zh, int count) {
+        List<Map<String, Object>> cards = new ArrayList<>();
+        cards.add(seedCard(
+                "id", "knowledge-1",
+                "title", zh ? "把 AI Coding Agent 接进 CI：从 PR 检查到自动修复的设计" : "Wiring AI coding agents into CI from PR checks to auto-repair",
+                "author", zh ? "林前端" : "Lin Frontend",
+                "avatar", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
+                "description", zh ? "把静态检查、集成测试和回归日志串成一个可观察的自动化链路，减少人工兜底。" : "An observable chain for static checks, integration tests, and repair logs that reduces manual cleanup.",
+                "cover", "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?q=80&w=1200",
+                "location", zh ? "工程实践" : "Engineering",
+                "time", zh ? "18分钟前" : "18m ago",
+                "category", zh ? "AI 编程" : "AI Coding",
+                "mediaType", zh ? "文章" : "Article",
+                "likes", "3.6k",
+                "comments", "218",
+                "collects", "1.4k",
+                "tags", List.of(zh ? "Agent" : "Agent", zh ? "CI/CD" : "CI/CD", zh ? "质量门" : "Quality gate")
+        ));
+        cards.add(seedCard(
+                "id", "knowledge-2",
+                "title", zh ? "React Compiler 时代，哪些 useMemo 真的该删掉？" : "Which useMemo calls should disappear in the React Compiler era?",
+                "author", zh ? "阿泽 React" : "Aze React",
+                "avatar", "https://images.unsplash.com/photo-1504257432389-52343af06ae3?q=80&w=256",
+                "description", zh ? "结合真实组件拆解哪些缓存是噪音，哪些仍然值得保留。" : "A component-by-component look at which caches are noise and which still matter.",
+                "cover", "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1200",
+                "location", zh ? "前端框架" : "Frontend",
+                "time", zh ? "1小时前" : "1h ago",
+                "category", zh ? "前端" : "Frontend",
+                "mediaType", zh ? "文章" : "Article",
+                "likes", "4.1k",
+                "comments", "356",
+                "collects", "2.2k",
+                "tags", List.of("React", zh ? "性能优化" : "Performance", zh ? "编译器" : "Compiler")
+        ));
+        cards.add(seedCard(
+                "id", "knowledge-3",
+                "title", zh ? "5 个生产环境 Redis 事故复盘：不是缓存，是系统边界问题" : "Five Redis incident postmortems that were really boundary problems",
+                "author", zh ? "老韩 SRE" : "Han SRE",
+                "avatar", "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?q=80&w=256",
+                "description", zh ? "从雪崩、击穿到热点 key，真正需要治理的是依赖关系和退化路径。" : "From cache avalanches to hot keys, the real fix is usually dependency design and graceful degradation.",
+                "cover", "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200",
+                "location", zh ? "基础设施" : "Infra",
+                "time", zh ? "2小时前" : "2h ago",
+                "category", zh ? "架构" : "Architecture",
+                "mediaType", zh ? "文章" : "Article",
+                "likes", "5.2k",
+                "comments", "287",
+                "collects", "2.8k",
+                "tags", List.of("Redis", zh ? "故障复盘" : "Postmortem", zh ? "高可用" : "Reliability")
+        ));
+        cards.add(seedCard(
+                "id", "knowledge-4",
+                "title", zh ? "从 0 到 1 设计可扩展的 BFF 层：权限、聚合与缓存策略" : "Designing a scalable BFF layer with auth, aggregation, and caching",
+                "author", zh ? "周后端" : "Zhou Backend",
+                "avatar", "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256",
+                "description", zh ? "把前端定制接口、聚合查询与鉴权隔离在 BFF，服务边界会清晰很多。" : "BFF helps isolate front-end specific APIs, aggregation queries, and auth into a cleaner service boundary.",
+                "cover", "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200",
+                "location", zh ? "后端架构" : "Backend",
+                "time", zh ? "42分钟前" : "42m ago",
+                "category", zh ? "后端" : "Backend",
+                "mediaType", zh ? "文章" : "Article",
+                "likes", "2.4k",
+                "comments", "163",
+                "collects", "1.1k",
+                "tags", List.of("BFF", zh ? "缓存" : "Caching", zh ? "权限" : "Authorization")
+        ));
+        try {
+            return objectMapper.writeValueAsString(cards.subList(0, Math.min(cards.size(), Math.max(count, 4))));
+        } catch (Exception e) {
+            log.warn("[Designer] Failed to serialize knowledge feed cards", e);
+            return "[]";
+        }
+    }
+
     private Map<String, Object> seedCard(Object... keyValues) {
         Map<String, Object> card = new LinkedHashMap<>();
         for (int index = 0; index < keyValues.length; index += 2) {
@@ -815,14 +864,13 @@ public class UiDesignerAgent {
 
     private String buildFallbackCategoryNav(ProjectManifest manifest, List<Route> routes) {
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
         String homeRouteId = routes.stream()
                 .filter(this::isContentFirstRoute)
                 .map(route -> route.id)
                 .findFirst()
                 .orElse(routes.isEmpty() ? "pg1" : routes.get(0).id);
-        List<String> categories = zh
-                ? List.of("推荐", "穿搭", "美食", "彩妆", "家居", "旅行", "健身", "摄影")
-                : List.of("For you", "Style", "Food", "Beauty", "Home", "Travel", "Fitness", "Photo");
+        List<String> categories = zh ? profile.categoriesZh() : profile.categoriesEn();
         StringBuilder nav = new StringBuilder();
         for (String category : categories) {
             String normalizedCategory = escapeHtml(category);
@@ -894,8 +942,363 @@ public class UiDesignerAgent {
                 "内容优先布局",
                 "灵感发现流",
                 "类似小红书",
-                "discover feed");
+                "discover feed",
+                "pinterest-style",
+                "xiaohongshu");
         return echoesPrompt || mentionsInternalLanguage;
+    }
+
+    private String buildWaterfallFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, ShapeSurfaceProfile profile) {
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        int primaryCards = contract != null ? Math.max(contract.getMinPrimaryCards(), 6) : 6;
+        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String coverPool = buildRealMediaArrayJson(true, profile);
+        String avatarPool = buildRealMediaArrayJson(false, profile);
+        String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 6), profile);
+        String hotTopics = buildHotTopicsJson(zh, profile);
+        return """
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
+                  <!-- AI Hydration Indicator -->
+                  <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center justify-between">
+                    <div class="flex items-center gap-2 px-3 py-1.5 bg-rose-500/90 backdrop-blur shadow-lg shadow-rose-200 border border-rose-400 rounded-full">
+                      <span class="flex h-2 w-2 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                      </span>
+                      <span class="text-[10px] font-black text-white uppercase tracking-widest">AI Polishing in Progress</span>
+                    </div>
+                  </div>
+                  <section class="rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm">
+                    <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                      <div class="space-y-3">
+                        <div class="flex flex-wrap items-center gap-3">
+                          <span class="inline-flex items-center rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">__BADGE__</span>
+                          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__SURFACE_LABEL__</span>
+                        </div>
+                        <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
+                        <p class="max-w-3xl text-sm leading-7 text-slate-600">__HERO_DESCRIPTION__</p>
+                        <div class="flex flex-wrap gap-2">
+                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">__PILL_ONE__</span>
+                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">__PILL_TWO__</span>
+                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">__PILL_THREE__</span>
+                        </div>
+                      </div>
+                      <div class="flex flex-wrap gap-3 text-sm">
+                        <button @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'" :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
+                        <button @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'" :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
+                        <button @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'" :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+                    <div class="space-y-5">
+                      <div class="flex items-end justify-between gap-4">
+                        <div>
+                          <h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2>
+                          <p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p>
+                        </div>
+                      </div>
+                      <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
+                        <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
+                          <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                            <div class="overflow-hidden bg-slate-100" :class="index % 5 === 0 ? 'aspect-[4/6]' : (index % 5 === 1 ? 'aspect-[4/5]' : (index % 5 === 2 ? 'aspect-[4/4.8]' : (index % 5 === 3 ? 'aspect-[4/5.4]' : 'aspect-[4/6.2]')))">
+                              <img :src='item.cover || item.image || item.thumbUrl || __COVER_POOL__[index % __COVER_POOL__.length]' class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                            </div>
+                            <div class="space-y-3 p-4">
+                              <div class="flex items-center gap-3">
+                                <img :src='item.avatar || item.authorAvatar || __AVATAR_POOL__[index % __AVATAR_POOL__.length]' class="h-10 w-10 rounded-full border border-white object-cover shadow-sm" />
+                                <div class="min-w-0">
+                                  <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
+                                  <div class="truncate text-xs text-slate-500"><span x-text="item.location || '__LOCATION_FALLBACK__'"></span><span class="mx-1">·</span><span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span></div>
+                                </div>
+                                <button class="ml-auto rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-500">__FOLLOW_LABEL__</button>
+                              </div>
+                              <div>
+                                <h3 class="line-clamp-2 text-lg font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
+                                <p class="mt-2 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '__DESCRIPTION__'"></p>
+                              </div>
+                              <div class="flex flex-wrap gap-2">
+                                <span class="rounded-full bg-slate-900/90 px-3 py-1 text-[11px] font-semibold text-white" x-text="item.mediaType || item.contentType || '__SIGNAL_THREE__'"></span>
+                                <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__', item.category || '__CATEGORY_FALLBACK__']))" :key="tag + '-' + tagIndex">
+                                  <span class="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-500" x-text="'#' + tag"></span>
+                                </template>
+                              </div>
+                              <div class="grid grid-cols-3 gap-2 rounded-2xl bg-slate-50/80 px-3 py-2 text-xs text-slate-500">
+                                <div class="space-y-1"><div class="font-semibold text-slate-900" x-text="item.likes || item.likeCount || '2.9w'"></div><div>点赞</div></div>
+                                <div class="space-y-1"><div class="font-semibold text-slate-900" x-text="item.comments || item.commentCount || '1.6k'"></div><div>评论</div></div>
+                                <div class="space-y-1"><div class="font-semibold text-slate-900" x-text="item.collects || item.saves || '8.4k'"></div><div>收藏</div></div>
+                              </div>
+                            </div>
+                          </article>
+                        </template>
+                      </div>
+                    </div>
+                    <aside class="space-y-4 xl:sticky xl:top-24">
+                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                          <div><h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3><p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p></div>
+                          <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-500">Hot</span>
+                        </div>
+                        <div class="mt-4 space-y-3">
+                          <template x-for="topic in __HOT_TOPICS__" :key="topic">
+                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100" x-text="'#' + topic"></button>
+                          </template>
+                        </div>
+                      </section>
+                    </aside>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", route.id)
+                .replace("__BADGE__", zh ? "当前社区首页" : "Current community home")
+                .replace("__SURFACE_LABEL__", zh ? profile.surfaceLabelZh() : profile.surfaceLabelEn())
+                .replace("__HERO_TITLE__", zh ? profile.heroTitleZh() : profile.heroTitleEn())
+                .replace("__HERO_DESCRIPTION__", zh ? profile.heroDescriptionZh() : profile.heroDescriptionEn())
+                .replace("__PILL_ONE__", zh ? "先看真实内容" : "Browse real content first")
+                .replace("__PILL_TWO__", zh ? "轻筛选，轻互动" : "Light filtering, light interaction")
+                .replace("__PILL_THREE__", zh ? "打开详情继续转化" : "Open detail for deeper action")
+                .replace("__SIGNAL_ONE__", zh ? profile.signalOneZh() : profile.signalOneEn())
+                .replace("__SIGNAL_TWO__", zh ? profile.signalTwoZh() : profile.signalTwoEn())
+                .replace("__SIGNAL_THREE__", zh ? profile.signalThreeZh() : profile.signalThreeEn())
+                .replace("__RECOMMEND_TITLE__", zh ? profile.recommendTitleZh() : profile.recommendTitleEn())
+                .replace("__RECOMMEND_SUBTITLE__", zh ? profile.recommendSubtitleZh() : profile.recommendSubtitleEn())
+                .replace("__PRIMARY_CARDS__", Integer.toString(primaryCards))
+                .replace("__AUTHOR_FALLBACK__", zh ? profile.authorFallbackZh() : profile.authorFallbackEn())
+                .replace("__LOCATION_FALLBACK__", zh ? profile.locationFallbackZh() : profile.locationFallbackEn())
+                .replace("__CATEGORY_FALLBACK__", zh ? profile.categoryFallbackZh() : profile.categoryFallbackEn())
+                .replace("__CARD_TITLE_FALLBACK__", zh ? profile.cardTitleFallbackZh() : profile.cardTitleFallbackEn())
+                .replace("__TOPIC_FALLBACK__", zh ? profile.topicFallbackZh() : profile.topicFallbackEn())
+                .replace("__TIME_FALLBACK__", zh ? "2小时前" : "2h ago")
+                .replace("__FOLLOW_LABEL__", zh ? "关注" : "Follow")
+                .replace("__DESCRIPTION__", description)
+                .replace("__COVER_POOL__", coverPool)
+                .replace("__AVATAR_POOL__", avatarPool)
+                .replace("__SEEDED_FEED__", seededFeed)
+                .replace("__HOT_TOPIC_TITLE__", zh ? profile.hotTopicTitleZh() : profile.hotTopicTitleEn())
+                .replace("__HOT_TOPIC_HINT__", zh ? profile.hotTopicHintZh() : profile.hotTopicHintEn())
+                .replace("__HOT_TOPICS__", hotTopics);
+    }
+
+    private String buildStructuredFeedFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, ShapeSurfaceProfile profile) {
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        int primaryCards = contract != null ? Math.max(contract.getMinPrimaryCards(), 4) : 4;
+        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 4), profile);
+        String hotTopics = buildHotTopicsJson(zh, profile);
+        String html = """
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
+                  <!-- AI Hydration Indicator -->
+                  <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center gap-2 px-3 py-1.5 w-fit bg-slate-900/90 backdrop-blur shadow-lg border border-slate-700 rounded-full">
+                    <span class="flex h-2 w-2 relative">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-indigo-400"></span>
+                    </span>
+                    <span class="text-[10px] font-black text-white uppercase tracking-widest">AI Hydrating Details</span>
+                  </div>
+                  <section class="rounded-[28px] border border-slate-200 bg-white/95 p-6 shadow-sm">
+                    <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                      <div class="space-y-3">
+                        <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">__SURFACE_LABEL__</span>
+                        <h1 class="max-w-4xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
+                        <p class="max-w-4xl text-sm leading-7 text-slate-600">__HERO_DESCRIPTION__</p>
+                      </div>
+                      <div class="flex flex-wrap gap-3 text-sm">
+                        <button @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'" :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
+                        <button @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'" :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
+                        <button @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'" :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <div class="space-y-4">
+                      <div class="flex items-end justify-between gap-4">
+                        <div><h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2><p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p></div>
+                      </div>
+                      <div class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                        <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
+                          <article @click="selectedItem = item; hash = '#detail'" class="cursor-pointer border-b border-slate-100 p-5 transition hover:bg-slate-50 last:border-b-0">
+                            <div class="flex gap-4">
+                              <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                  <span class="font-semibold text-slate-700" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></span>
+                                  <span>·</span>
+                                  <span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span>
+                                  <span>·</span>
+                                  <span x-text="item.category || '__CATEGORY_FALLBACK__'"></span>
+                                </div>
+                                <h3 class="mt-2 text-xl font-black leading-snug text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
+                                <p class="mt-3 line-clamp-3 text-sm leading-6 text-slate-600" x-text="item.description || item.content || item.summary || '__DESCRIPTION__'"></p>
+                                <div class="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                                  <span class="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700" x-text="item.mediaType || item.contentType || '__SIGNAL_THREE__'"></span>
+                                  <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 3) : [item.topic || '__TOPIC_FALLBACK__']))" :key="tag + '-' + tagIndex">
+                                    <span class="rounded-full bg-slate-100 px-3 py-1" x-text="'#' + tag"></span>
+                                  </template>
+                                </div>
+                                <div class="mt-4 flex items-center gap-5 text-xs text-slate-500">
+                                  <span x-text="'__SIGNAL_ONE__: ' + (item.collects || item.saves || '1.2k')"></span>
+                                  <span x-text="'__SIGNAL_TWO__: ' + (item.comments || item.commentCount || '320')"></span>
+                                  <span x-text="'__SIGNAL_THREE__: ' + (item.likes || item.likeCount || '2.4k')"></span>
+                                </div>
+                              </div>
+                              <div class="hidden w-40 shrink-0 overflow-hidden rounded-2xl bg-slate-100 lg:block" x-show="item.cover || item.image || item.thumbUrl">
+                                <img :src="item.cover || item.image || item.thumbUrl" class="h-full w-full object-cover" />
+                              </div>
+                            </div>
+                          </article>
+                        </template>
+                      </div>
+                    </div>
+                    <aside class="space-y-4">
+                      <section data-aux-section="true" class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3>
+                        <p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p>
+                        <div class="mt-4 space-y-3">
+                          <template x-for="topic in __HOT_TOPICS__" :key="topic">
+                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100" x-text="'#' + topic"></button>
+                          </template>
+                        </div>
+                      </section>
+                    </aside>
+                  </section>
+                </div>
+                """;
+
+        return html.replace("__ID__", route.id)
+                .replace("__SURFACE_LABEL__", zh ? profile.surfaceLabelZh() : profile.surfaceLabelEn())
+                .replace("__HERO_TITLE__", zh ? profile.heroTitleZh() : profile.heroTitleEn())
+                .replace("__HERO_DESCRIPTION__", zh ? profile.heroDescriptionZh() : profile.heroDescriptionEn())
+                .replace("__SIGNAL_ONE__", zh ? profile.signalOneZh() : profile.signalOneEn())
+                .replace("__SIGNAL_TWO__", zh ? profile.signalTwoZh() : profile.signalTwoEn())
+                .replace("__SIGNAL_THREE__", zh ? profile.signalThreeZh() : profile.signalThreeEn())
+                .replace("__RECOMMEND_TITLE__", zh ? profile.recommendTitleZh() : profile.recommendTitleEn())
+                .replace("__RECOMMEND_SUBTITLE__", zh ? profile.recommendSubtitleZh() : profile.recommendSubtitleEn())
+                .replace("__PRIMARY_CARDS__", Integer.toString(primaryCards))
+                .replace("__AUTHOR_FALLBACK__", zh ? profile.authorFallbackZh() : profile.authorFallbackEn())
+                .replace("__CATEGORY_FALLBACK__", zh ? profile.categoryFallbackZh() : profile.categoryFallbackEn())
+                .replace("__CARD_TITLE_FALLBACK__", zh ? profile.cardTitleFallbackZh() : profile.cardTitleFallbackEn())
+                .replace("__TOPIC_FALLBACK__", zh ? profile.topicFallbackZh() : profile.topicFallbackEn())
+                .replace("__TIME_FALLBACK__", zh ? "2小时前" : "2h ago")
+                .replace("__DESCRIPTION__", description)
+                .replace("__SEEDED_FEED__", seededFeed)
+                .replace("__HOT_TOPIC_TITLE__", zh ? profile.hotTopicTitleZh() : profile.hotTopicTitleEn())
+                .replace("__HOT_TOPIC_HINT__", zh ? profile.hotTopicHintZh() : profile.hotTopicHintEn())
+                .replace("__HOT_TOPICS__", hotTopics);
+    }
+
+    private ShapeSurfaceProfile buildShapeSurfaceProfile(ProjectManifest manifest) {
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        ProjectManifest.LayoutRhythm layout = contract != null && contract.getLayoutRhythm() != null ? contract.getLayoutRhythm() : ProjectManifest.LayoutRhythm.COMPACT_CARD;
+        ProjectManifest.PrimaryGoal primaryGoal = contract != null && contract.getPrimaryGoal() != null ? contract.getPrimaryGoal() : ProjectManifest.PrimaryGoal.READ;
+        ProjectManifest.UiTone uiTone = contract != null && contract.getUiTone() != null ? contract.getUiTone() : ProjectManifest.UiTone.PROFESSIONAL;
+        ProjectManifest.MediaWeight mediaWeight = contract != null && contract.getMediaWeight() != null ? contract.getMediaWeight() : ProjectManifest.MediaWeight.MIXED;
+        boolean discoveryLikeSurface = primaryGoal == ProjectManifest.PrimaryGoal.DISCOVER
+                && (uiTone == ProjectManifest.UiTone.LIVELY
+                || uiTone == ProjectManifest.UiTone.PLAZA
+                || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY);
+
+        if (layout == ProjectManifest.LayoutRhythm.WATERFALL || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY || discoveryLikeSurface) {
+            return new ShapeSurfaceProfile(
+                    layout,
+                    List.of("推荐", "风格", "体验", "旅行", "生活"),
+                    List.of("For you", "Style", "Experiences", "Travel", "Life"),
+                    List.of("城市漫游", "今日灵感", "热门清单", "周末去处"),
+                    List.of("City walk", "Inspiration", "Hot lists", "Weekend ideas"),
+                    "视觉内容社区", "Visual discovery community",
+                    "今天值得收藏的灵感", "Inspiration worth saving today",
+                    "先看内容质感，再决定收藏、关注和继续浏览。",
+                    "Start from visual quality, then save, follow, and keep exploring.",
+                    "发现内容", "Discover picks",
+                    "围绕你的兴趣持续更新，优先呈现高质量的内容卡片。",
+                    "Continuously updated around your interests with high-quality visual cards first.",
+                    "高收藏", "Most saved",
+                    "热度", "Trending",
+                    "视频/图文", "Video/Photo",
+                    "热门话题", "Hot topics",
+                    "当前最活跃的内容线索", "What people are actively exploring now",
+                    "LingNow 创作者", "LingNow creator",
+                    "城市生活", "Local picks",
+                    "生活方式", "Lifestyle",
+                    "一条值得继续点开的内容", "A post worth opening",
+                    "今日灵感", "Inspiration"
+            );
+        }
+
+        if (layout == ProjectManifest.LayoutRhythm.THREAD || primaryGoal == ProjectManifest.PrimaryGoal.DISCUSS) {
+            return new ShapeSurfaceProfile(
+                    layout,
+                    List.of("推荐", "最新", "精华", "版块", "问答"),
+                    List.of("For you", "Latest", "Best", "Boards", "Q&A"),
+                    List.of("热门帖子", "高质量回复", "最新更新", "技术问答"),
+                    List.of("Hot threads", "Quality replies", "Latest updates", "Tech Q&A"),
+                    "讨论型社区", "Discussion community",
+                    "今天值得参与的讨论", "Discussions worth joining today",
+                    "先看标题、回复热度和最后活跃，再决定进入讨论或继续追更。",
+                    "Start from thread titles, reply heat, and recency before deciding where to join the discussion.",
+                    "热门讨论", "Popular discussions",
+                    "围绕当前话题、回帖活跃度和版块线索快速定位值得参与的帖子。",
+                    "Navigate by thread activity, current topics, and board structure to find discussions worth joining.",
+                    "高回复", "Most replies",
+                    "最新更新", "Latest updates",
+                    "深度主题", "Deep dives",
+                    "当前热帖", "Current hot threads",
+                    "按回帖活跃度和更新时间排序", "Ranked by reply activity and last update time",
+                    "LingNow 楼主", "LingNow author",
+                    "分区社区", "Community board",
+                    "讨论主题", "Discussion",
+                    "一个值得进入的帖子", "A thread worth opening",
+                    "热议", "Discussion"
+            );
+        }
+
+        return new ShapeSurfaceProfile(
+                layout,
+                List.of("推荐", "前端", "后端", "人工智能", "架构"),
+                List.of("For you", "Frontend", "Backend", "AI", "Architecture"),
+                List.of("AI 编程", "系统设计", "工程效率", "开源实践"),
+                List.of("AI coding", "System design", "Engineering productivity", "Open source"),
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "资讯内容社区" : "技术内容社区",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Editorial knowledge community" : "Tech knowledge community",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "今天值得追踪的行业洞察" : "今天值得读的技术内容",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Industry reads worth tracking today" : "Engineering reads worth your attention today",
+                uiTone == ProjectManifest.UiTone.EDITORIAL
+                        ? "聚焦新闻线索、栏目内容与关键判断，优先帮助用户快速抓住重要变化。"
+                        : "聚焦工程实践、架构复盘与开发经验，优先帮助用户快速判断内容价值。",
+                uiTone == ProjectManifest.UiTone.EDITORIAL
+                        ? "Surface headline-worthy updates, editorial picks, and key shifts so users can grasp what matters quickly."
+                        : "Focus on engineering practice, architecture reviews, and development insights so users can quickly judge value.",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "编辑精选" : "精选文章",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Editor's picks" : "Featured reads",
+                uiTone == ProjectManifest.UiTone.EDITORIAL
+                        ? "围绕栏目、时间和洞察价值组织阅读流。"
+                        : "围绕主题、作者与可收藏价值组织阅读流。",
+                uiTone == ProjectManifest.UiTone.EDITORIAL
+                        ? "Organize reading flow around channels, recency, and editorial significance."
+                        : "Organize reading flow around topics, authors, and bookmark value.",
+                "高收藏", "Most bookmarked",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "最新动态" : "热议讨论",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Latest updates" : "Active discussions",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "栏目类型" : "内容类型",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Channel type" : "Content type",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "重要栏目" : "趋势话题",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Key channels" : "Trending topics",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "当前最值得继续追踪的栏目与主题" : "今天开发者都在追这些方向",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "The channels and themes worth following next" : "What developers are following right now",
+                "LingNow 作者", "LingNow author",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "编辑栏目" : "技术社区",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Editorial desk" : "Tech community",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "栏目" : "工程实践",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Channel" : "Engineering",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "一条值得继续跟进的资讯" : "一篇值得收藏的技术文章",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "A report worth following" : "A technical article worth bookmarking",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "行业洞察" : "架构复盘",
+                uiTone == ProjectManifest.UiTone.EDITORIAL ? "Industry insight" : "Architecture review"
+        );
+    }
+
+    private String safeEnumName(Enum<?> value) {
+        return value == null ? "" : value.name();
     }
 
     private boolean containsAny(String source, String... tokens) {
@@ -943,21 +1346,86 @@ public class UiDesignerAgent {
             return parseHtmlSnippet(response);
         } catch (java.io.IOException e) {
             log.error("Failed to generate detail modal", e);
-            // Hardcoded safe fallback modal
-            return """       
-                    <div class="relative bg-white rounded-3xl p-8 max-w-2xl mx-auto shadow-2xl">
-                      <button @click="selectedItem = null; hash = '#pg1'" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
-                      <h2 class="text-2xl font-bold mb-2" x-text="selectedItem.title || selectedItem.标题 || '详情'"></h2>
-                      <p class="text-slate-500 text-sm mb-4" x-text="selectedItem.author || selectedItem.作者 || ''"></p>
-                      <p class="text-slate-700 leading-relaxed" x-text="selectedItem.content || selectedItem.内容 || selectedItem.description || ''"></p>
-                    </div>
-                    """;
+            return buildFallbackDetailModal(lang);
         }
+    }
+
+    private String buildFallbackDetailModal(String lang) {
+        boolean zh = !"EN".equalsIgnoreCase(lang);
+        return """
+                <div class="relative bg-white rounded-3xl p-8 max-w-3xl mx-auto shadow-2xl">
+                  <button @click="selectedItem = null; hash = '#pg1'" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
+                  <div class="overflow-hidden rounded-2xl bg-slate-100">
+                    <img :src="selectedItem.cover || selectedItem.image || selectedItem.thumbUrl" class="h-72 w-full object-cover" />
+                  </div>
+                  <div class="mt-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                    <span x-text="selectedItem.author || selectedItem.作者 || 'LingNow'"></span>
+                    <span>·</span>
+                    <span x-text="selectedItem.time || selectedItem.publishTime || '%s'"></span>
+                  </div>
+                  <h2 class="mt-3 text-3xl font-black text-slate-900" x-text="selectedItem.title || selectedItem.标题 || '%s'"></h2>
+                  <p class="mt-4 text-slate-700 leading-relaxed" x-text="selectedItem.content || selectedItem.内容 || selectedItem.description || ''"></p>
+                  <div class="mt-6 flex flex-wrap gap-2">
+                    <template x-for="tag in (selectedItem.tags || [])" :key="tag">
+                      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600" x-text="'#' + tag"></span>
+                    </template>
+                  </div>
+                  <div class="mt-6 grid grid-cols-3 gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+                    <div><div class="font-semibold text-slate-900" x-text="selectedItem.likes || selectedItem.likeCount || '0'"></div><div>%s</div></div>
+                    <div><div class="font-semibold text-slate-900" x-text="selectedItem.collects || selectedItem.saves || '0'"></div><div>%s</div></div>
+                    <div><div class="font-semibold text-slate-900" x-text="selectedItem.comments || selectedItem.commentCount || '0'"></div><div>%s</div></div>
+                  </div>
+                </div>
+                """.formatted(
+                zh ? "刚刚" : "just now",
+                zh ? "详情" : "Detail",
+                zh ? "点赞" : "Likes",
+                zh ? "收藏" : "Saves",
+                zh ? "评论" : "Comments");
     }
 
     /**
      * Internal Route metadata
      */
+    private record ShapeSurfaceProfile(
+            ProjectManifest.LayoutRhythm layoutRhythm,
+            List<String> categoriesZh,
+            List<String> categoriesEn,
+            List<String> hotTopicsZh,
+            List<String> hotTopicsEn,
+            String surfaceLabelZh,
+            String surfaceLabelEn,
+            String heroTitleZh,
+            String heroTitleEn,
+            String heroDescriptionZh,
+            String heroDescriptionEn,
+            String recommendTitleZh,
+            String recommendTitleEn,
+            String recommendSubtitleZh,
+            String recommendSubtitleEn,
+            String signalOneZh,
+            String signalOneEn,
+            String signalTwoZh,
+            String signalTwoEn,
+            String signalThreeZh,
+            String signalThreeEn,
+            String hotTopicTitleZh,
+            String hotTopicTitleEn,
+            String hotTopicHintZh,
+            String hotTopicHintEn,
+            String authorFallbackZh,
+            String authorFallbackEn,
+            String locationFallbackZh,
+            String locationFallbackEn,
+            String categoryFallbackZh,
+            String categoryFallbackEn,
+            String cardTitleFallbackZh,
+            String cardTitleFallbackEn,
+            String topicFallbackZh,
+            String topicFallbackEn
+    ) {
+    }
+
     private record Route(String id, String name, String navType) {
     }
 

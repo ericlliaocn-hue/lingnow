@@ -55,10 +55,8 @@ public class GenerationService {
         architectAgent.analyze(manifest);
         manifestContractValidator.normalize(manifest);
         manifest.getMetaData().put("design_ready", "false");
-
-        // Phase 1.5: Data Engineering & Visual DNA Synthesis
-        dataEngineerAgent.generateData(manifest);
-        visualDNAAgent.synthesize(manifest);
+        manifest.getMetaData().put("data_ready", "false");
+        manifest.getMetaData().put("visual_ready", "false");
         
         manifestRegistry.save(manifest);
         
@@ -86,20 +84,31 @@ public class GenerationService {
                     overriddenMindMap.length());
         }
         manifestContractValidator.normalize(manifest);
-        dataEngineerAgent.normalizeExistingData(manifest);
+        ensureDesignInputs(manifest);
         manifest.getMetaData().put("design_ready", "false");
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
+
+        // Phase 1: Instant Seed (Commit 0) - Build and save deterministic framework immediately
+        log.info("[Generation] Triggering Phase 1 Instant Seed design...");
+        designerAgent.rebuildShapeAlignedPrototype(manifest);
         manifestRegistry.save(manifest);
 
-        designerAgent.design(manifest);
-        runPrototypeQualityPass(manifest);
-        manifest.setStatus(ProjectManifest.ProjectStatus.QA);
+        // Phase 2: Background Refinement (Polishing with LLM) - Run ASYNC for instant UX
+        log.info("[Generation] Offloading Phase 2 LLM refinement to background thread...");
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                designerAgent.design(manifest);
+                runPrototypeQualityPass(manifest);
+                manifest.setStatus(ProjectManifest.ProjectStatus.QA);
+                createSnapshot(manifest, "Initial Polished Design");
+                manifestRegistry.save(manifest);
+                log.info("[Generation] Phase 2 background refinement completed for session: {}", sessionId);
+            } catch (Exception e) {
+                log.error("[Generation] Phase 2 background refinement failed", e);
+            }
+        });
 
-        // Initial snapshot after design
-        createSnapshot(manifest, "Initial Design");
-        
-        manifestRegistry.save(manifest);
         return manifest;
     }
 
@@ -116,7 +125,7 @@ public class GenerationService {
             manifest.getMetaData().put("lang", lang);
         }
         manifestContractValidator.normalize(manifest);
-        dataEngineerAgent.normalizeExistingData(manifest);
+        ensureDesignInputs(manifest);
         manifest.getMetaData().put("design_ready", "false");
 
         manifest.setStatus(ProjectManifest.ProjectStatus.DESIGNING);
@@ -280,19 +289,68 @@ public class GenerationService {
         String auditResult = auditOutcome.getSummary();
 
         if (!auditOutcome.isPassed()) {
-            String repairedHtml = autoRepairAgent.checkAndFix(
-                    manifest.getPrototypeHtml(),
-                    manifest.getUserIntent(),
-                    manifest.getMockData(),
-                    auditResult
-            );
-            manifest.setPrototypeHtml(repairedHtml);
+            if (shouldRebuildFromShape(manifest, auditOutcome)) {
+                designerAgent.rebuildShapeAlignedPrototype(manifest);
+            } else {
+                String repairedHtml = autoRepairAgent.checkAndFix(
+                        manifest.getPrototypeHtml(),
+                        manifest.getUserIntent(),
+                        manifest.getMockData(),
+                        auditResult
+                );
+                manifest.setPrototypeHtml(repairedHtml);
+            }
             auditOutcome = functionalAuditorAgent.verify(manifest);
             auditResult = auditOutcome.getSummary();
+
+            if (!auditOutcome.isPassed() && shouldRebuildFromShape(manifest, auditOutcome)) {
+                designerAgent.rebuildShapeAlignedPrototype(manifest);
+                auditOutcome = functionalAuditorAgent.verify(manifest);
+                auditResult = auditOutcome.getSummary();
+            }
         }
 
         manifest.getMetaData().put("functional_audit_result", auditResult);
         manifest.getMetaData().put("design_ready", String.valueOf(auditOutcome.isPassed()));
+    }
+
+    private void ensureDesignInputs(ProjectManifest manifest) {
+        if (manifest.getMetaData() == null) {
+            manifest.setMetaData(new HashMap<>());
+        }
+        boolean dataReady = "true".equalsIgnoreCase(manifest.getMetaData().getOrDefault("data_ready", "false"));
+        boolean visualReady = "true".equalsIgnoreCase(manifest.getMetaData().getOrDefault("visual_ready", "false"));
+
+        if (!dataReady || manifest.getMockData() == null || manifest.getMockData().isBlank()) {
+            dataEngineerAgent.generateData(manifest);
+            manifest.getMetaData().put("data_ready", "true");
+        } else {
+            dataEngineerAgent.normalizeExistingData(manifest);
+        }
+
+        if (!visualReady || manifest.getMetaData().get("visual_reasoning") == null) {
+            visualDNAAgent.synthesize(manifest);
+            manifest.getMetaData().put("visual_ready", "true");
+        }
+    }
+
+    private boolean shouldRebuildFromShape(ProjectManifest manifest, FunctionalAuditorAgent.AuditOutcome auditOutcome) {
+        if (manifest == null || manifest.getDesignContract() == null || auditOutcome == null || auditOutcome.getBlockers() == null) {
+            return false;
+        }
+        if (manifest.getDesignContract().getLayoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL
+                || manifest.getDesignContract().getLayoutRhythm() == ProjectManifest.LayoutRhythm.LIST
+                || manifest.getDesignContract().getLayoutRhythm() == ProjectManifest.LayoutRhythm.THREAD) {
+            return auditOutcome.getBlockers().stream().anyMatch(blocker -> {
+                String lower = blocker.toLowerCase();
+                return lower.contains("portal-like internal sidebars")
+                        || lower.contains("escaped quote syntax")
+                        || lower.contains("technical knowledge homepage is leaking")
+                        || lower.contains("visual discovery homepage is leaking")
+                        || lower.contains("content-first homepage does not expose enough feed cards");
+            });
+        }
+        return false;
     }
 
     private String incrementPatchVersion(String currentVersion) {

@@ -21,14 +21,16 @@ public class LlmClient {
     private final LlmProperties properties;
     private final ObjectMapper objectMapper;
     private final OkHttpClient httpClient;
+    private final int timeoutSeconds;
 
     public LlmClient(LlmProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.timeoutSeconds = Math.max(30, properties.getTimeoutSeconds());
         this.httpClient = new OkHttpClient.Builder()
-                .connectTimeout(60, TimeUnit.SECONDS)
-                .writeTimeout(60, TimeUnit.SECONDS)
-                .readTimeout(180, TimeUnit.SECONDS)
+                .connectTimeout(Math.min(timeoutSeconds, 60), TimeUnit.SECONDS)
+                .writeTimeout(Math.min(timeoutSeconds, 60), TimeUnit.SECONDS)
+                .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .addInterceptor(chain -> {
                     Request request = chain.request();
                     Exception lastException = null;
@@ -99,6 +101,7 @@ public class LlmClient {
                 .build();
 
         log.info("Calling LLM [{}] at {}", properties.getModel(), url);
+        log.debug("LLM effective timeout: {}s", timeoutSeconds);
         // Log masked API key for security
         String maskedKey = apiKey.length() > 8 ? apiKey.substring(0, 4) + "****" + apiKey.substring(apiKey.length() - 4) : "****";
         log.debug("Using API Key: {}", maskedKey);

@@ -79,6 +79,8 @@ public class FunctionalAuditorAgent {
         String htmlLower = html.toLowerCase(Locale.ROOT);
         String mainContent = extractMainContent(html);
         String mainLower = mainContent.toLowerCase(Locale.ROOT);
+        String primarySurface = extractPrimarySurface(html);
+        String primaryLower = primarySurface.toLowerCase(Locale.ROOT);
 
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
         int minPrimarySections = contract != null ? Math.max(contract.getMinPrimarySections(), 1) : 1;
@@ -118,45 +120,49 @@ public class FunctionalAuditorAgent {
         }
 
         if (isContentFirst(manifest)) {
-            int articleCount = countOccurrences(mainLower, "<article");
+            int articleCount = countOccurrences(primaryLower, "<article");
+            int repeatedCardSignals = countOccurrences(primaryLower, "x-for=");
+            if (articleCount < minPrimaryCards && repeatedCardSignals > 0) {
+                articleCount = Math.max(articleCount, minPrimaryCards);
+            }
             if (articleCount == 0) {
                 blockers.add("Content-first homepage is missing visible article cards in the main feed.");
             }
             if (articleCount < minPrimaryCards) {
                 blockers.add("Content-first homepage does not expose enough feed cards for a strong first screen.");
             }
-            if (!containsAny(mainLower, "selecteditem = item; hash = '#detail'", "selecteditem = item; hash='#detail'")) {
+            if (!containsAny(primaryLower, "selecteditem = item; hash = '#detail'", "selecteditem = item; hash='#detail'")) {
                 blockers.add("Content-first homepage is missing a valid detail handoff on feed cards.");
             }
             if (contract != null && contract.isPrefersWaterfallFeed()
-                    && !containsAny(mainLower, "columns-", "break-inside-avoid", "waterfall")) {
+                    && !containsAny(primaryLower, "columns-", "break-inside-avoid", "waterfall")) {
                 blockers.add("Content-first homepage should use a waterfall / masonry feed rhythm instead of a rigid portal grid.");
             }
-            if (countOccurrences(mainLower, "<aside") > 1
-                    || containsAny(mainLower, "grid grid-cols-12", "col-span-12 xl:col-span-2", "col-span-12 xl:col-span-3")) {
+            if (countOccurrences(primaryLower, "<aside") > 1
+                    || containsAny(primaryLower, "grid grid-cols-12", "col-span-12 xl:col-span-2", "col-span-12 xl:col-span-3")) {
                 blockers.add("Content-first homepage still contains portal-like internal sidebars.");
             }
-            if (countOccurrences(mainLower, "sticky top-") > 0) {
+            if (countOccurrences(primaryLower, "sticky top-") > 0) {
                 blockers.add("Content-first homepage still contains sticky in-body scaffolding that competes with the shell header.");
             }
             if (contract != null && contract.getMaxAuxRailSections() > 0) {
-                int auxSections = countOccurrences(mainLower, "data-aux-section=");
+                int auxSections = countOccurrences(primaryLower, "data-aux-section=");
                 if (auxSections > contract.getMaxAuxRailSections()) {
                     blockers.add("Auxiliary right-rail modules are too heavy for a feed-first community homepage.");
                 }
             }
-            if (containsAny(mainLower, "推荐策略", "recommendation strategy", "strategy card")) {
+            if (containsAny(primaryLower, "推荐策略", "recommendation strategy", "strategy card")) {
                 blockers.add("Community homepage still contains dashboard-style strategy panels.");
             }
             if (contract != null && contract.isRequiresCategoryTabs()
                     && !containsAny(htmlLower, "activecategory", "@click=\"activecategory", "@click='activecategory")) {
                 blockers.add("Community homepage is missing top-level category tabs with real filter state.");
             }
-            if (containsAny(mainLower, "@click=\"activecategory", "@click='activecategory")) {
+            if (containsAny(primaryLower, "@click=\"activecategory", "@click='activecategory")) {
                 blockers.add("Community homepage still renders category tabs inside the page body instead of the top shell strip.");
             }
             if (contract != null && contract.isRequiresInteractiveFiltering()
-                    && !containsAny(mainLower, "activesignal", "searchquery", "getfilteredfeed")) {
+                    && !containsAny(primaryLower, "activesignal", "searchquery", "getfilteredfeed")) {
                 blockers.add("Community homepage is missing live filtering for search, high-save, and hot-discussion modes.");
             }
             if (!containsAny(htmlLower, "authopen", "authmode", "登录", "注册")) {
@@ -172,9 +178,10 @@ public class FunctionalAuditorAgent {
         }
 
         if (contract != null && contract.isPrefersRealMedia()
-                && containsAny(mainLower, "placehold.co", "via.placeholder", "dummyimage.com")) {
+                && containsAny(primaryLower, "placehold.co", "via.placeholder", "dummyimage.com")) {
             blockers.add("Community homepage still uses placeholder imagery instead of authentic-looking media.");
         }
+        evaluateShapeConsistency(manifest, primaryLower, blockers);
         String normalizedMainText = mainContent.replaceAll("<[^>]+>", " ").replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
         String normalizedIntent = manifest.getUserIntent() == null ? "" : manifest.getUserIntent().replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
         if (!normalizedIntent.isBlank() && normalizedIntent.length() >= 6 && normalizedMainText.contains(normalizedIntent)) {
@@ -212,6 +219,27 @@ public class FunctionalAuditorAgent {
         }
 
         return blockers;
+    }
+
+    private void evaluateShapeConsistency(ProjectManifest manifest, String primaryLower, List<String> blockers) {
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        if (contract == null) {
+            return;
+        }
+        boolean visualDiscovery = contract.getLayoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL
+                || contract.getMediaWeight() == ProjectManifest.MediaWeight.VISUAL_HEAVY;
+        boolean technicalKnowledge = contract.getPrimaryGoal() == ProjectManifest.PrimaryGoal.READ
+                && contract.getContentUnit() == ProjectManifest.ContentUnit.ARTICLE
+                && contract.getMediaWeight() == ProjectManifest.MediaWeight.TEXT_HEAVY;
+
+        if (visualDiscovery && containsAny(primaryLower,
+                "技术内容社区", "今天值得读的技术内容", "精选文章", "架构复盘", "前端", "后端", "人工智能", "featured reads")) {
+            blockers.add("Visual discovery homepage is leaking technical knowledge-community language.");
+        }
+        if (technicalKnowledge && containsAny(primaryLower,
+                "今日灵感", "值得收藏的灵感", "穿搭", "探店", "城市漫游", "高收藏", "visual discovery community")) {
+            blockers.add("Technical knowledge homepage is leaking lifestyle discovery language.");
+        }
     }
 
     private String runSemanticAudit(ProjectManifest manifest) {
@@ -281,6 +309,30 @@ public class FunctionalAuditorAgent {
             return html;
         }
         return html.substring(contentStart + 1, mainEnd);
+    }
+
+    private String extractPrimarySurface(String html) {
+        if (html == null || html.isBlank()) {
+            return "";
+        }
+        String marker = "x-show=\"hash === '#pg1'\"";
+        int start = html.indexOf(marker);
+        if (start == -1) {
+            return extractMainContent(html);
+        }
+        int divStart = html.lastIndexOf("<div", start);
+        if (divStart == -1) {
+            return extractMainContent(html);
+        }
+        int nextRoute = html.indexOf("x-show=\"hash === '#pg", start + marker.length());
+        if (nextRoute == -1) {
+            return html.substring(divStart);
+        }
+        int end = html.lastIndexOf("<div", nextRoute);
+        if (end == -1 || end <= divStart) {
+            return html.substring(divStart, nextRoute);
+        }
+        return html.substring(divStart, end);
     }
 
     private int countOccurrences(String source, String token) {

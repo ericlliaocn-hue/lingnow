@@ -27,13 +27,19 @@ public class AutoRepairAgent {
         log.info("[AutoRepair] Scanning prototype for logical or syntax errors using Audit Report...");
 
         try {
-            if (shouldUseTargetedRepair(html, auditReport)) {
-                log.info("[AutoRepair] Using targeted repair mode for large prototype ({} chars).", html.length());
-                return runTargetedRepair(html, userIntent, mockData, auditReport);
+            String deterministic = applyDeterministicSanitizers(html, auditReport);
+            if (!deterministic.equals(html) && isLightweightIssueOnly(auditReport)) {
+                log.info("[AutoRepair] Lightweight deterministic sanitizers resolved the audit issue without LLM repair.");
+                return deterministic;
             }
 
-            String response = llmClient.chat(buildFullRepairSystemPrompt(), buildFullRepairUserPrompt(html, userIntent, mockData, auditReport));
-            return parseHtmlSnippet(response, html);
+            if (shouldUseTargetedRepair(html, auditReport)) {
+                log.info("[AutoRepair] Using targeted repair mode for large prototype ({} chars).", deterministic.length());
+                return runTargetedRepair(deterministic, userIntent, mockData, auditReport);
+            }
+
+            String response = llmClient.chat(buildFullRepairSystemPrompt(), buildFullRepairUserPrompt(deterministic, userIntent, mockData, auditReport));
+            return parseHtmlSnippet(response, deterministic);
         } catch (Exception e) {
             log.error("[AutoRepair] Repair pass failed, returning original HTML", e);
             return html;
@@ -50,7 +56,42 @@ public class AutoRepairAgent {
         String normalizedAudit = auditReport == null ? "" : auditReport.toLowerCase();
         return normalizedAudit.contains("primary views rendered only")
                 || normalizedAudit.contains("content-first homepage does not expose enough feed cards")
-                || normalizedAudit.contains("community homepage");
+                || normalizedAudit.contains("community homepage")
+                || normalizedAudit.contains("portal-like internal sidebars");
+    }
+
+    private boolean isLightweightIssueOnly(String auditReport) {
+        String normalized = auditReport == null ? "" : auditReport.toLowerCase();
+        return normalized.contains("internal benchmark")
+                || normalized.contains("system language")
+                || normalized.contains("escaped quote syntax")
+                || normalized.contains("mock-domain media urls")
+                || normalized.contains("placeholder imagery");
+    }
+
+    private String applyDeterministicSanitizers(String html, String auditReport) {
+        if (html == null || html.isBlank()) {
+            return html;
+        }
+        String sanitized = html;
+        sanitized = sanitized
+                .replace("\\\"", "\"")
+                .replace("\\'", "'")
+                .replace("\\/", "/");
+        sanitized = sanitized
+                .replace("小红书", "生活方式社区")
+                .replace("类似小红书", "生活方式社区")
+                .replace("content-first", "feed-first")
+                .replace("灵感发现流", "内容发现流")
+                .replace("内容优先布局", "内容流布局")
+                .replace("Xiaohongshu-style", "lifestyle-style")
+                .replace("Pinterest-style", "visual-discovery-style");
+        if (auditReport != null && auditReport.toLowerCase().contains("portal-like internal sidebars")) {
+            sanitized = sanitized.replace("xl:grid-cols-[minmax(0,1fr)_320px]", "xl:grid-cols-1");
+            sanitized = sanitized.replace("xl:grid-cols-[minmax(0,1fr)_300px]", "xl:grid-cols-1");
+            sanitized = sanitized.replace("xl:sticky xl:top-24", "");
+        }
+        return sanitized;
     }
 
     private String runTargetedRepair(String html, String userIntent, String mockData, String auditReport) throws Exception {
@@ -58,9 +99,9 @@ public class AutoRepairAgent {
         JsonNode root = objectMapper.readTree(cleanStructuredResponse(response));
 
         String repaired = html;
-        repaired = replaceFirstTagBlock(repaired, "header", root.path("header").asText(""));
-        repaired = replaceFirstTagBlock(repaired, "main", root.path("main").asText(""));
-        repaired = replaceDetailTemplate(repaired, root.path("detailTemplate").asText(""));
+        repaired = replaceFirstTagBlock(repaired, "header", normalizeFragment(root.path("header").asText("")));
+        repaired = replaceFirstTagBlock(repaired, "main", normalizeFragment(root.path("main").asText("")));
+        repaired = replaceDetailTemplate(repaired, normalizeFragment(root.path("detailTemplate").asText("")));
 
         return repaired;
     }
@@ -183,7 +224,7 @@ public class AutoRepairAgent {
         if (current.isBlank()) {
             return html;
         }
-        return html.replace(current, replacement.trim());
+        return html.replace(current, normalizeFragment(replacement));
     }
 
     private String extractDetailTemplate(String html) {
@@ -210,7 +251,18 @@ public class AutoRepairAgent {
         if (current.isBlank()) {
             return html;
         }
-        return html.replace(current, replacement.trim());
+        return html.replace(current, normalizeFragment(replacement));
+    }
+
+    private String normalizeFragment(String fragment) {
+        if (fragment == null || fragment.isBlank()) {
+            return "";
+        }
+        return fragment
+                .replace("\\\"", "\"")
+                .replace("\\'", "'")
+                .replace("\\/", "/")
+                .trim();
     }
 
     private String parseHtmlSnippet(String response, String fallback) {
