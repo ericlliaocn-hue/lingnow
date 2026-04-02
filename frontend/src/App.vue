@@ -7,8 +7,15 @@
 </script>
 
 <style>
-/* Global styles are already in style.css, but we can put basic layout here if needed. */
+/* FORCE UNLOCK SCROLL */
+html, body, #app {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: visible !important;
+  overflow-x: hidden !important;
+}
+
 #app {
-  height: 100vh;
+  width: 100%;
 }
 </style>
