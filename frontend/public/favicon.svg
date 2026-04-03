@@ -1,0 +1,15 @@
+<svg viewBox="0 0 100 100" fill="none" stroke="#ffffff" xmlns="http://www.w3.org/2000/svg">
+    <g stroke-width="8" stroke-linejoin="miter">
+        <!-- Back pipe -->
+        <polyline points="20,60 20,20 60,60 60,20" opacity="0.4"/>
+        <!-- Middle pipe -->
+        <polyline points="30,70 30,30 70,70 70,30" opacity="0.7"/>
+        <!-- Front pipe (LingNow Signature Cyan) -->
+        <polyline points="40,80 40,40 80,80 80,40" opacity="1.0" stroke="#06b6d4"/>
+        <!-- Connector lines -->
+        <line x1="20" y1="20" x2="40" y2="40" opacity="0.4"/>
+        <line x1="60" y1="20" x2="80" y2="40" opacity="0.4"/>
+        <line x1="20" y1="60" x2="40" y2="80" opacity="0.7"/>
+        <line x1="60" y1="60" x2="80" y2="80" opacity="0.7"/>
+    </g>
+</svg>

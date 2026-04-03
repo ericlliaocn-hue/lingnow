@@ -2,7 +2,7 @@
 import {computed, ref} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import axios from 'axios'
-import {Globe, Loader2, Zap} from 'lucide-vue-next'
+import {Globe, Loader2} from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,9 +68,8 @@ const handleLogin = async () => {
     <div class="relative z-10 flex min-h-screen flex-col">
       <header class="h-16 px-8 border-b border-white/5 bg-black/40 backdrop-blur-3xl flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div
-              class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg">
-            <Zap class="w-6 h-6 text-white fill-current"/>
+          <div class="w-10 h-10 flex items-center justify-center">
+            <img alt="Logo" class="w-full h-full object-contain" src="/logo-icon.png"/>
           </div>
           <h1 class="text-xl font-black tracking-tighter uppercase italic">LingNow</h1>
         </div>
@@ -106,7 +105,7 @@ const handleLogin = async () => {
             </div>
             <button
                 :disabled="loading"
-                class="w-full rounded-2xl bg-blue-600 px-4 py-3 text-sm font-black text-white transition-all hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                class="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-purple-600 px-4 py-3 text-sm font-black text-white transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
                 @click="handleLogin">
               <Loader2 v-if="loading" class="w-4 h-4 animate-spin"/>
               <span>{{ loading ? i18n.loading : i18n.action }}</span>

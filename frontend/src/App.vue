@@ -1,8 +1,12 @@
 <template>
   <router-view/>
+  <PricingModal/>
+  <LoadingOverlay/>
 </template>
 
 <script setup>
+import PricingModal from './components/PricingModal.vue'
+import LoadingOverlay from './components/LoadingOverlay.vue'
 // Main App Entry
 </script>
 

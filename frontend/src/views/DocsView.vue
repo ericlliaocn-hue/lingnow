@@ -4,24 +4,18 @@
     <nav
         class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center glass-morphism border-b border-white/5">
       <div class="flex items-center gap-2 cursor-pointer" @click="$router.push('/')">
-        <div
-            class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-lg flex items-center justify-center font-bold text-xl text-white">
-          L
-        </div>
+        <img alt="Logo" class="w-8 h-8 object-contain" src="/logo-icon.png"/>
         <span class="text-xl font-bold tracking-tight text-white">LingNow</span>
       </div>
 
       <div class="hidden md:flex gap-8 text-sm font-medium text-gray-400">
-        <router-link class="hover:text-white transition-colors" to="/">{{
-            currentLang === 'cn' ? '平台' : 'Platform'
+        <router-link class="hover:text-white transition-colors" to="/solutions">{{
+            currentLang === 'cn' ? '解决方案' : 'Solutions'
           }}
         </router-link>
-        <router-link class="hover:text-white transition-colors" to="/solutions">
-          {{ currentLang === 'cn' ? '解决方案' : 'Solutions' }}
-        </router-link>
-        <router-link class="hover:text-white transition-colors" to="/#pricing">
-          {{ currentLang === 'cn' ? '定价' : 'Pricing' }}
-        </router-link>
+        <a class="hover:text-white transition-colors cursor-pointer" @click="store.isPricingOpen = true">{{
+            currentLang === 'cn' ? '定价' : 'Pricing'
+          }}</a>
       </div>
 
       <div class="flex gap-4 items-center">
@@ -42,17 +36,17 @@
           </button>
           <div
               class="absolute right-0 mt-2 w-32 glass-morphism rounded-xl p-1.5 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-            <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-xs" @click="currentLang = 'cn'">
+            <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-xs" @click="setLang('cn')">
               🇨🇳 中文
             </button>
-            <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-xs" @click="currentLang = 'en'">
+            <button class="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 text-xs" @click="setLang('en')">
               🇺🇸 English
             </button>
           </div>
         </div>
         <button class="px-5 py-2 bg-white text-black rounded-full text-sm font-bold hover:bg-cyan-400 transition-all"
                 @click="$router.push('/workbench')">
-          Launch
+          {{ currentLang === 'cn' ? '启动' : 'Launch' }}
         </button>
       </div>
     </nav>
@@ -79,7 +73,7 @@
         <Transition mode="out-in" name="fade">
           <div :key="activeTopic" class="glass-morphism rounded-[2.5rem] p-12 border border-white/10">
             <div class="flex items-center gap-2 text-xs text-gray-500 mb-6 uppercase tracking-widest font-bold">
-              <span>Docs</span>
+              <span>{{ currentLang === 'cn' ? '文档' : 'Docs' }}</span>
               <span>/</span>
               <span class="text-cyan-500">{{ activeTopic }}</span>
             </div>
@@ -104,12 +98,16 @@
             <div
                 class="mt-20 p-10 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-purple-600/10 border border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
               <div>
-                <h4 class="text-xl font-bold mb-2">Ready to Build?</h4>
-                <p class="text-gray-400 text-sm">Deploy your first industrial-grade agent now.</p>
+                <h4 class="text-xl font-bold mb-2">{{
+                    currentLang === 'cn' ? '准备好开始构建了吗？' : 'Ready to Build?'
+                  }}</h4>
+                <p class="text-gray-400 text-sm">{{
+                    currentLang === 'cn' ? '现在部署您的第一个工业级智能体。' : 'Deploy your first industrial-grade agent now.'
+                  }}</p>
               </div>
               <button class="px-8 py-3 bg-white text-black font-black rounded-2xl hover:scale-105 transition-transform flex-none"
                       @click="$router.push('/workbench')">
-                Launch Workbench
+                {{ currentLang === 'cn' ? '启动工作台' : 'Launch Workbench' }}
               </button>
             </div>
           </div>
@@ -122,8 +120,13 @@
 <script setup>
 import {ref} from 'vue'
 
-const currentLang = ref('cn')
+const currentLang = ref(localStorage.getItem('lang') || 'cn')
 const activeTopic = ref('getting-started')
+
+const setLang = (lang) => {
+  currentLang.value = lang
+  localStorage.setItem('lang', lang)
+}
 
 const docGroups = [
   {
