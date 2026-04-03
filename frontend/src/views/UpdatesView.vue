@@ -1,10 +1,21 @@
 <template>
-  <div class="min-h-screen tech-grid text-white selection:bg-cyan-500/30 overflow-x-hidden">
+  <div class="min-h-screen text-white selection:bg-cyan-500/30 overflow-x-hidden">
     <!-- Navbar (Consistent) -->
     <nav
-        class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center glass-morphism border-b border-white/5">
+        class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center glass-morphism">
       <div class="flex items-center gap-2 cursor-pointer" @click="$router.push('/')">
-        <img alt="Logo" class="w-8 h-8 object-contain" src="/logo-icon.png"/>
+        <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 100 100"
+             xmlns="http://www.w3.org/2000/svg">
+          <g stroke-linejoin="miter" stroke-width="2">
+            <polyline opacity="0.3" points="20,60 20,20 60,60 60,20"/>
+            <polyline opacity="0.6" points="30,70 30,30 70,70 70,30"/>
+            <polyline opacity="1.0" points="40,80 40,40 80,80 80,40"/>
+            <line opacity="0.3" x1="20" x2="40" y1="20" y2="40"/>
+            <line opacity="0.3" x1="60" x2="80" y1="20" y2="40"/>
+            <line opacity="0.6" x1="20" x2="40" y1="60" y2="80"/>
+            <line opacity="0.6" x1="60" x2="80" y1="60" y2="80"/>
+          </g>
+        </svg>
         <span class="text-xl font-bold tracking-tight text-white">LingNow</span>
       </div>
 

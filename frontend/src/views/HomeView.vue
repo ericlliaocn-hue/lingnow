@@ -1,5 +1,5 @@
 <template>
-  <div id="top" class="min-h-screen tech-grid relative text-white selection:bg-cyan-500/30">
+  <div id="top" class="min-h-screen relative text-white selection:bg-cyan-500/30">
     <!-- Top Navigation -->
     <nav :class="{'glass-morphism py-4': scrolled}"
          class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center transition-all duration-300">
@@ -56,10 +56,6 @@
         <router-link class="text-sm font-medium hover:text-cyan-400 transition-colors text-gray-400" to="/login">
           {{ t('nav.login') }}
         </router-link>
-        <!--        <button class="px-5 py-2 bg-white text-black rounded-full text-sm font-bold hover:bg-cyan-400 transition-all active:scale-95"-->
-        <!--                @click="$router.push('/workbench')">-->
-        <!--          {{ t('nav.getStarted') }}-->
-        <!--        </button>-->
       </div>
     </nav>
 
@@ -146,7 +142,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="py-32 px-8 border-t border-white/5 bg-[#030303]">
+    <footer class="py-32 px-8">
       <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 mb-20 text-left">
         <div class="col-span-2">
           <div class="flex items-center gap-3 mb-6">

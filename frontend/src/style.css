@@ -30,6 +30,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
     background-color: var(--color-bg-primary);
+    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
     overflow-x: hidden;
 }
 
@@ -40,9 +43,7 @@ body {
 
 /* Industrial Visual Utilities */
 .tech-grid {
-    background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
+    /* Kept for specific overrides if needed, but primary is on body */
 }
 
 .glass-morphism {
