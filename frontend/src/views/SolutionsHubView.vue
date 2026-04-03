@@ -3,20 +3,15 @@
     <!-- Navbar (Consistent) -->
     <nav
         class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center glass-morphism">
-      <div class="flex items-center gap-2 cursor-pointer" @click="$router.push('/')">
-        <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 100 100"
-             xmlns="http://www.w3.org/2000/svg">
-          <g stroke-linejoin="miter" stroke-width="2">
-            <polyline opacity="0.3" points="20,60 20,20 60,60 60,20"/>
-            <polyline opacity="0.6" points="30,70 30,30 70,70 70,30"/>
-            <polyline opacity="1.0" points="40,80 40,40 80,80 80,40"/>
-            <line opacity="0.3" x1="20" x2="40" y1="20" y2="40"/>
-            <line opacity="0.3" x1="60" x2="80" y1="20" y2="40"/>
-            <line opacity="0.6" x1="20" x2="40" y1="60" y2="80"/>
-            <line opacity="0.6" x1="60" x2="80" y1="60" y2="80"/>
-          </g>
-        </svg>
-        <span class="text-xl font-bold tracking-tight text-white">LingNow</span>
+      <div class="flex items-center gap-4 group cursor-pointer" @click="$router.push('/')">
+        <div class="w-10 h-10 flex items-center justify-center">
+          <svg class="h-9 w-auto logo-heartbeat text-white fill-current" viewBox="0 0 100 100">
+            <rect height="50" rx="6" width="80" x="10" y="25"/>
+            <path d="M25 35 V65 H38 V35 L55 65 V35 H68 V65" fill="none" stroke="black" stroke-linecap="square"
+                  stroke-width="8"/>
+          </svg>
+        </div>
+        <span class="text-xl font-black tracking-tighter uppercase italic text-white">LingNow</span>
       </div>
 
       <div class="hidden md:flex gap-8 text-sm font-medium text-gray-400">
@@ -231,6 +226,7 @@
         </div>
       </div>
     </Transition>
+    <BrandFooter/>
   </div>
 </template>
 
@@ -242,6 +238,7 @@ import {
   Share2 as Share2Icon,
   ShoppingBag as ShoppingBagIcon
 } from 'lucide-vue-next'
+import BrandFooter from '../components/BrandFooter.vue'
 
 const router = useRouter()
 

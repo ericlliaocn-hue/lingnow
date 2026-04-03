@@ -3,153 +3,1585 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>LingNow 灵现 - 终极图标微调矩阵</title>
+    <title>LingNow Logo Evolution Proposals</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         body {
-            background-color: #030303;
+            background-color: #050505;
             color: #ffffff;
-            font-family: -apple-system, system-ui, sans-serif;
+            font-family: 'Inter', sans-serif;
         }
 
-        .icon-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 1rem;
-            transition: all 0.3s;
+        .grid-bg {
+            background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
 
-        .icon-card:hover {
-            border-color: rgba(6, 182, 212, 0.5);
-            background: rgba(255, 255, 255, 0.06);
-            box-shadow: 0 0 25px rgba(6, 182, 212, 0.15);
-            transform: translateY(-2px);
-        }
-
-        .svg-container svg {
-            width: 100%;
-            height: 100%;
-            transition: transform 0.4s;
-        }
-
-        .icon-card:hover .svg-container svg {
-            transform: scale(1.1);
+        .proposal-card:hover svg {
+            transform: scale(1.05);
+            filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.2));
         }
     </style>
 </head>
-<body class="min-h-screen p-6 md:p-12 flex flex-col items-center">
+<body class="grid-bg min-h-screen p-12">
+<div class="max-w-6xl mx-auto">
+    <!-- THE CHAMPION'S WHITEPAPER (Final Decision Context) -->
+    <div id="whitepaper"
+         class="mb-32 bg-white/5 p-8 md:p-16 rounded-[4rem] border border-cyan-500/40 backdrop-blur-3xl shadow-[0_0_100px_rgba(6,182,212,0.15)] mt-12">
+        <div class="flex flex-col items-center mb-16">
+            <div class="px-4 py-1 bg-cyan-500 text-black text-[10px] font-black rounded-full mb-4 uppercase tracking-widest">
+                Global Elite Hub
+            </div>
+            <h2 class="text-5xl font-black text-center bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent uppercase tracking-tighter">
+                The Elite Selection
+            </h2>
+            <div class="h-1 w-24 bg-gradient-to-r from-transparent via-cyan-400 to-transparent mt-4"></div>
+            <p class="text-center text-gray-400 mt-8 max-w-xl text-sm">
+                We have reached the milestone of 100 unique designs. Below are the top contenders in their real-world
+                context to help you finalize the LingNow identity.
+            </p>
+        </div>
 
-<div class="text-center mb-10 mt-4 max-w-4xl">
-    <div class="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 mb-6">
-        <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 100 100">
-            <polyline points="20,60 20,20 60,60 60,20" stroke-width="2"/>
-            <polyline points="30,70 30,30 70,70 70,30" stroke-width="2"/>
-            <polyline points="40,80 40,40 80,80 80,40" stroke-width="2"/>
-            <line stroke-width="2" x1="20" x2="40" y1="20" y2="40"/>
-            <line stroke-width="2" x1="60" x2="80" y1="20" y2="40"/>
-            <line stroke-width="2" x1="20" x2="40" y1="60" y2="80"/>
-            <line stroke-width="2" x1="60" x2="80" y1="60" y2="80"/>
-        </svg>
-        <span class="text-xs font-bold text-cyan-400 tracking-wider">已定稿骨架：并行管线 (Pipeline N)</span>
+        <div class="grid grid-cols-1 gap-10">
+            <!-- Finalist 1: The Vanguard (O) -->
+            <div class="group relative bg-black/60 p-8 rounded-3xl border border-white/5 hover:border-cyan-500/50 transition-all">
+                <div class="flex flex-col md:flex-row items-center gap-12">
+                    <div class="flex-shrink-0 w-32 h-32 flex items-center justify-center bg-white/5 rounded-2xl border border-white/10">
+                        <svg height="64" viewBox="0 0 100 100" width="64">
+                            <circle cx="50" cy="50" fill="none" r="42" stroke="white" stroke-width="12"/>
+                            <path d="M33 35 V65 H43 L57 35 V65 H67" fill="none" stroke="white" stroke-linecap="square"
+                                  stroke-width="8"/>
+                        </svg>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-xl font-bold mb-2 flex items-center gap-4">
+                            方案 O：先锋引擎 (The Vanguard)
+                            <span class="px-2 py-0.5 bg-cyan-500 text-black text-[10px] font-black rounded uppercase">Editor's Choice</span>
+                        </h3>
+                        <p class="text-gray-500 text-sm mb-6">
+                            极致动能感的工业圆环。它是目前平衡感、力量感与识别度最高的一个版本。</p>
+                        <div class="flex items-center gap-8 px-6 py-3 bg-white/5 rounded-xl border border-white/5">
+                            <svg height="24" viewBox="0 0 100 100" width="24">
+                                <circle cx="50" cy="50" fill="none" r="42" stroke="white" stroke-width="12"/>
+                                <path d="M33 35 V65 H43 L57 35 V65 H67" fill="none" stroke="white" stroke-width="8"/>
+                            </svg>
+                            <div class="flex gap-4 text-[10px] uppercase tracking-widest text-gray-400 font-bold">
+                                <span>Home</span> <span class="opacity-30">Solutions</span> <span class="opacity-30">Docs</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Finalist 2: LingNow Alpha (CD) -->
+            <div class="group relative bg-black/60 p-8 rounded-3xl border border-white/5 hover:border-white/50 transition-all">
+                <div class="flex flex-col md:flex-row items-center gap-12">
+                    <div class="flex-shrink-0 w-32 h-32 flex items-center justify-center bg-white/5 rounded-2xl border border-white/10">
+                        <svg height="64" viewBox="0 0 100 100" width="64">
+                            <path d="M20 20 V80 H40 V20 L60 80 H80 V20" fill="none" stroke="white" stroke-linecap="square"
+                                  stroke-width="22"/>
+                        </svg>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-xl font-bold mb-2">方案 CD：终极 Alpha (Centennial)</h3>
+                        <p class="text-gray-500 text-sm mb-6">第 100
+                            号方案。去除了所有冗余，回归极致重型的路径互锁，传达出一种作为行业标准的霸气。</p>
+                        <div class="flex items-center gap-8 px-6 py-3 bg-white/5 rounded-xl border border-white/5">
+                            <svg height="24" viewBox="0 0 100 100" width="24">
+                                <path d="M20 20 V80 H40 V20 L60 80 H80 V20" fill="none" stroke="white" stroke-linecap="square"
+                                      stroke-width="22"/>
+                            </svg>
+                            <div class="flex gap-4 text-[10px] uppercase tracking-widest text-gray-400 font-bold">
+                                <span>Home</span> <span class="opacity-30">Solutions</span> <span class="opacity-30">Docs</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-16 text-center">
+            <p class="text-cyan-400 font-bold mb-4 animate-bounce">Ready to deploy the winner?</p>
+        </div>
     </div>
-    <h1 class="text-3xl font-black text-white mb-4 tracking-tight">参数调优：风格微感实验室</h1>
-    <p class="text-gray-400 text-sm leading-relaxed px-4">
-        绝佳的选择！“并行管线”在完美贴合【快速生成与搭积木组件】的同时，具备极强的工业极客美感。<br/>
-        既然大方向锁定，我基于这一款骨架，通过调整其<strong>「全维坐标」、「线段粗细 (Weight)」、「转角圆润度 (Join)」、「层级透视
-        (Opacity)」、「倾角加速 (Skew)」</strong>等原生 SVG 渲染参数，拉出了 6 种截然不同“视觉情绪”的微调提案。<br/>
-        看看哪一种气场最适合现在的团队？
-    </p>
-</div>
 
-<div class="w-full max-w-5xl" x-data="semanticWireframes()">
-    <!-- Toast Notification -->
-    <div class="fixed bottom-10 left-1/2 transform -translate-x-1/2 border border-cyan-500/30 bg-cyan-900/90 text-white px-6 py-3 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.3)] z-50 flex items-center gap-2" x-cloak x-show="toastStr"
-         x-transition.opacity>
-        <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-        </svg>
-        <span class="text-sm font-bold" x-text="toastStr"></span>
+    <!-- THE CENTENNIAL FINALE -->
+    <div class="mb-32">
+        <h2 class="text-3xl font-black mb-12 border-l-4 border-cyan-400 pl-6 uppercase tracking-tighter">The Centennial
+            Finale (百款庆典)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+
+            <!-- LN Proposal CC: Quantum Forge -->
+            <div class="proposal-card glass p-12 border border-white/40 rounded-[3rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <circle cx="50" cy="50" fill="none" r="45" stroke="white" stroke-width="6"/>
+                        <rect fill="white" height="40" rx="4" width="40" x="30" y="30"/>
+                        <path d="M35 35 V65 H42 V50 L58 50 V35 H65 V65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-xl font-bold">方案 CC：量子锻造 (Quantum Forge)</h4>
+                <p class="text-gray-500 text-[10px] uppercase mt-2 tracking-widest">v0.99_SYNTHESIS</p>
+            </div>
+
+            <!-- LN Proposal CD: LingNow Alpha -->
+            <div class="proposal-card glass p-12 border border-white/40 rounded-[3rem] bg-white/[0.12] flex flex-col items-center text-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <path d="M20 20 V80 H40 V20 L60 80 H80 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="22"/>
+                    </svg>
+                </div>
+                <h4 class="text-xl font-bold">方案 CD：LingNow Alpha</h4>
+                <p class="text-gray-500 text-[10px] uppercase mt-2 tracking-widest">v1.00_ETERNAL</p>
+            </div>
+        </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <template :key="icon.id" x-for="icon in icons">
-            <div class="icon-card flex flex-col p-8 relative group items-center">
-                <div class="w-full h-24 flex justify-center items-center svg-container mb-6 text-white">
-                    <div class="w-20 h-20 relative drop-shadow-[0_0_8px_rgba(255,255,255,0.1)]" x-html="icon.svg"></div>
+    <header class="mb-16 opacity-30">
+        <h1 class="text-4xl font-black tracking-tighter mb-4">Archives / 历史演进档</h1>
+        <p class="text-gray-500 font-mono text-sm uppercase tracking-widest">THE HISTORICAL ITERATION LOG</p>
+    </header>
+
+    <div class="mb-20 opacity-30">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-cyan-500 pl-4 uppercase tracking-tighter">L & N
+            线条缠绕专项设计</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <!-- LN Proposal 1: Seamless Flow -->
+            <div class="proposal-card glass p-10 border border-white/10 rounded-[2.5rem] bg-white/[0.05] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <!-- L into N seamless path -->
+                        <path d="M20 20 V80 H40 L40 20 L80 80 V20"
+                              fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round"
+                              stroke-width="2.5"/>
+                        <path d="M20 20 V80 H40" fill="none" opacity="0.3" stroke="cyan" stroke-width="1"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">极简流线 (LN Flow)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">SEAMLESS_LOGIC</p>
+            </div>
+
+            <!-- LN Proposal 2: Ribbon Interlock -->
+            <div class="proposal-card glass p-10 border border-white/10 rounded-[2.5rem] bg-white/[0.05] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <g fill="none" stroke-linecap="round" stroke-width="3">
+                            <!-- L -->
+                            <path d="M25 20 V75 H45" opacity="0.4" stroke="white"/>
+                            <!-- N with Overlap effect -->
+                            <path d="M45 75 L45 20 L75 80 V25" stroke="white"/>
+                            <!-- Intertwined highlight -->
+                            <path d="M45 40 L45 25" opacity="0.8" stroke="cyan"/>
+                        </g>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">逻辑锁合 (LN Interlock)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">RIBBON_STRUCTURE</p>
+            </div>
+
+            <!-- LN Proposal 3: Infinity Wrap -->
+            <div class="proposal-card glass p-10 border border-white/10 rounded-[2.5rem] bg-white/[0.05] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+                            <path d="M20 30 V80 H40" stroke="white"/>
+                            <path d="M40 80 Q 40 10, 60 50 Q 80 90, 80 20" opacity="0.9" stroke="white"/>
+                            <circle cx="40" cy="80" fill="white" r="2"/>
+                        </g>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">无限缠绕 (LN Infinity)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">DYNAMIC_PIPELINE</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: Heavyweight Industrial Edition -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Heavyweight 工业厚重版
+            (L & N Bundle)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <!-- LN Proposal E: Steel Beam -->
+            <div class="proposal-card glass p-10 border border-white/20 rounded-[2.5rem] bg-white/[0.08] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <!-- Bold Steel Beam Structure -->
+                        <path d="M20 20 V85 H50 V15 L50 85 H80 V15"
+                              fill="none" stroke="white" stroke-linecap="square" stroke-linejoin="miter"
+                              stroke-width="12"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">方案 E：工字钢构 (Steel Beam)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">INDUSTRIAL_SUPPORT</p>
+            </div>
+
+            <!-- LN Proposal F: Solid Negative -->
+            <div class="proposal-card glass p-10 border border-white/20 rounded-[2.5rem] bg-white/[0.08] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <!-- Solid Block with Cutout -->
+                        <rect fill="white" height="70" rx="12" width="70" x="15" y="15"/>
+                        <path d="M28 28 V72 H42 V28 H42 L58 72 V28 H72 V72"
+                              fill="none" stroke="black" stroke-linecap="square" stroke-width="6"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">方案 F：实心方阵 (Solid Block)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">MONOLITH_IDENTITY</p>
+            </div>
+
+            <!-- LN Proposal G: Heavy Tracks -->
+            <div class="proposal-card glass p-10 border border-white/20 rounded-[2.5rem] bg-white/[0.08] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <g fill="none" stroke="white" stroke-linecap="square" stroke-linejoin="miter" stroke-width="10">
+                            <!-- Intertwined bold paths -->
+                            <path d="M20 30 V80 H40" opacity="1"/>
+                            <path d="M50 80 V20 L80 80 V20" opacity="0.9"/>
+                            <line stroke-width="10" x1="40" x2="50" y1="80" y2="80"/>
+                        </g>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">方案 G：双轨重炮 (Heavy Rails)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">POWER_PIPELINE</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE FINAL REFINEMENT EPOCH -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-cyan-400 pl-4 uppercase tracking-tighter">Final
+            Refinement: The Epoch (终极进化版)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <!-- LN Proposal H: Interlocking Void -->
+            <div class="proposal-card glass p-10 border border-white/30 rounded-[2.5rem] bg-white/[0.1] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <!-- Refined Interlocking Negative Space -->
+                        <rect fill="white" height="70" rx="14" width="70" x="15" y="15"/>
+                        <!-- The L part -->
+                        <path d="M28 28 V72 H60 V58 H42 V28 Z" fill="black"/>
+                        <!-- The N part (interlocking effect) -->
+                        <path d="M48 28 V42 H60 L60 72 H72 V28 H48" fill="white" opacity="0.1"/> <!-- Visual balance -->
+                        <path d="M58 28 V72 H72 V28 H58 L58 42 L42 42 V28 Z" fill="black"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">方案 H：联锁真空 (Interlocking Void)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">WEAVE_LOGIC</p>
+            </div>
+
+            <!-- LN Proposal I: Cyber Monolith -->
+            <div class="proposal-card glass p-10 border border-white/30 rounded-[2.5rem] bg-white/[0.1] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <!-- Geometric Synthesis -->
+                        <rect fill="white" height="70" rx="8" width="70" x="15" y="15"/>
+                        <!-- Minimalist Combined L-N carving -->
+                        <path d="M28 28 V72 H72 V55 H55 L55 45 H72 V28 H55 L28 55 V28 Z" fill="black"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">方案 I：赛博碑石 (Cyber Monolith)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">GEOMETRIC_SYNTHESIS</p>
+            </div>
+
+            <!-- LN Proposal J: Kinetic Badge -->
+            <div class="proposal-card glass p-10 border border-white/30 rounded-[2.5rem] bg-white/[0.1] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-48">
+                    <svg height="120" viewBox="0 0 100 100" width="120">
+                        <!-- Sophisticated Badge with detail -->
+                        <rect fill="none" height="70" rx="18" stroke="white" stroke-width="12" width="70" x="15"
+                              y="15"/>
+                        <path d="M30 30 V70 H45 V30 Z" fill="white"/>
+                        <path d="M55 70 V30 H70 V70 Z" fill="white"/>
+                        <path d="M45 40 L55 60" stroke="white" stroke-linecap="square" stroke-width="8"/>
+                        <!-- Detail: Internal Grid -->
+                        <line opacity="0.1" stroke="white" stroke-width="0.5" x1="20" x2="80" y1="20" y2="80"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold">方案 J：动力徽章 (Kinetic Badge)</h3>
+                <p class="text-gray-500 text-[10px] uppercase font-black tracking-widest mt-2">PRECISION_BADGE</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: BADGE SERIES REFINEMENT -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Badge Series
+            Refinement (徽章专项进阶)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal K: Hex-Turbine -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy Hexagon Frame -->
+                        <path d="M50 5 L90 27.5 V72.5 L50 95 L10 72.5 V27.5 Z" fill="none" stroke="white"
+                              stroke-width="10"/>
+                        <!-- Balanced LN inside -->
+                        <path d="M35 35 V65 H45 M55 65 V35 L65 65 V35" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 K：六棱涡轮 (Hex-Turbine)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">TECH_HEX_CORE</p>
+            </div>
+
+            <!-- LN Proposal L: Shield Track -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Double Stroke Badge -->
+                        <rect fill="none" height="70" rx="10" stroke="white" stroke-width="8" width="70" x="15" y="15"/>
+                        <rect fill="none" height="50" opacity="0.4" rx="4" stroke="white" stroke-width="2" width="50" x="25"
+                              y="25"/>
+                        <path d="M38 35 V65 H52 V35 L62 65 V35" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="6"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 L：双轨护盾 (Shield Track)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SECURE_LAYER</p>
+            </div>
+
+            <!-- LN Proposal M: Module Matrix -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Solid Block Negative Space 2.0 -->
+                        <rect fill="white" height="70" rx="15" width="70" x="15" y="15"/>
+                        <!-- Modularized LN cutouts -->
+                        <rect fill="black" height="50" width="12" x="25" y="25"/>
+                        <rect fill="black" height="50" width="12" x="63" y="25"/>
+                        <path d="M37 55 H50 V37 L63 55" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 M：模块矩阵 (Module Matrix)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SOLID_MODULAR</p>
+            </div>
+
+            <!-- LN Proposal N: Core Reactor -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Circular Heavy Badge -->
+                        <circle cx="50" cy="50" fill="none" r="40" stroke="white" stroke-width="12"/>
+                        <!-- Integrated LN Curve -->
+                        <path d="M35 35 V65 H45 Q 50 65, 55 50 Q 60 35, 65 35 V65" fill="none" stroke="white"
+                              stroke-linecap="round" stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 N：核心反应堆 (Core Reactor)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ENERGY_FUSION</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: MASTERPIECE SELECTIONS (THE FINALE) -->
+    <div class="mb-20">
+        <h2 class="text-3xl font-black mb-8 border-l-4 border-cyan-500 pl-4 uppercase tracking-tighter">Masterpiece
+            Selections (终极大师定稿)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
+
+            <!-- LN Proposal O: The Vanguard -->
+            <div class="proposal-card glass p-12 border border-cyan-500/30 rounded-[3rem] bg-cyan-500/[0.05] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-56">
+                    <svg height="140" viewBox="0 0 100 100" width="140">
+                        <!-- Perfect Heavy Circle -->
+                        <circle cx="50" cy="50" fill="none" r="42" stroke="white" stroke-width="12"/>
+                        <!-- Refined LN Wave with Sharp Terminals -->
+                        <path d="M33 35 V65 H43 L57 35 V65 H67" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-linejoin="miter" stroke-width="8"/>
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-2xl font-bold mb-2">方案 O：先锋引擎 (The Vanguard)</h3>
+                    <p class="text-gray-400 text-xs font-mono uppercase tracking-widest">PRECISION_ENGINE_CORE</p>
+                </div>
+            </div>
+
+            <!-- LN Proposal P: The Portal -->
+            <div class="proposal-card glass p-12 border border-purple-500/30 rounded-[3rem] bg-purple-500/[0.05] flex flex-col items-center">
+                <div class="mb-10 flex items-center justify-center w-full h-56">
+                    <svg height="140" viewBox="0 0 100 100" width="140">
+                        <!-- Refined Circle with Gap Logic -->
+                        <circle cx="50" cy="50" fill="none" r="42" stroke="white" stroke-width="10"/>
+                        <path d="M35 35 V65 H45 A 5 5 0 0 0 55 65 V35 A 5 5 0 0 1 65 35 V65" fill="none" stroke="white"
+                              stroke-linecap="round" stroke-width="8"/>
+                    </svg>
+                </div>
+                <div class="text-center">
+                    <h3 class="text-2xl font-bold mb-2">方案 P：时空门户 (The Portal)</h3>
+                    <p class="text-gray-400 text-xs font-mono uppercase tracking-widest">CYBER_PORTAL_HYBRID</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: ELITE VANGUARD SERIES -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Elite Vanguard
+            Series (精英先锋系列)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal Q: Segmented Core -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Segmented heavy circle -->
+                        <path d="M50 5 A 45 45 0 0 1 95 50" fill="none" stroke="white" stroke-linecap="round"
+                              stroke-width="12"/>
+                        <path d="M50 95 A 45 45 0 0 1 5 50" fill="none" stroke="white" stroke-linecap="round"
+                              stroke-width="12"/>
+                        <path d="M35 35 V65 H45 L55 35 V65 H65" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 Q：切分核心 (Segmented)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MODULAR_DYNAMICS</p>
+            </div>
+
+            <!-- LN Proposal R: Etched Monolith -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Solid circle with thin etching -->
+                        <circle cx="50" cy="50" fill="white" r="45"/>
+                        <path d="M35 30 V70 H45 V30 H45 L55 70 V30 H65 V70" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="6"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 R：蚀刻单体 (Etched)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SOLID_PRECISION</p>
+            </div>
+
+            <!-- LN Proposal S: Multi-Track Loop -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <circle cx="50" cy="50" fill="none" r="42" stroke="white" stroke-width="12"/>
+                        <!-- Triple line LN inside -->
+                        <g stroke="black" stroke-width="1">
+                            <path d="M33 35 V65 H43 L57 35 V65 H67" fill="none" stroke="white" stroke-width="6"/>
+                            <path d="M33 35 V65 H43 L57 35 V65 H67" fill="none" opacity="0.4" stroke="black"
+                                  stroke-width="1"/>
+                        </g>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 S：多维轨道 (Multi-Track)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">PARALLEL_CORE</p>
+            </div>
+
+            <!-- LN Proposal T: Shielded Elite -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Shield-like Heavy Circle -->
+                        <path d="M50 5 Q 90 5, 90 50 Q 90 95, 50 95 Q 10 95, 10 50 Q 10 5, 50 5" fill="none"
+                              stroke="white" stroke-width="14"/>
+                        <path d="M38 35 V65 H48 V35 L62 65 V35 H72" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 T：重型护盾 (Shielded)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SECURE_VANGUARD</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: INDUSTRIAL VANGUARD II -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Industrial Vanguard
+            II (工业先锋 II)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal U: Heavy Slab -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy horizontal slab -->
+                        <rect fill="white" height="50" rx="6" width="80" x="10" y="25"/>
+                        <path d="M25 35 V65 H38 V35 L55 65 V35 H68 V65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 U：重型板材 (Heavy Slab)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SOLID_PANEL</p>
+            </div>
+
+            <!-- LN Proposal V: Hexa-Forge -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <path d="M50 10 L85 30 V70 L50 90 L15 70 V30 Z" fill="white"/>
+                        <path d="M35 35 V65 H45 M55 35 L55 65 L70 35 V65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 V：六边棱镜 (Hexa-Forge)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">FORGED_BATTALION</p>
+            </div>
+
+            <!-- LN Proposal W: Structural Elevation -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Architectural Profile -->
+                        <path d="M20 20 V80 H80" fill="none" stroke="white" stroke-width="12"/>
+                        <path d="M45 20 V80 L75 20 V80" fill="none" stroke="white" stroke-width="12"/>
+                        <rect fill="none" height="60" opacity="0.1" stroke="white" stroke-width="1" width="60" x="20"
+                              y="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 W：结构剖面 (Structural)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ARCH_FOUNDATION</p>
+            </div>
+
+            <!-- LN Proposal X: Alloy Interlock -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Composite bold LN -->
+                        <path d="M20 20 V80 H40" fill="none" stroke="white" stroke-width="16"/>
+                        <path d="M40 20 L80 80 V20" fill="none" opacity="0.8" stroke="white" stroke-width="10"/>
+                        <rect fill="none" height="60" opacity="0.3" stroke="white" stroke-dasharray="2 2" stroke-width="1" width="40"
+                              x="40" y="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 X：合金咬合 (Alloy)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">COMPOSITE_UNIT</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: INDUSTRIAL VANGUARD III -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Industrial Vanguard
+            III (工业先锋 III)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal Y: Gravity Core -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy Monolithic N with industrial bevels -->
+                        <path d="M20 20 H50 L50 80 H20 Z" fill="white" opacity="0.3"/>
+                        <path d="M50 20 H80 L80 80 H50 Z" fill="white" opacity="0.3"/>
+                        <path d="M20 20 V80 H35 L65 20 H80 V80 H65 V20 L35 80 V20 H20" fill="white"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 Y：重力核心 (Gravity)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MASSIVE_CORE</p>
+            </div>
+
+            <!-- LN Proposal Z: Folded Dimension -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Intertwined folded metal plates -->
+                        <path d="M20 20 L50 20 V80 L20 80 Z" fill="white" opacity="0.8"/>
+                        <path d="M50 20 L80 50 V80 L50 80 Z" fill="white" opacity="0.4"/>
+                        <path d="M50 20 L80 20 V50 L50 20 Z" fill="white"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 Z：折叠维度 (Folded)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">GEOMETRIC_FOLD</p>
+            </div>
+
+            <!-- LN Proposal AA: Data Grid -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy grid-based letters -->
+                        <rect fill="none" height="50" opacity="0.1" stroke="white" stroke-width="1" width="50" x="25"
+                              y="25"/>
+                        <path d="M25 25 V75 H40 M50 75 V25 L75 75 V25" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AA：数据格栅 (Grid)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">PRECISION_STENCIL</p>
+            </div>
+
+            <!-- LN Proposal AB: Eternal Arch -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Extreme minimalist arch structure -->
+                        <path d="M20 80 V20 H80 V80 M50 20 V80" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="14"/>
+                        <path d="M20 80 H80" fill="none" opacity="0.2" stroke="white" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AB：永恒架构 (Arch)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ETERNAL_FOUNDATION</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE INDUSTRIAL CROWN JEWEL -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-cyan-500 pl-4 uppercase tracking-tighter">The Industrial
+            Crown Jewel (工业皇冠/最终定稿级)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal AC: Steel Monolith -->
+            <div class="proposal-card glass p-8 border border-white/50 rounded-[2.5rem] bg-white/[0.15] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Massive interlocking block -->
+                        <path d="M15 15 H45 V85 H15 Z" fill="white" opacity="0.2"/>
+                        <path d="M55 15 H85 V85 H55 Z" fill="white" opacity="0.2"/>
+                        <path d="M15 15 V85 H45 V35 L55 85 H85 V15 H55 V65 L45 15 H15" fill="white"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AC：重型单体 (Monolith)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SUPREME_MASS</p>
+            </div>
+
+            <!-- LN Proposal AD: Hex Matrix 3.0 -->
+            <div class="proposal-card glass p-8 border border-white/50 rounded-[2.5rem] bg-white/[0.15] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Ultimate Hex Badge -->
+                        <path d="M50 5 L92 28 V72 L50 95 L8 72 V28 Z" fill="white"/>
+                        <path d="M30 35 V65 H45 M55 35 V65 L70 35 V65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AD：六边矩阵 (Hex Matrix)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ELITE_GEOMETRY</p>
+            </div>
+
+            <!-- LN Proposal AE: Fluid I-Beam -->
+            <div class="proposal-card glass p-8 border border-white/50 rounded-[2.5rem] bg-white/[0.15] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Ultra-heavy fluid path -->
+                        <path d="M20 20 V80 H45 V20 H55 V80 H80 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="18"/>
+                        <line stroke="white" stroke-width="18" x1="45" x2="55" y1="20" y2="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AE：流体工字 (Fluid Beam)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">DYNAMIC_FORCE</p>
+            </div>
+
+            <!-- LN Proposal AF: The Archetype -->
+            <div class="proposal-card glass p-8 border border-white/50 rounded-[2.5rem] bg-white/[0.15] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- The purest heavy industrial mark -->
+                        <circle cx="50" cy="50" fill="white" opacity="0.1" r="45"/>
+                        <path d="M25 25 V75 H40 L60 25 V75 H75" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="16"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AF：先锋原形 (Archetype)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ORIGINAL_VANGUARD</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: INDUSTRIAL BRUTALISM: THE SLAB SERIES -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Industrial
+            Brutalism (工业粗犷主义/重型版)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal AG: Stacked Beams -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[2.5rem] bg-white/[0.18] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Massive stacked steel beam logic -->
+                        <rect fill="white" height="60" width="20" x="20" y="20"/>
+                        <rect fill="white" height="60" width="20" x="60" y="20"/>
+                        <path d="M40 20 L60 80" fill="none" stroke="white" stroke-linecap="square" stroke-width="22"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AG：重型层叠 (Stacked)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">BEAM_GRAVITY</p>
+            </div>
+
+            <!-- LN Proposal AH: Tectonic Interlock -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[2.5rem] bg-white/[0.18] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Two massive shifting tectonic plates -->
+                        <path d="M10 10 V90 H45 V10 Z" fill="white" opacity="0.9"/>
+                        <path d="M55 10 V90 H90 V10 Z" fill="white" opacity="0.9"/>
+                        <line opacity="0.2" stroke="white" stroke-width="4" x1="10" x2="90" y1="90" y2="90"/>
+                        <path d="M45 10 L55 90" stroke="white" stroke-linecap="square" stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AH：地壳咬合 (Tectonic)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">PLATE_INTEGRITY</p>
+            </div>
+
+            <!-- LN Proposal AI: Raw Stele -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[2.5rem] bg-white/[0.18] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Monolithic slab with precise carving -->
+                        <rect fill="white" height="70" width="70" x="15" y="15"/>
+                        <path d="M30 15 V85 M50 15 V85 M70 15 V85" fill="none" stroke="black" stroke-width="4"/>
+                        <path d="M30 15 L70 85" fill="none" stroke="black" stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AI：原始方碑 (Stele)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">RAW_CONCRETE</p>
+            </div>
+
+            <!-- LN Proposal AJ: Factory Sigil -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[2.5rem] bg-white/[0.18] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Extreme minimalist heavy strokes -->
+                        <path d="M20 20 V80 H80 V20 M50 80 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="24"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AJ：工业印记 (Sigil)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">UNBREAKABLE_MARK</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE OMEGA SERIES: ULTIMATE UNITY -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">The Omega Series
+            (奥米加/终极统一)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal AK: Logic Singularity -->
+            <div class="proposal-card glass p-8 border border-white/80 rounded-[2.5rem] bg-white/[0.25] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Symmetrical geometric singularity -->
+                        <path d="M20 20 H80 V80 H20 Z" fill="white" opacity="0.1"/>
+                        <path d="M30 20 V80 H50 V20 L70 80 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AK：逻辑奇点 (Singularity)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ONE_FORM_LOGIC</p>
+            </div>
+
+            <!-- LN Proposal AL: Vault Core -->
+            <div class="proposal-card glass p-8 border border-white/80 rounded-[2.5rem] bg-white/[0.25] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy locking mechanism aesthetic -->
+                        <circle cx="50" cy="50" fill="white" r="40"/>
+                        <path d="M35 35 V65 H45 L45 35 L65 65 V35" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="10"/>
+                        <circle cx="50" cy="50" fill="none" opacity="0.4" r="48" stroke="white" stroke-width="1"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AL：金库核心 (Vault)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SECURE_CORE</p>
+            </div>
+
+            <!-- LN Proposal AM: Negative Eternity -->
+            <div class="proposal-card glass p-8 border border-white/80 rounded-[2.5rem] bg-white/[0.25] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Pure void definition -->
+                        <rect fill="white" height="70" width="70" x="15" y="15"/>
+                        <path d="M35 15 V70 H50 V30 L65 85 V15" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="6"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AM：负向永恒 (Void)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ETERNAL_GAP</p>
+            </div>
+
+            <!-- LN Proposal AN: Ark Foundation -->
+            <div class="proposal-card glass p-8 border border-white/80 rounded-[2.5rem] bg-white/[0.25] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Massive monolithic base -->
+                        <path d="M10 80 H90 V90 H10 Z" fill="white"/>
+                        <path d="M30 20 V80 H45 L45 20 L70 80 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="16"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AN：方舟基石 (Ark)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">FOOLPROOF_GRAVITY</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: INDUSTRIAL FLUX: THE ACTIVE CORE -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Industrial Flux
+            (工业通量/动态重型)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal AO: Kinetic Core -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg class="group-hover:rotate-6 transition-transform" height="100" viewBox="0 0 100 100"
+                         width="100">
+                        <!-- Circular frame with a 'spin' hint -->
+                        <circle cx="50" cy="50" fill="none" r="42" stroke="white" stroke-dasharray="210 60"
+                                stroke-width="12"/>
+                        <path d="M35 35 V65 H45 L55 35 V65 H65" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AO：动能核心 (Kinetic)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ACTIVE_ROTATION</p>
+            </div>
+
+            <!-- LN Proposal AP: Fault Scan -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Sliced heavy monolith -->
+                        <path d="M20 20 H80 V35 H20 Z" fill="white"/>
+                        <path d="M20 40 H80 V45 H20 Z" fill="white" opacity="0.3"/>
+                        <path d="M20 50 V80 H35 L45 50 H55 L65 80 H80 V50" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="10"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AP：断层扫描 (Scan)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">LAYERX_VISION</p>
+            </div>
+
+            <!-- LN Proposal AQ: Parallel Mesh -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Parallel dynamic railway tracks -->
+                        <g fill="none" stroke="white" stroke-linecap="square">
+                            <path d="M20 30 V80 H35" stroke-width="12"/>
+                            <path d="M48 20 V80 L68 20 V80" opacity="0.9" stroke-width="12"/>
+                            <path d="M80 20 V80" opacity="0.3" stroke-width="4"/>
+                        </g>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AQ：并行网格 (Parallel)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">CONCURRENT_THREADS</p>
+            </div>
+
+            <!-- LN Proposal AR: Monolith Flux -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Single block with angled cut -->
+                        <path d="M15 15 H85 V85 H15 Z" fill="white" opacity="0.1"/>
+                        <path d="M25 25 V75 H40 L60 25 V75 H75" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="14"/>
+                        <circle cx="50" cy="50" fill="none" opacity="0.2" r="48" stroke="white"
+                                stroke-dasharray="4 4" stroke-width="0.5"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AR：单体奇迹 (Flux)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">BREATHING_IRON</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE ULTIMATE SYNTHESIS: THE FINALE -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-cyan-400 pl-4 uppercase tracking-tighter">The Ultimate
+            Synthesis (终极定稿级最后冲刺)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal AS: The All-Core -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[3rem] bg-white/[0.2] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Circular frame + Solid Monolith synthesis -->
+                        <circle cx="50" cy="50" fill="none" r="44" stroke="white" stroke-width="12"/>
+                        <path d="M35 35 V65 H45 V35 L55 65 V35 H65 V65" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AS：全能核心 (All-Core)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MASTER_ASSET_v1</p>
+            </div>
+
+            <!-- LN Proposal AT: The Obelisk -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[3rem] bg-white/[0.2] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Refined Solid Block with sharp cuts -->
+                        <rect fill="white" height="70" rx="8" width="70" x="15" y="15"/>
+                        <path d="M28 28 V72 H42 V28 L58 72 V28 H72 V72" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="10"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AT：工业方碑 (Obelisk)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MASTER_ASSET_v2</p>
+            </div>
+
+            <!-- LN Proposal AU: The Pulse -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[3rem] bg-white/[0.2] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Dynamic extreme-bold path -->
+                        <path d="M20 20 V80 H40 M50 80 Q 40 80, 40 20 L60 80 Q 60 20, 75 20 V80" fill="none"
+                              stroke="white" stroke-linecap="square" stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AU：极简律动 (Pulse)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MASTER_ASSET_v3</p>
+            </div>
+
+            <!-- LN Proposal AV: The Totem -->
+            <div class="proposal-card glass p-8 border border-white/60 rounded-[3rem] bg-white/[0.2] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Iconic Totem structure -->
+                        <path d="M50 10 V90" stroke="white" stroke-linecap="square" stroke-width="16"/>
+                        <path d="M20 30 V70 H40 M60 70 V30 H80" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 AV：工厂图腾 (Totem)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MASTER_ASSET_v4</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE PANTHEON COLLECTION: THE FINAL STAND -->
+    <div class="mb-20">
+        <h2 class="text-3xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">The Pantheon
+            Collection (品牌殿堂/终极大选)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal AW: Omega Circle -->
+            <div class="proposal-card glass p-8 border border-white rounded-[3rem] bg-white/[0.25] shadow-[0_0_30px_rgba(255,255,255,0.1)] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Refined circular engine -->
+                        <circle cx="50" cy="50" fill="none" r="43" stroke="white" stroke-width="12"/>
+                        <path d="M33 35 V65 H43 L57 35 V65 H67" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="10"/>
+                    </svg>
+                </div>
+                <h4 class="text-base font-bold">方案 AW：奥米加圆环</h4>
+                <p class="text-gray-400 text-[8px] uppercase mt-1 tracking-widest">FINALIST_ALPHA</p>
+            </div>
+
+            <!-- LN Proposal AX: Vanguard Slab -->
+            <div class="proposal-card glass p-8 border border-white rounded-[3rem] bg-white/[0.25] shadow-[0_0_30px_rgba(255,255,255,0.1)] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Refined Solid Block -->
+                        <rect fill="white" height="70" rx="10" width="70" x="15" y="15"/>
+                        <path d="M30 30 V70 H42 V50 L58 50 V30 H70 V70" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="10"/>
+                    </svg>
+                </div>
+                <h4 class="text-base font-bold">方案 AX：先锋方碑</h4>
+                <p class="text-gray-400 text-[8px] uppercase mt-1 tracking-widest">FINALIST_BETA</p>
+            </div>
+
+            <!-- LN Proposal AY: Hex-Core Supreme -->
+            <div class="proposal-card glass p-8 border border-white rounded-[3rem] bg-white/[0.25] shadow-[0_0_30px_rgba(255,255,255,0.1)] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Refined Hexagon Badge -->
+                        <path d="M50 8 L88 30 V70 L50 92 L12 70 V30 Z" fill="white"/>
+                        <path d="M35 35 V65 H45 M55 35 L55 65 L70 35 V65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="10"/>
+                    </svg>
+                </div>
+                <h4 class="text-base font-bold">方案 AY：六棱核心</h4>
+                <p class="text-gray-400 text-[8px] uppercase mt-1 tracking-widest">FINALIST_GAMMA</p>
+            </div>
+
+            <!-- LN Proposal AZ: The Interlock Final -->
+            <div class="proposal-card glass p-8 border border-white rounded-[3rem] bg-white/[0.25] shadow-[0_0_30px_rgba(255,255,255,0.1)] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Ultimate heavyweight interlock -->
+                        <path d="M25 20 V80 H45 V20 H55 V80 H75" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="16"/>
+                        <path d="M45 20 H55" fill="none" stroke="white" stroke-width="16"/>
+                    </svg>
+                </div>
+                <h4 class="text-base font-bold">方案 AZ：极简交织</h4>
+                <p class="text-gray-400 text-[8px] uppercase mt-1 tracking-widest">FINALIST_DELTA</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE BEYOND COLLECTION: FUTURISTIC SYMBOLISM -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-cyan-400 pl-4 uppercase tracking-tighter">The Beyond
+            Collection (超越系列/未来主义)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BA: Alien Monolith -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Monolith with futuristic sharp bevels -->
+                        <path d="M20 20 H50 V35 L35 80 H20 Z" fill="white" opacity="0.3"/>
+                        <path d="M50 20 L65 80 H80 V20 H50" fill="white"/>
+                        <path d="M20 20 L80 80" fill="none" opacity="0.2" stroke="white" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BA：异星单体 (Monolith)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">FUTURE_X_IDENTITY</p>
+            </div>
+
+            <!-- LN Proposal BB: Quantum Ribbon -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Single hyper-bold path with flow -->
+                        <path d="M20 80 V20 Q 50 20, 50 50 Q 50 80, 80 80 V20" fill="none" stroke="white"
+                              stroke-linecap="square" stroke-width="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BB：量子丝带 (Ribbon)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">TOPOLOGY_FLOW</p>
+            </div>
+
+            <!-- LN Proposal BC: Digital Totem -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy block deconstructed by grid logic -->
+                        <path d="M20 20 H80 V80 H20 V20" fill="white" opacity="0.1"/>
+                        <path d="M30 20 V80 H45 V50 H55 V80 H70 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="12"/>
+                        <rect fill="white" height="10" width="40" x="30" y="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BC：数字图腾 (Totem)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">COMMAND_CORE</p>
+            </div>
+
+            <!-- LN Proposal BD: Temporal Node -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Symmetrical cross-section node -->
+                        <circle cx="50" cy="50" fill="white" opacity="0.05" r="45"/>
+                        <path d="M25 25 L50 75 L75 25" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="20"/>
+                        <path d="M25 75 L50 25 L75 75" fill="none" opacity="0.3" stroke="white" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BD：时空节点 (Node)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">NEXUS_SYNTHESIS</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: THE PURE STATE -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">The Pure State
+            (纯粹状态/工业极简)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BE: Heavy Crosshair -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Precision and weight combined -->
+                        <path d="M50 10 V90 M10 50 H90" opacity="0.1" stroke="white" stroke-width="2"/>
+                        <path d="M30 30 V70 H45 M55 30 V70 L70 30 V70" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="16"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BE：重型准星 (Crosshair)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">AIM_PRECISION</p>
+            </div>
+
+            <!-- LN Proposal BF: Railway Channel -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Parallel bars with extreme weight -->
+                        <path d="M25 20 V80 H40" fill="none" stroke="white" stroke-linecap="square" stroke-width="24"/>
+                        <path d="M60 20 V80 L75 20 V80" fill="none" opacity="0.8" stroke="white"
+                              stroke-linecap="square" stroke-width="24"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BF：轨道槽钢 (Channel)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">STRUCTURAL_STEEL</p>
+            </div>
+
+            <!-- LN Proposal BG: Datum Block -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Solid block with negative paths -->
+                        <rect fill="white" height="60" width="60" x="20" y="20"/>
+                        <path d="M35 20 V65 H45 V20 L60 65 V20" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BG：基准方块 (Datum)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">REFERENCE_BASE</p>
+            </div>
+
+            <!-- LN Proposal BH: Torque Curve -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Single thick torque curve -->
+                        <path d="M20 30 V70 H40 Q 50 70, 50 50 Q 50 30, 60 30 H80 V70" fill="none" stroke="white"
+                              stroke-linecap="square" stroke-width="18"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BH：力矩曲线 (Torque)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">KINETIC_LINK</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: DIGITAL PRECISION GRID -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Digital Precision
+            Grid (数字格栅/精密逻辑)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BI: Grid Substrate -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Symmetrical Grid logic -->
+                        <path d="M20 20 H50 V80 H80" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="20"/>
+                        <path d="M50 20 V80 L80 20 V80" fill="none" opacity="0.2" stroke="white" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BI：格栅基板 (Substrate)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MATRIX_ALIGNED</p>
+            </div>
+
+            <!-- LN Proposal BJ: Bit-Stream Path -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Interlocking paths with uniform gaps -->
+                        <path d="M25 15 V85 H40 M50 85 V15 L75 85 V15" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="14"/>
+                        <rect fill="none" height="70" opacity="0.1" stroke="white" stroke-dasharray="2 2" stroke-width="1" width="50"
+                              x="25" y="15"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BJ：位流路径 (Bit-Stream)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">LOGIC_FLOW_2.0</p>
+            </div>
+
+            <!-- LN Proposal BK: Modular N -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Three interlocking blocks -->
+                        <rect fill="white" height="70" width="20" x="15" y="15"/>
+                        <rect fill="white" height="70" width="20" x="65" y="15"/>
+                        <path d="M35 15 L65 85" fill="none" stroke="white" stroke-linecap="square" stroke-width="20"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BK：模块化 N (Modular)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">COMPONENT_ASSEMBLY</p>
+            </div>
+
+            <!-- LN Proposal BL: Nexus Core -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Circular frame with grid-aligned LN -->
+                        <circle cx="50" cy="50" fill="none" opacity="0.1" r="45" stroke="white" stroke-width="1"/>
+                        <path d="M30 30 V70 H45 V30 L70 70 V30 H85 V70" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BL：核心节点 (Nexus)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">COMPUTATIONAL_GRAVITY</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: STRUCTURAL ARCHITECTURE -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Structural
+            Architecture (结构建筑/蓝图系列)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BM: I-Beam Foundation -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Massive I-Beam logic -->
+                        <rect fill="white" height="10" width="60" x="20" y="20"/>
+                        <rect fill="white" height="10" width="60" x="20" y="70"/>
+                        <path d="M40 30 V70 M60 30 V70" stroke="white" stroke-linecap="square" stroke-width="12"/>
+                        <path d="M40 30 L60 70" stroke="white" stroke-linecap="square" stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BM：工型基石 (Foundation)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">INFRA_STABILITY</p>
+            </div>
+
+            <!-- LN Proposal BN: Blueprint Slit -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Precise slit in a solid block -->
+                        <path d="M20 20 H80 V80 H20 Z" fill="white" opacity="0.3"/>
+                        <path d="M30 20 V80 H40 V45 L60 80 H70 V20 H60 V55 L40 20 H30" fill="white"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BN：蓝图切槽 (Blueprint)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">SLIT_PRECISION</p>
+            </div>
+
+            <!-- LN Proposal BO: Truss Interlock -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Interlocking truss members -->
+                        <path d="M20 20 V80 H40 V20" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="16"/>
+                        <path d="M60 80 V20 H80 V80" fill="none" opacity="0.8" stroke="white"
+                              stroke-linecap="square" stroke-width="16"/>
+                        <path d="M40 20 L60 80" stroke="white" stroke-linecap="square" stroke-width="16"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BO：桁架互锁 (Truss)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">LOAD_BEARING</p>
+            </div>
+
+            <!-- LN Proposal BP: Armored Shell -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- LN inside a super-heavy frame -->
+                        <rect fill="none" height="80" rx="4" stroke="white" stroke-width="14" width="80" x="10" y="10"/>
+                        <path d="M30 30 V70 H40 L60 30 V70 H70" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BP：装甲外壳 (Armor)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">DEFENSIVE_INDUSTRIAL</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: KINETIC ENGINEERING -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Kinetic Engineering
+            (动力机械/机器系列)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BQ: Piston Core -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Symmetrical piston action -->
+                        <path d="M25 15 V85 H40 V15 Z" fill="white" opacity="0.3"/>
+                        <path d="M60 15 V85 H75 V15 Z" fill="white" opacity="0.3"/>
+                        <path d="M25 15 V85 H40 L60 15 V85 H75" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BQ：活塞核心 (Piston)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">CYLINDER_POWER</p>
+            </div>
+
+            <!-- LN Proposal BR: Heavy Linkage -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Linkage and pins -->
+                        <circle cx="28" cy="28" fill="white" opacity="0.4" r="8"/>
+                        <circle cx="72" cy="72" fill="white" opacity="0.4" r="8"/>
+                        <path d="M20 28 V80 H40 M50 80 V20 L80 80 V20" fill="none" stroke="white" stroke-linecap="round"
+                              stroke-width="14"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BR：重型连杆 (Linkage)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">MECHANICAL_JOINT</p>
+            </div>
+
+            <!-- LN Proposal BS: Hydraulic Gate -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Two massive gates closing -->
+                        <rect fill="white" height="70" rx="2" width="30" x="15" y="15"/>
+                        <rect fill="white" height="70" rx="2" width="30" x="55" y="15"/>
+                        <path d="M30 15 L70 85" stroke="black" stroke-linecap="square" stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BS：液压闸门 (Gate)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">HYDRAULIC_FORCE</p>
+            </div>
+
+            <!-- LN Proposal BT: Turbo Shaft -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Rotated shaft symmetry -->
+                        <circle cx="50" cy="50" fill="none" opacity="0.2" r="45" stroke="white" stroke-width="1"/>
+                        <path d="M30 20 V80 H45 V50 H55 V20 H70 V80" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="14"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BT：涡轴先锋 (Turbo)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">ROTARY_MOMENTUM</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: SOLID INTEGRITY -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Solid Integrity
+            (固体完整性/机械加工)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BU: Chamfered Monolith -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- 3D Bevel illusion with just shapes -->
+                        <path d="M20 20 H50 L80 80 H50 Z" fill="white" opacity="0.1"/>
+                        <path d="M20 20 V80 H35 L45 50 H55 L65 80 H80 V20 H65 V50 L55 20 H45 V50 L35 20 H20"
+                              fill="white"/>
+                        <path d="M55 20 L65 50" opacity="0.3" stroke="black" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BU：倒角单体 (Chamfered)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">CNC_MACHINED_BLOCK</p>
+            </div>
+
+            <!-- LN Proposal BV: Precision Kerf -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Solid block split by hair-line gaps -->
+                        <rect fill="white" height="60" width="60" x="20" y="20"/>
+                        <path d="M40 20 V80 M60 20 V80 M40 20 L60 80" stroke="black" stroke-width="2"/>
+                        <path d="M38 20 V80 H42 V20 M58 20 V80 H62 V20" fill="black"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BV：精密切口 (Kerf)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">LASER_PRECISION</p>
+            </div>
+
+            <!-- LN Proposal BW: Etched Relief -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Recessed paths in a heavy slab -->
+                        <rect fill="white" height="70" opacity="0.05" width="70" x="15" y="15"/>
+                        <path d="M25 25 V75 H40 L60 25 V75 H75" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="18"/>
+                        <path d="M25 25 V75 H40 L60 25 V75 H75" fill="none" opacity="0.3" stroke="black"
+                              stroke-width="1"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BW：蚀刻浮雕 (Relief)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">HEAVY_EMBOSS</p>
+            </div>
+
+            <!-- LN Proposal BX: Industrial Component -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Heavy structural piece with nodes -->
+                        <rect fill="white" height="50" width="50" x="25" y="25"/>
+                        <circle cx="25" cy="25" fill="white" r="5"/>
+                        <circle cx="75" cy="25" fill="white" r="5"/>
+                        <circle cx="25" cy="75" fill="white" r="5"/>
+                        <circle cx="75" cy="75" fill="white" r="5"/>
+                        <path d="M35 35 V65 H45 L55 35 V65 H65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="8"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BX：工业构件 (Component)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">AEROSPACE_STRENGTH</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- NEW: SCIENTIFIC PRECISION -->
+    <div class="mb-20">
+        <h2 class="text-2xl font-black mb-8 border-l-4 border-white pl-4 uppercase tracking-tighter">Scientific
+            Precision (科学精密/校准系列)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- LN Proposal BY: Precision Crosshair -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Crosshair ticks + Heavy LN -->
+                        <path d="M50 5 V15 M50 85 V95 M5 50 H15 M85 50 H95" stroke="white" stroke-width="2"/>
+                        <path d="M30 35 V65 H45 M55 35 V65 L70 35 V65" fill="none" stroke="white" stroke-linecap="square"
+                              stroke-width="12"/>
+                        <circle cx="50" cy="50" fill="none" opacity="0.3" r="48" stroke="white" stroke-width="0.5"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BY：精密准星 (Crosshair)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">OPTICAL_ALIGN</p>
                 </div>
 
-                <div class="text-base font-bold text-gray-200 mb-2 truncate text-center" x-text="icon.name"></div>
-                <div class="text-[12px] text-gray-500 text-center leading-relaxed h-12 px-4" x-text="icon.desc"></div>
-
-                <button class="mt-6 w-full py-2.5 rounded focus:outline-none border border-white/10 hover:border-cyan-500/50 hover:bg-cyan-500/10 text-[11px] uppercase tracking-wider font-bold text-gray-400 hover:text-cyan-400 transition-all"
-                        @click="copyToClipboard(icon.svg, icon.name)">
-                    确认选用 (提取 SVG 代码)
-                </button>
+            <!-- LN Proposal BZ: Calibration Module -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Notched calibration block aesthetic -->
+                        <rect fill="white" height="60" rx="2" width="60" x="20" y="20"/>
+                        <path d="M20 40 H30 M70 60 H80" stroke="black" stroke-width="4"/>
+                        <path d="M35 30 V70 H45 L55 30 V70 H65" fill="none" stroke="black" stroke-linecap="square"
+                              stroke-width="10"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 BZ：校准模块 (Module)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">DATUM_REFERENCE</p>
             </div>
-        </template>
+
+            <!-- LN Proposal CA: Diffraction Path -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Sliced path representing light diffraction -->
+                        <path d="M20 20 V80 H35" fill="none" stroke="white" stroke-width="14"/>
+                        <path d="M48 20 L68 80 V20" fill="none" stroke="white" stroke-width="14"/>
+                        <path d="M78 20 V80" fill="none" opacity="0.3" stroke="white" stroke-width="4"/>
+                        <path d="M20 20 H80" opacity="0.1" stroke="white" stroke-width="1"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 CA：衍射路径 (Diffraction)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">PHOTONIC_CORE</p>
+            </div>
+
+            <!-- LN Proposal CB: Core Prism -->
+            <div class="proposal-card glass p-8 border border-white/40 rounded-[2.5rem] bg-white/[0.12] flex flex-col items-center">
+                <div class="mb-8 flex items-center justify-center w-full h-40">
+                    <svg height="100" viewBox="0 0 100 100" width="100">
+                        <!-- Angled heavy block simulating refraction -->
+                        <path d="M20 20 L50 20 L80 80 L50 80 Z" fill="white" opacity="0.1"/>
+                        <path d="M20 20 V80 H40" fill="none" stroke="white" stroke-width="16"/>
+                        <path d="M50 20 L70 80 V20" fill="none" opacity="0.9" stroke="white" stroke-width="12"/>
+                    </svg>
+                </div>
+                <h4 class="text-sm font-bold">方案 CB：核心棱镜 (Prism)</h4>
+                <p class="text-gray-500 text-[8px] uppercase mt-1 tracking-widest">REFRACTIVE_LOGIC</p>
+            </div>
+
+        </div>
     </div>
+
+    <div class="mb-10 opacity-30">
+        <h2 class="text-xl font-black mb-4 uppercase tracking-tighter">固体完整存档 (Solid)</h2>
+    </div>
+
+    <!-- Proposal 1: 简约曲线风 (Minimalist Curve) -->
+    <div class="proposal-card glass p-10 border border-white/5 rounded-[2.5rem] bg-white/[0.02] flex flex-col items-center">
+        <div class="mb-10 flex items-center justify-center w-full h-48">
+            <!-- SVG: Flowing Curve N -->
+            <svg class="transition-transform duration-500" height="120" viewBox="0 0 100 100" width="120">
+                <path d="M25 75V25C25 25 25 15 35 15C45 15 55 85 65 85C75 85 75 75 75 75V25"
+                      fill="none" opacity="0.9" stroke="white" stroke-linecap="round" stroke-linejoin="round"
+                      stroke-width="2.5"/>
+                <path d="M25 75V25" fill="none" opacity="0.3" stroke="white" stroke-width="0.5"/>
+                <path d="M75 75V25" fill="none" opacity="0.3" stroke="white" stroke-width="0.5"/>
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2">方案 A：简约曲线 (Fluid Matrix)</h3>
+        <p class="text-gray-500 text-sm text-center">借鉴“简约曲线”风格，用流动的弧线构建 N 字母，消除工业呆板感，体现 AI
+            生成的灵动与无限可能。</p>
+    </div>
+
+    <!-- Proposal 2: 线条缠绕风 (Intertwined Pipeline) -->
+    <div class="proposal-card glass p-10 border border-white/5 rounded-[2.5rem] bg-white/[0.02] flex flex-col items-center">
+        <div class="mb-10 flex items-center justify-center w-full h-48">
+            <!-- SVG: Woven N -->
+            <svg class="transition-transform duration-500" height="120" viewBox="0 0 100 100" width="120">
+                <g fill="none" stroke="white" stroke-linecap="round" stroke-width="2">
+                    <!-- Left Bar -->
+                    <line opacity="0.8" x1="30" x2="30" y1="20" y2="80"/>
+                    <!-- Right Bar -->
+                    <line opacity="0.8" x1="70" x2="70" y1="20" y2="80"/>
+                    <!-- Diagonal Intertwine -->
+                    <path d="M30 30 C 45 30, 55 70, 70 70" opacity="1"/>
+                    <path d="M30 70 C 45 70, 55 30, 70 30" opacity="0.3"/>
+                </g>
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2">方案 B：线条缠绕 (Woven Logic)</h3>
+        <p class="text-gray-500 text-sm text-center">
+            基于原“Pipeline”概念，将线条逻辑交织，构建更具“大牌感”的编织符号。象征逻辑与代码的有机融合。</p>
+    </div>
+
+    <!-- Proposal 3: 大牌字母风 (Architectural N) -->
+    <div class="proposal-card glass p-10 border border-white/5 rounded-[2.5rem] bg-white/[0.02] flex flex-col items-center">
+        <div class="mb-10 flex items-center justify-center w-full h-48">
+            <!-- SVG: Architectural N -->
+            <svg class="transition-transform duration-500" height="120" viewBox="0 0 100 100" width="120">
+                <path d="M20 20 H35 V80 H20 Z" fill="white" opacity="0.9"/>
+                <path d="M65 20 H80 V80 H65 Z" fill="white" opacity="0.9"/>
+                <path d="M35 20 L65 80" fill="none" opacity="1" stroke="white" stroke-width="8"/>
+                <rect fill="none" height="60" opacity="0.2" stroke="white" stroke-width="0.5" width="60" x="20" y="20"/>
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2">方案 C：建筑感字母 (Statue Matrix)</h3>
+        <p class="text-gray-500 text-sm text-center">
+            极具“力量感”和“稳定性”。采用粗细对比显着的直线条，体现工业软件工厂的基石角色与权威性。</p>
+    </div>
+
+    <!-- Proposal 4: 汉字意形风 (Ling-Style Minimalist) -->
+    <div class="proposal-card glass p-10 border border-white/5 rounded-[2.5rem] bg-white/[0.02] flex flex-col items-center">
+        <div class="mb-10 flex items-center justify-center w-full h-48">
+            <!-- SVG: Abstract "Ling" Character -->
+            <svg class="transition-transform duration-500" height="120" viewBox="0 0 100 100" width="120">
+                <g fill="none" stroke="white" stroke-linecap="round" stroke-width="2.5">
+                    <!-- Upper Part (Sky/Ling) -->
+                    <path d="M30 20 H70" opacity="0.4"/>
+                    <path d="M50 20 V40" opacity="0.4"/>
+                    <!-- Lower Part (N integrated) -->
+                    <path d="M25 45 L50 85 L75 45" opacity="1"/>
+                    <circle cx="50" cy="50" opacity="0.1" r="40" stroke-width="0.5"/>
+                </g>
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold mb-2">方案 D：意象解构 (Deconstructed Symbol)</h3>
+        <p class="text-gray-500 text-sm text-center">将“灵”字的部分解构与字母 N
+            结合，既保留了东方意境，又具备极简的现代符号特征。</p>
+    </div>
+
 </div>
 
-<script>
-    const SvgGen = {
-        wrap(content) {
-            return `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">${content}</svg>`;
-        }
-    };
-
-    // The base pipeline coordinates for reuse
-    const baseShape = '<polyline points="20,60 20,20 60,60 60,20"/><polyline points="30,70 30,30 70,70 70,30"/><polyline points="40,80 40,40 80,80 80,40"/><line x1="20" y1="20" x2="40" y2="40"/><line x1="60" y1="20" x2="80" y2="40"/><line x1="20" y1="60" x2="40" y2="80"/><line x1="60" y1="60" x2="80" y2="80"/>';
-
-    const wireframes = [
-        {
-            name: "V1. 完美平衡 (Default)",
-            desc: "1:1的基准结构。2px的线条既不过于笨重，也不至于羸弱。锐利、精确、标准原型。",
-            svg: `<g stroke-width="2" stroke-linejoin="miter">${baseShape}<circle cx="20" cy="60" r="2" fill="currentColor" stroke="none"/><circle cx="80" cy="40" r="2" fill="currentColor" stroke="none"/></g>`
-        },
-        {
-            name: "V2. 重工稳固 (Bold Industrial)",
-            desc: "3.5px 的极致加粗。充满强烈的体量感与基石感，代表生成的代码扎实不可撼动。",
-            svg: `<g stroke-width="3.5" stroke-linejoin="miter">${baseShape}</g>`
-        },
-        {
-            name: "V3. 赛博圆融 (Smooth Transition)",
-            desc: "加入 Round 算法。直角和折线都变得更加平滑，融合感更强，呈现现代化无缝的硅谷SaaS调性。",
-            svg: `<g stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${baseShape}<circle cx="20" cy="60" r="2.5" fill="currentColor" stroke="none"/><circle cx="80" cy="40" r="2.5" fill="currentColor" stroke="none"/></g>`
-        },
-        {
-            name: "V4. 层级透视 (Depth Matrix)",
-            desc: "前中后管线加入了不同的 Opacity（透明度），极大地增强了视觉的三维纵深感与架构剖面图的质感。",
-            svg: `<g stroke-width="2" stroke-linejoin="miter"><polyline points="20,60 20,20 60,60 60,20" opacity="0.3"/><polyline points="30,70 30,30 70,70 70,30" opacity="0.6"/><polyline points="40,80 40,40 80,80 80,40" opacity="1.0"/><line x1="20" y1="20" x2="40" y2="40" opacity="0.3"/><line x1="60" y1="20" x2="80" y2="40" opacity="0.3"/><line x1="20" y1="60" x2="40" y2="80" opacity="0.6"/><line x1="60" y1="60" x2="80" y2="80" opacity="0.6"/></g>`
-        },
-        {
-            name: "V5. 冲刺极速 (Forward Skew)",
-            desc: "在基础系矩阵上加入了 10 度的前倾角。自带视觉加速感，一眼看去便凸显“快速精准高效”。",
-            svg: `<g stroke-width="2" stroke-linejoin="miter" transform="translate(10, 0) skewX(-10)">${baseShape}</g>`
-        },
-        {
-            name: "V6. 精芯矩阵 (Node Focused)",
-            desc: "全节点星图。管线减弱为 1.5px 并加入虚线段，在所有的汇流处打上科技高亮点，凸显一句话编译逻辑。",
-            svg: `<g stroke-width="1.5" stroke-linejoin="miter"><polyline points="30,70 30,30 70,70 70,30" stroke-dasharray="2 3" opacity="0.7"/><polyline points="20,60 20,20 60,60 60,20"/><polyline points="40,80 40,40 80,80 80,40"/><line x1="20" y1="20" x2="40" y2="40" stroke-width="1"/><line x1="60" y1="20" x2="80" y2="40" stroke-width="1"/><line x1="20" y1="60" x2="40" y2="80" stroke-width="1"/><line x1="60" y1="60" x2="80" y2="80" stroke-width="1"/><circle cx="20" cy="20" r="1.5" fill="currentColor" stroke="none"/><circle cx="60" cy="20" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="60" r="1.5" fill="currentColor" stroke="none"/><circle cx="60" cy="60" r="1.5" fill="currentColor" stroke="none"/><circle cx="40" cy="40" r="1.5" fill="currentColor" stroke="none"/><circle cx="80" cy="40" r="1.5" fill="currentColor" stroke="none"/><circle cx="40" cy="80" r="1.5" fill="currentColor" stroke="none"/><circle cx="80" cy="80" r="1.5" fill="currentColor" stroke="none"/></g>`
-        }
-    ];
-
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('semanticWireframes', () => ({
-            icons: wireframes.map((wf, idx) => ({id: idx + 1, name: wf.name, desc: wf.desc, svg: SvgGen.wrap(wf.svg)})),
-            toastStr: '',
-            timeout: null,
-            copyToClipboard(svgStr, name) {
-                navigator.clipboard.writeText(svgStr).then(() => {
-                    this.toastStr = `✅ 已选取 ${name}！代码已入剪贴板。`;
-                    if (this.timeout) clearTimeout(this.timeout);
-                    this.timeout = setTimeout(() => {
-                        this.toastStr = '';
-                    }, 2500);
-                });
-            }
-        }));
-    });
-</script>
+<footer class="mt-20 border-t border-white/5 pt-10 text-center">
+    <p class="text-gray-600 text-xs uppercase tracking-widest font-black">All Proposals are High-Fi SVG Vectors | Full
+        Transparency Enabled</p>
+</footer>
+</div>
 </body>
 </html>

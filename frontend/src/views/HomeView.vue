@@ -3,20 +3,15 @@
     <!-- Top Navigation -->
     <nav :class="{'glass-morphism py-4': scrolled}"
          class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center transition-all duration-300">
-      <div class="flex items-center gap-2">
-        <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 100 100"
-             xmlns="http://www.w3.org/2000/svg">
-          <g stroke-linejoin="miter" stroke-width="2">
-            <polyline opacity="0.3" points="20,60 20,20 60,60 60,20"/>
-            <polyline opacity="0.6" points="30,70 30,30 70,70 70,30"/>
-            <polyline opacity="1.0" points="40,80 40,40 80,80 80,40"/>
-            <line opacity="0.3" x1="20" x2="40" y1="20" y2="40"/>
-            <line opacity="0.3" x1="60" x2="80" y1="20" y2="40"/>
-            <line opacity="0.6" x1="20" x2="40" y1="60" y2="80"/>
-            <line opacity="0.6" x1="60" x2="80" y1="60" y2="80"/>
-          </g>
-        </svg>
-        <span class="text-xl font-bold tracking-tight text-white">LingNow</span>
+      <div class="flex items-center gap-4 group cursor-pointer" @click="router.push('/')">
+        <div class="w-10 h-10 flex items-center justify-center">
+          <svg class="h-9 w-auto logo-heartbeat text-white fill-current" viewBox="0 0 100 100">
+            <rect height="50" rx="6" width="80" x="10" y="25"/>
+            <path d="M25 35 V65 H38 V35 L55 65 V35 H68 V65" fill="none" stroke="black" stroke-linecap="square"
+                  stroke-width="8"/>
+          </svg>
+        </div>
+        <span class="text-xl font-black tracking-tighter uppercase italic text-white">LingNow</span>
       </div>
       <div class="hidden md:flex gap-8 text-sm font-medium text-gray-400">
         <router-link class="hover:text-white transition-colors" to="/solutions">{{ t('nav.solutions') }}</router-link>
@@ -142,74 +137,7 @@
     </main>
 
     <!-- Footer -->
-    <footer class="py-32 px-8">
-      <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 mb-20 text-left">
-        <div class="col-span-2">
-          <div class="flex items-center gap-3 mb-6">
-            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 100 100"
-                 xmlns="http://www.w3.org/2000/svg">
-              <g stroke-linejoin="miter" stroke-width="2">
-                <polyline opacity="0.3" points="20,60 20,20 60,60 60,20"/>
-                <polyline opacity="0.6" points="30,70 30,30 70,70 70,30"/>
-                <polyline opacity="1.0" points="40,80 40,40 80,80 80,40"/>
-                <line opacity="0.3" x1="20" x2="40" y1="20" y2="40"/>
-                <line opacity="0.3" x1="60" x2="80" y1="20" y2="40"/>
-                <line opacity="0.6" x1="20" x2="40" y1="60" y2="80"/>
-                <line opacity="0.6" x1="60" x2="80" y1="60" y2="80"/>
-              </g>
-            </svg>
-            <span class="text-2xl font-bold tracking-tight text-white">LingNow</span>
-          </div>
-          <p class="text-gray-500 text-sm max-w-xs leading-relaxed">
-            {{
-              currentLang === 'cn' ? '面向自主代码生成与高保真原型设计的工业级 AI 软件工厂。' : 'The industrial AI factory for autonomous code generation and high-fidelity prototypes.'
-            }}
-          </p>
-        </div>
-        <div>
-          <h4 class="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-6">
-            {{ currentLang === 'cn' ? '产品' : 'Product' }}</h4>
-          <ul class="space-y-4 text-sm text-gray-400">
-            <li>
-              <router-link class="hover:text-cyan-400 transition-colors" to="/solutions">{{
-                  t('nav.solutions')
-                }}
-              </router-link>
-            </li>
-            <li>
-              <router-link class="hover:text-cyan-400 transition-colors" to="/workbench">
-                {{ currentLang === 'cn' ? '工作台' : 'Workbench' }}
-              </router-link>
-            </li>
-            <li>
-              <router-link class="hover:text-cyan-400 transition-colors" to="/updates">{{
-                  t('nav.updates')
-                }}
-              </router-link>
-            </li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-6">
-            {{ currentLang === 'cn' ? '公司' : 'Company' }}</h4>
-          <ul class="space-y-4 text-sm text-gray-400">
-            <li>
-              <router-link class="hover:text-cyan-400 transition-colors" to="/about">
-                {{ currentLang === 'cn' ? '关于我们' : 'About Us' }}
-              </router-link>
-            </li>
-            <li>
-              <router-link class="hover:text-cyan-400 transition-colors" to="/docs">{{ t('nav.docs') }}</router-link>
-            </li>
-            <li><a class="hover:text-cyan-400 transition-colors"
-                   href="#">{{ currentLang === 'cn' ? '隐私政策' : 'Privacy Policy' }}</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="text-gray-700 text-[10px] uppercase tracking-[0.3em] font-black font-mono">
-        LingNow Factory_Matrix © 2026. AUTH_SIG_00x1
-      </div>
-    </footer>
+    <BrandFooter/>
   </div>
 </template>
 
@@ -217,6 +145,7 @@
 import {onMounted, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {store} from '../store'
+import BrandFooter from '../components/BrandFooter.vue'
 
 const router = useRouter()
 const prompt = ref('')
