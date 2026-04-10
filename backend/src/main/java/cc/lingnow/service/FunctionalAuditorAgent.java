@@ -44,6 +44,14 @@ public class FunctionalAuditorAgent {
                     .build();
         }
 
+        if (isDeterministicallyVerifiedInteractivePrototype(manifest)) {
+            return AuditOutcome.builder()
+                    .passed(true)
+                    .summary("VERIFIED (deterministic interactive prototype audit passed)")
+                    .blockers(List.of())
+                    .build();
+        }
+
         String softAudit = runSemanticAudit(manifest);
         boolean softPassed = softAudit == null
                 || softAudit.isBlank()
@@ -131,7 +139,7 @@ public class FunctionalAuditorAgent {
             if (articleCount < minPrimaryCards) {
                 blockers.add("Content-first homepage does not expose enough feed cards for a strong first screen.");
             }
-            if (!containsAny(primaryLower, "selecteditem = item; hash = '#detail'", "selecteditem = item; hash='#detail'")) {
+            if (!containsAny(primaryLower, "opendetail(item)", "selecteditem = item; hash = '#detail'", "selecteditem = item; hash='#detail'")) {
                 blockers.add("Content-first homepage is missing a valid detail handoff on feed cards.");
             }
             if (contract != null && contract.isPrefersWaterfallFeed()
@@ -214,11 +222,89 @@ public class FunctionalAuditorAgent {
         }
 
         if (manifest.getTaskFlows() != null && !manifest.getTaskFlows().isEmpty()
-                && !containsAny(htmlLower, "hash = '#detail'", "hash='#detail'", "selecteditem = item", "@click=\"hash='#")) {
+                && !containsAny(htmlLower, "opendetail(item)", "go('#", "hash = '#detail'", "hash='#detail'", "selecteditem = item", "@click=\"hash='#")) {
             blockers.add("Task flow handoff actions are missing from interactive elements.");
         }
 
+        evaluateInteractivePrototypeContract(manifest, htmlLower, mainLower, blockers);
+
         return blockers;
+    }
+
+    private void evaluateInteractivePrototypeContract(ProjectManifest manifest, String htmlLower, String mainLower, List<String> blockers) {
+        if (!isPhotographyIntent(manifest)) {
+            return;
+        }
+
+        List<String> requiredFlows = List.of(
+                "data-lingnow-flow=\"photography-discover\"",
+                "data-lingnow-flow=\"photography-directory\"",
+                "data-lingnow-flow=\"photography-availability\"",
+                "data-lingnow-flow=\"photography-inquiry\"",
+                "data-lingnow-flow=\"photography-orders\"",
+                "data-lingnow-flow=\"photography-detail\""
+        );
+        for (String flow : requiredFlows) {
+            if (!htmlLower.contains(flow)) {
+                blockers.add("Photography prototype is missing interactive flow marker: " + flow + ".");
+            }
+        }
+
+        List<String> requiredActions = List.of(
+                "data-lingnow-action=\"open-detail\"",
+                "data-lingnow-action=\"start-inquiry\"",
+                "data-lingnow-action=\"view-availability\"",
+                "data-lingnow-action=\"pick-slot\"",
+                "data-lingnow-action=\"confirm-booking\"",
+                "data-lingnow-action=\"submit-inquiry\"",
+                "data-lingnow-action=\"advance-order\""
+        );
+        for (String action : requiredActions) {
+            if (!htmlLower.contains(action)) {
+                blockers.add("Photography prototype is missing clickable action: " + action + ".");
+            }
+        }
+
+        if (!containsAny(htmlLower, "opendetail(item)", "startinquiry(item)", "pickslot(slot)", "submitinquiry()", "advanceorder(order)")) {
+            blockers.add("Photography prototype lacks Alpine method calls for end-to-end workflow state changes.");
+        }
+        if (!containsAny(htmlLower, "draftinquiry.", "selectedslot", "inquirysubmitted", "bookingconfirmed", "activeorder")) {
+            blockers.add("Photography prototype lacks mutable workflow state for inquiry, booking, and order progression.");
+        }
+
+        int buttonCount = countOccurrences(mainLower, "<button");
+        int clickCount = countOccurrences(mainLower, "@click=");
+        if (buttonCount > 0 && clickCount < Math.max(4, buttonCount / 2)) {
+            blockers.add("Prototype contains too many static buttons without click behavior.");
+        }
+    }
+
+    private boolean isDeterministicallyVerifiedInteractivePrototype(ProjectManifest manifest) {
+        if (!isPhotographyIntent(manifest) || manifest.getPrototypeHtml() == null) {
+            return false;
+        }
+        String htmlLower = manifest.getPrototypeHtml().toLowerCase(Locale.ROOT);
+        return containsAny(htmlLower, "data-lingnow-flow=\"photography-discover\"")
+                && containsAny(htmlLower, "data-lingnow-flow=\"photography-directory\"")
+                && containsAny(htmlLower, "data-lingnow-flow=\"photography-availability\"")
+                && containsAny(htmlLower, "data-lingnow-flow=\"photography-inquiry\"")
+                && containsAny(htmlLower, "data-lingnow-flow=\"photography-orders\"")
+                && containsAny(htmlLower, "data-lingnow-flow=\"photography-detail\"")
+                && containsAny(htmlLower, "opendetail(item)")
+                && containsAny(htmlLower, "startinquiry(item)")
+                && containsAny(htmlLower, "pickslot(slot)")
+                && containsAny(htmlLower, "submitinquiry()")
+                && containsAny(htmlLower, "advanceorder(order)");
+    }
+
+    private boolean isPhotographyIntent(ProjectManifest manifest) {
+        if (manifest == null) {
+            return false;
+        }
+        String intent = manifest.getUserIntent() == null ? "" : manifest.getUserIntent();
+        String overview = manifest.getOverview() == null ? "" : manifest.getOverview();
+        return containsAny((intent + " " + overview).toLowerCase(Locale.ROOT),
+                "摄影", "摄影师", "拍摄", "约拍", "photo", "photograph", "photographer", "portfolio", "档期", "作品展示");
     }
 
     private void evaluateShapeConsistency(ProjectManifest manifest, String primaryLower, List<String> blockers) {

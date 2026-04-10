@@ -41,6 +41,9 @@
      x-data="{
             hash: window.location.hash || '#pg1',
             selectedItem: null,
+            selectedSlot: null,
+            selectedLead: null,
+            activeOrder: null,
             drawerOpen: false,
             postOpen: false,
             authOpen: false,
@@ -52,7 +55,55 @@
             searchQuery: '',
             activeCategory: '',
             activeSignal: 'all',
+            bookingConfirmed: false,
+            inquirySubmitted: false,
+            toast: '',
+            draftInquiry: { photographer: '', city: '', service: '', budget: '', note: '' },
             mockData: {{MOCK_DATA}},
+            go(target) {
+                this.hash = target;
+                window.location.hash = target;
+            },
+            openDetail(item) {
+                this.selectedItem = item;
+                this.go('#detail');
+            },
+            closeDetail(fallback = '#pg1') {
+                this.selectedItem = null;
+                this.go(fallback);
+            },
+            startInquiry(item = null) {
+                const source = item || this.selectedItem || {};
+                this.draftInquiry = {
+                    photographer: source.author || source.name || source.owner || '',
+                    city: source.location || source.city || '',
+                    service: source.category || source.style || source.type || '',
+                    budget: '',
+                    note: source.title || source.description || ''
+                };
+                this.selectedItem = null;
+                this.inquirySubmitted = false;
+                this.go('#pg4');
+            },
+            pickSlot(slot) {
+                this.selectedSlot = slot;
+                this.bookingConfirmed = false;
+            },
+            confirmBooking() {
+                this.bookingConfirmed = true;
+                this.toast = '档期已锁定，可继续提交询价';
+                this.go('#pg4');
+            },
+            submitInquiry() {
+                this.inquirySubmitted = true;
+                this.toast = '询价已提交，订单已进入待确认';
+                this.go('#pg5');
+            },
+            advanceOrder(order) {
+                this.activeOrder = order;
+                if (order) order.stage = '下一步跟进中';
+                this.toast = '订单状态已推进';
+            },
             normalizeText(value) {
                 return String(value ?? '').toLowerCase().replace(/\s+/g, '');
             },

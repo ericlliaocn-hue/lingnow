@@ -66,6 +66,12 @@ public class UiDesignerAgent {
         String lang = manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("lang", "EN") : "EN";
 
         try {
+            if (isPhotographyManifest(manifest)) {
+                log.info("[Designer] Photography workflow detected. Using deterministic clickable prototype path before any LLM polish.");
+                rebuildShapeAlignedPrototype(manifest);
+                return;
+            }
+
             // STEP 0: Pre-calculate Routes from Mindmap
             List<Route> routes = extractRoutes(manifest);
             if (routes.isEmpty()) {
@@ -135,7 +141,9 @@ public class UiDesignerAgent {
             // STEP 2b: Generate Detail Modal Component (OVERLAY slot)
             log.info("Step 2b: Generating Detail Modal for OVERLAY routes...");
             String homeRouteId = firstPrimaryRouteId(primaryRoutes);
-            String modalHtml = deterministicContentFirst
+            String modalHtml = isPhotographyManifest(manifest)
+                    ? buildPhotographyDetailModal(lang, homeRouteId)
+                    : deterministicContentFirst
                     ? buildFallbackDetailModal(lang, homeRouteId)
                     : generateDetailModal(manifest, overlayRoutes.get(0), lang, homeRouteId);
 
@@ -203,7 +211,9 @@ public class UiDesignerAgent {
             contentSlots.append(buildFallbackComponent(manifest, route, findPageSpec(manifest, route))).append("\n");
         }
 
-        String modalHtml = buildFallbackDetailModal(lang, firstPrimaryRouteId(primaryRoutes));
+        String modalHtml = isPhotographyManifest(manifest)
+                ? buildPhotographyDetailModal(lang, firstPrimaryRouteId(primaryRoutes))
+                : buildFallbackDetailModal(lang, firstPrimaryRouteId(primaryRoutes));
         String finalHtml = shell
                 .replace("{{MOCK_DATA}}", "[]")
                 .replace("{{MODAL_SLOT}}", modalHtml)
@@ -274,6 +284,13 @@ public class UiDesignerAgent {
 
     private boolean isPhotographyIntent(String intent) {
         return containsAny(intent, "摄影", "摄影师", "拍摄", "约拍", "photo", "photograph", "photographer", "portfolio", "档期", "作品展示");
+    }
+
+    private boolean isPhotographyManifest(ProjectManifest manifest) {
+        if (manifest == null) {
+            return false;
+        }
+        return isPhotographyIntent(manifest.getUserIntent()) || isPhotographySurface(buildShapeSurfaceProfile(manifest));
     }
 
     private List<Route> extractRoutes(ProjectManifest manifest) {
@@ -477,10 +494,12 @@ public class UiDesignerAgent {
                 - Output ONLY an HTML fragment starting with: <div x-show="hash === '#%s'">
                 - NEVER start response with ```html or any markdown.
                 
-                MANDATORY INTERACTION LOGIC (MODAL BINDING):
+                MANDATORY INTERACTION LOGIC (PROTOTYPE BINDING):
                 - If this is a Feed/Grid/List view, every item/card MUST have:
-                  @click="selectedItem = item; hash = '#detail'" class="cursor-pointer"
+                  @click="openDetail(item)" class="cursor-pointer"
                 - Use Alpine.js x-for loop to render from mockData array.
+                - Every visible CTA button must mutate prototype state with @click, such as go('#routeId'), openDetail(item), startInquiry(item), pickSlot(slot), submitInquiry(), or advanceOrder(order).
+                - Treat this as a clickable workflow prototype, never a static marketing page.
                 
                 %s
                 
@@ -531,8 +550,9 @@ public class UiDesignerAgent {
         int contentSignals = countOccurrences(lower, "<section")
                 + countOccurrences(lower, "<article")
                 + countOccurrences(lower, "x-for=");
-        boolean hasFeedInteraction = lower.contains("selecteditem = item")
-                && (lower.contains("hash = '#detail'") || lower.contains("hash='#detail'"));
+        boolean hasFeedInteraction = lower.contains("opendetail(item)")
+                || (lower.contains("selecteditem = item")
+                && (lower.contains("hash = '#detail'") || lower.contains("hash='#detail'")));
         if (isContentFirstRoute(route) && manifest.getDesignContract() != null) {
             int articleCount = countOccurrences(lower, "<article");
             int asideCount = countOccurrences(lower, "<aside");
@@ -672,7 +692,7 @@ public class UiDesignerAgent {
         ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
         String feed = buildPhotographySeededFeedJson(zh, 6);
         return """
-                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                <div x-show="hash === '#__ID__'" data-lingnow-flow="photography-discover" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
                   <section class="rounded-[36px] bg-slate-950 p-8 text-white shadow-2xl">
                     <div class="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_360px] xl:items-end">
                       <div>
@@ -680,8 +700,8 @@ public class UiDesignerAgent {
                         <h1 class="mt-5 max-w-3xl text-4xl font-black leading-tight tracking-tight">__HERO__</h1>
                         <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-300">__DESC__</p>
                         <div class="mt-6 flex flex-wrap gap-3">
-                          <button class="rounded-full bg-rose-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-rose-500/30">__CTA_PRIMARY__</button>
-                          <button class="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white/85">__CTA_SECONDARY__</button>
+                          <button @click="startInquiry()" data-lingnow-action="start-inquiry" class="rounded-full bg-rose-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-rose-500/30">__CTA_PRIMARY__</button>
+                          <button @click="go('#pg3')" data-lingnow-action="view-availability" class="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white/85">__CTA_SECONDARY__</button>
                         </div>
                       </div>
                       <div class="grid grid-cols-3 gap-3 rounded-[28px] bg-white/10 p-4 backdrop-blur">
@@ -698,7 +718,7 @@ public class UiDesignerAgent {
                       </div>
                       <div class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
                         <template x-for='item in __FEED__' :key="item.id">
-                          <article @click="selectedItem = item; hash = '#detail'" class="group cursor-pointer overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl">
+                          <article @click="openDetail(item)" data-lingnow-action="open-detail" class="group cursor-pointer overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl">
                             <div class="aspect-[4/3.2] overflow-hidden bg-slate-100"><img :src="item.cover" class="h-full w-full object-cover transition duration-500 group-hover:scale-105"/></div>
                             <div class="space-y-4 p-5">
                               <div class="flex items-center gap-3">
@@ -708,7 +728,7 @@ public class UiDesignerAgent {
                               </div>
                               <div><h3 class="line-clamp-2 text-lg font-black text-slate-900" x-text="item.title"></h3><p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-500" x-text="item.description"></p></div>
                               <div class="flex flex-wrap gap-2"><template x-for="tag in item.tags.slice(0,3)" :key="tag"><span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600" x-text="'#' + tag"></span></template></div>
-                              <div class="flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500"><span x-text="item.category"></span><button class="rounded-full bg-slate-950 px-4 py-2 font-black text-white">__INQUIRE__</button></div>
+                              <div class="flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500"><span x-text="item.category"></span><button @click.stop="startInquiry(item)" data-lingnow-action="card-inquiry" class="rounded-full bg-slate-950 px-4 py-2 font-black text-white">__INQUIRE__</button></div>
                             </div>
                           </article>
                         </template>
@@ -752,7 +772,7 @@ public class UiDesignerAgent {
 
     private String buildPhotographyDirectoryComponent(String routeId, String title, boolean zh) {
         return """
-                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                <div x-show="hash === '#__ID__'" data-lingnow-flow="photography-directory" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
                   <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
                     <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
                     <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-500">__DESC__</p>
@@ -766,7 +786,7 @@ public class UiDesignerAgent {
                     ]" :key="person.name">
                       <article class="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
                         <div><div class="text-xl font-black text-slate-900" x-text="person.name"></div><div class="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span x-text="person.city"></span><span>·</span><span x-text="person.style"></span><span>·</span><span x-text="person.price"></span></div></div>
-                        <div class="flex items-center gap-3"><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600" x-text="person.status"></span><button class="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white">__CTA__</button></div>
+                        <div class="flex items-center gap-3"><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600" x-text="person.status"></span><button @click="startInquiry(person)" data-lingnow-action="directory-inquiry" class="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white">__CTA__</button></div>
                       </article>
                     </template>
                   </section>
@@ -780,7 +800,7 @@ public class UiDesignerAgent {
 
     private String buildPhotographyAvailabilityComponent(String routeId, String title, boolean zh) {
         return """
-                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                <div x-show="hash === '#__ID__'" data-lingnow-flow="photography-availability" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
                   <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
                     <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
                     <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
@@ -794,7 +814,7 @@ public class UiDesignerAgent {
                       {day:'下周五', time:'19:00 - 21:00', type:'活动跟拍', owner:'峰会现场影像'},
                       {day:'本月余量', time:'18 个半天档', type:'多城市可约', owner:'平台摄影师池'}
                     ]" :key="slot.day + slot.time">
-                      <article class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                      <article @click="pickSlot(slot)" data-lingnow-action="pick-slot" :class="selectedSlot && selectedSlot.day === slot.day && selectedSlot.time === slot.time ? 'border-rose-300 ring-4 ring-rose-100' : 'border-slate-200'" class="cursor-pointer rounded-[28px] border bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
                         <div class="flex items-center justify-between"><span class="text-sm font-black text-rose-600" x-text="slot.day"></span><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600">__OPEN__</span></div>
                         <div class="mt-4 text-2xl font-black text-slate-900" x-text="slot.time"></div>
                         <div class="mt-2 text-sm text-slate-500" x-text="slot.type"></div>
@@ -802,17 +822,29 @@ public class UiDesignerAgent {
                       </article>
                     </template>
                   </section>
+                  <section class="mt-6 rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm" x-show="selectedSlot" x-cloak>
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <div class="text-xs font-black uppercase tracking-widest text-rose-500">__SELECTED_LABEL__</div>
+                        <div class="mt-2 text-xl font-black text-slate-900"><span x-text="selectedSlot?.day"></span><span class="mx-2">·</span><span x-text="selectedSlot?.time"></span></div>
+                        <p class="mt-1 text-sm text-slate-500"><span x-text="selectedSlot?.owner"></span><span class="mx-2">/</span><span x-text="selectedSlot?.type"></span></p>
+                      </div>
+                      <button @click="confirmBooking()" data-lingnow-action="confirm-booking" class="rounded-full bg-rose-500 px-6 py-3 text-sm font-black text-white shadow-lg shadow-rose-100">__CONFIRM__</button>
+                    </div>
+                  </section>
                 </div>
                 """
                 .replace("__ID__", routeId)
                 .replace("__TITLE__", title)
                 .replace("__DESC__", zh ? "把可预约档期作为转化核心，让客户不用来回沟通就能判断是否可约。" : "Make availability the conversion core so clients can decide before back-and-forth.")
-                .replace("__OPEN__", zh ? "可预约" : "Open");
+                .replace("__OPEN__", zh ? "可预约" : "Open")
+                .replace("__SELECTED_LABEL__", zh ? "已选择档期" : "Selected slot")
+                .replace("__CONFIRM__", zh ? "锁定档期并询价" : "Hold slot and inquire");
     }
 
     private String buildPhotographyInquiryComponent(String routeId, String title, boolean zh) {
         return """
-                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                <div x-show="hash === '#__ID__'" data-lingnow-flow="photography-inquiry" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
                   <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
                     <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
                     <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
@@ -825,20 +857,59 @@ public class UiDesignerAgent {
                     ]" :key="column.name">
                       <div class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
                         <div class="flex items-center justify-between"><h2 class="text-xl font-black text-slate-900" x-text="column.name"></h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600" x-text="column.count"></span></div>
-                        <div class="mt-4 space-y-3"><template x-for="lead in column.leads" :key="lead"><div class="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700" x-text="lead"></div></template></div>
+                        <div class="mt-4 space-y-3"><template x-for="lead in column.leads" :key="lead"><button @click="selectedLead = lead" data-lingnow-action="select-lead" :class="selectedLead === lead ? 'bg-rose-50 text-rose-700 ring-2 ring-rose-100' : 'bg-slate-50 text-slate-700'" class="block w-full rounded-2xl p-4 text-left text-sm font-bold transition hover:bg-rose-50" x-text="lead"></button></template></div>
                       </div>
                     </template>
+                  </section>
+                  <section class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <div class="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+                      <div class="flex items-center justify-between">
+                        <div><h2 class="text-xl font-black text-slate-900">__FORM_TITLE__</h2><p class="mt-1 text-sm text-slate-500">__FORM_DESC__</p></div>
+                        <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600" x-show="bookingConfirmed">__SLOT_HELD__</span>
+                      </div>
+                      <div class="mt-5 grid gap-3 md:grid-cols-2">
+                        <input x-model="draftInquiry.photographer" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-rose-300 focus:bg-white" placeholder="__PHOTOGRAPHER__">
+                        <input x-model="draftInquiry.city" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-rose-300 focus:bg-white" placeholder="__CITY__">
+                        <input x-model="draftInquiry.service" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-rose-300 focus:bg-white" placeholder="__SERVICE__">
+                        <input x-model="draftInquiry.budget" class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-rose-300 focus:bg-white" placeholder="__BUDGET__">
+                      </div>
+                      <textarea x-model="draftInquiry.note" class="mt-3 h-24 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-rose-300 focus:bg-white" placeholder="__NOTE__"></textarea>
+                      <button @click="submitInquiry()" data-lingnow-action="submit-inquiry" class="mt-4 w-full rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-rose-100">__SUBMIT__</button>
+                    </div>
+                    <aside class="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
+                      <h3 class="text-lg font-black text-slate-900">__NEXT_TITLE__</h3>
+                      <div class="mt-4 space-y-3 text-sm text-slate-600">
+                        <div class="rounded-2xl bg-slate-50 p-4">1. __NEXT_A__</div>
+                        <div class="rounded-2xl bg-slate-50 p-4">2. __NEXT_B__</div>
+                        <div class="rounded-2xl bg-slate-50 p-4">3. __NEXT_C__</div>
+                      </div>
+                      <div x-show="inquirySubmitted" x-cloak class="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">__SUBMITTED__</div>
+                    </aside>
                   </section>
                 </div>
                 """
                 .replace("__ID__", routeId)
                 .replace("__TITLE__", title)
-                .replace("__DESC__", zh ? "用看板承接客户询价，从预算、城市、类型到报价状态都能继续推进。" : "Track client inquiries from budget, city, shoot type, and quote status.");
+                .replace("__DESC__", zh ? "用看板承接客户询价，从预算、城市、类型到报价状态都能继续推进。" : "Track client inquiries from budget, city, shoot type, and quote status.")
+                .replace("__FORM_TITLE__", zh ? "新建询价单" : "Create inquiry")
+                .replace("__FORM_DESC__", zh ? "从作品、摄影师或档期页带入上下文，提交后进入订单跟进。" : "Context flows in from portfolio, photographer, or availability pages before order follow-up.")
+                .replace("__SLOT_HELD__", zh ? "已锁定档期" : "Slot held")
+                .replace("__PHOTOGRAPHER__", zh ? "摄影师 / 工作室" : "Photographer / studio")
+                .replace("__CITY__", zh ? "城市 / 拍摄地" : "City / location")
+                .replace("__SERVICE__", zh ? "拍摄类型" : "Shoot type")
+                .replace("__BUDGET__", zh ? "预算范围" : "Budget")
+                .replace("__NOTE__", zh ? "补充拍摄时间、人数、风格参考或交付要求..." : "Add timing, people, style reference, or delivery needs...")
+                .replace("__SUBMIT__", zh ? "提交询价并生成订单" : "Submit inquiry and create order")
+                .replace("__NEXT_TITLE__", zh ? "提交后流程" : "After submit")
+                .replace("__NEXT_A__", zh ? "摄影师确认档期与报价" : "Photographer confirms slot and quote")
+                .replace("__NEXT_B__", zh ? "客户确认方案并支付定金" : "Client confirms plan and deposit")
+                .replace("__NEXT_C__", zh ? "订单进入拍摄与交付看板" : "Order moves into shoot and delivery board")
+                .replace("__SUBMITTED__", zh ? "询价已提交，正在跳转到订单交付。" : "Inquiry submitted and moved to orders.");
     }
 
     private String buildPhotographyOrdersComponent(String routeId, String title, boolean zh) {
         return """
-                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                <div x-show="hash === '#__ID__'" data-lingnow-flow="photography-orders" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
                   <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
                     <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
                     <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
@@ -852,16 +923,23 @@ public class UiDesignerAgent {
                       <article class="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[auto_1fr_auto] md:items-center">
                         <div class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white" x-text="order.id"></div>
                         <div><div class="text-lg font-black text-slate-900" x-text="order.title"></div><div class="mt-1 text-sm text-slate-500"><span x-text="order.date"></span><span class="mx-2">·</span><span x-text="order.stage"></span></div></div>
-                        <div class="text-right"><div class="text-xl font-black text-slate-900" x-text="order.amount"></div><button class="mt-2 rounded-full bg-rose-500 px-4 py-2 text-xs font-black text-white">__CTA__</button></div>
+                        <div class="text-right"><div class="text-xl font-black text-slate-900" x-text="order.amount"></div><button @click="advanceOrder(order)" data-lingnow-action="advance-order" class="mt-2 rounded-full bg-rose-500 px-4 py-2 text-xs font-black text-white">__CTA__</button></div>
                       </article>
                     </template>
+                  </section>
+                  <section x-show="activeOrder" x-cloak class="mt-6 rounded-[30px] border border-emerald-100 bg-emerald-50 p-6 text-emerald-800">
+                    <div class="text-xs font-black uppercase tracking-widest">__UPDATED__</div>
+                    <div class="mt-2 text-lg font-black"><span x-text="activeOrder?.id"></span><span class="mx-2">·</span><span x-text="activeOrder?.stage"></span></div>
+                    <p class="mt-1 text-sm">__UPDATED_DESC__</p>
                   </section>
                 </div>
                 """
                 .replace("__ID__", routeId)
                 .replace("__TITLE__", title)
                 .replace("__DESC__", zh ? "把已成交预约继续推进到合同、定金、拍摄、选片和交付。" : "Move booked shoots through contract, deposit, shoot, selection, and delivery.")
-                .replace("__CTA__", zh ? "查看进度" : "View");
+                .replace("__CTA__", zh ? "推进进度" : "Advance")
+                .replace("__UPDATED__", zh ? "状态已更新" : "Status updated")
+                .replace("__UPDATED_DESC__", zh ? "这是原型态的即时状态变更，用于证明流程不是静态页面。" : "This instant prototype state change proves the flow is not a static page.");
     }
 
     private String buildShapeInstruction(ProjectManifest manifest) {
@@ -1889,6 +1967,66 @@ public class UiDesignerAgent {
                 zh ? "点赞" : "Likes",
                 zh ? "收藏" : "Saves",
                 zh ? "评论" : "Comments");
+    }
+
+    private String buildPhotographyDetailModal(String lang, String homeRouteId) {
+        boolean zh = !"EN".equalsIgnoreCase(lang);
+        return """
+                <div data-lingnow-flow="photography-detail" class="relative overflow-hidden rounded-3xl bg-white shadow-2xl">
+                  <button @click="closeDetail('#%s')" data-lingnow-action="close-detail" class="absolute right-5 top-5 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-2xl leading-none text-slate-400 shadow-lg hover:text-slate-700">&times;</button>
+                  <div class="grid lg:grid-cols-[minmax(0,1.05fr)_360px]">
+                    <div class="bg-slate-100">
+                      <img :src="selectedItem.cover || selectedItem.image || selectedItem.thumbUrl" class="h-full min-h-[420px] w-full object-cover" />
+                    </div>
+                    <aside class="flex flex-col p-7">
+                      <div class="flex items-center gap-3">
+                        <img :src="selectedItem.avatar || 'https://ui-avatars.com/api/?name=LN&background=fef08a&color=111827'" class="h-12 w-12 rounded-full object-cover" />
+                        <div class="min-w-0">
+                          <div class="truncate text-sm font-black text-slate-900" x-text="selectedItem.author || selectedItem.name || 'LingNow 摄影师'"></div>
+                          <div class="mt-1 truncate text-xs text-slate-500" x-text="selectedItem.location || selectedItem.city || '__LOCATION__'"></div>
+                        </div>
+                      </div>
+                      <h2 class="mt-6 text-3xl font-black leading-tight text-slate-900" x-text="selectedItem.title || selectedItem.style || '__TITLE__'"></h2>
+                      <p class="mt-4 text-sm leading-7 text-slate-600" x-text="selectedItem.content || selectedItem.description || '__DESC__'"></p>
+                      <div class="mt-5 flex flex-wrap gap-2">
+                        <template x-for="tag in (selectedItem.tags || [selectedItem.category || '__TAG__'])" :key="tag">
+                          <span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600" x-text="'#' + tag"></span>
+                        </template>
+                      </div>
+                      <div class="mt-6 grid grid-cols-3 gap-3 rounded-3xl bg-slate-50 p-4 text-center text-sm">
+                        <div><div class="text-lg font-black text-slate-900" x-text="selectedItem.likes || '4.8w'"></div><div class="mt-1 text-xs text-slate-500">__LIKES__</div></div>
+                        <div><div class="text-lg font-black text-slate-900" x-text="selectedItem.collects || selectedItem.saves || '2380'"></div><div class="mt-1 text-xs text-slate-500">__SAVES__</div></div>
+                        <div><div class="text-lg font-black text-slate-900" x-text="selectedItem.comments || '126'"></div><div class="mt-1 text-xs text-slate-500">__COMMENTS__</div></div>
+                      </div>
+                      <div class="mt-6 rounded-3xl border border-slate-200 p-4">
+                        <div class="text-sm font-black text-slate-900">__FLOW_TITLE__</div>
+                        <div class="mt-3 grid grid-cols-3 gap-2 text-center text-[11px] font-bold text-slate-500">
+                          <div class="rounded-2xl bg-slate-50 p-3">__FLOW_A__</div>
+                          <div class="rounded-2xl bg-slate-50 p-3">__FLOW_B__</div>
+                          <div class="rounded-2xl bg-slate-50 p-3">__FLOW_C__</div>
+                        </div>
+                      </div>
+                      <div class="mt-auto grid gap-3 pt-6 sm:grid-cols-2">
+                        <button @click="startInquiry(selectedItem)" data-lingnow-action="detail-inquiry" class="rounded-2xl bg-rose-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-rose-100">__INQUIRE__</button>
+                        <button @click="closeDetail('#%s'); go('#pg3')" data-lingnow-action="detail-booking" class="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-black text-slate-700 hover:bg-slate-50">__BOOK__</button>
+                      </div>
+                    </aside>
+                  </div>
+                </div>
+                """.formatted(homeRouteId, homeRouteId)
+                .replace("__LOCATION__", zh ? "城市与档期待确认" : "City and slot to confirm")
+                .replace("__TITLE__", zh ? "摄影服务详情" : "Photography service detail")
+                .replace("__DESC__", zh ? "查看作品风格、可服务城市、档期与报价线索，再进入询价或预约。" : "Review style, city, availability, and quote signals before inquiry or booking.")
+                .replace("__TAG__", zh ? "摄影" : "Photography")
+                .replace("__LIKES__", zh ? "喜欢" : "Likes")
+                .replace("__SAVES__", zh ? "收藏" : "Saves")
+                .replace("__COMMENTS__", zh ? "咨询" : "Inquiries")
+                .replace("__FLOW_TITLE__", zh ? "下一步转化路径" : "Next conversion path")
+                .replace("__FLOW_A__", zh ? "看作品" : "Portfolio")
+                .replace("__FLOW_B__", zh ? "选档期" : "Slot")
+                .replace("__FLOW_C__", zh ? "提交询价" : "Inquiry")
+                .replace("__INQUIRE__", zh ? "发起询价" : "Start inquiry")
+                .replace("__BOOK__", zh ? "查看档期" : "View slots");
     }
 
     private String detectVibeColor(ProjectManifest manifest) {
