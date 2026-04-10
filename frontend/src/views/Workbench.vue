@@ -214,6 +214,20 @@ const canStartCoding = computed(() =>
     !!result.value?.prototypeHtml &&
     !hasGeneratedFiles(result.value)
 )
+const isDesignRefining = computed(() => {
+  const project = result.value
+  if (!project?.prototypeHtml) return false
+  return project?.metaData?.design_ready !== 'true' && String(project?.status || '') === 'DESIGNING'
+})
+const designStatusText = computed(() => {
+  if (!result.value?.prototypeHtml) return ''
+  if (result.value?.metaData?.design_ready === 'true') return locale.value === 'ZH' ? '精修完成' : 'Polished'
+  if (String(result.value?.status || '') === 'QA') {
+    return locale.value === 'ZH' ? '审计未通过，显示可编辑草稿' : 'Audit needs fixes, editable draft shown'
+  }
+  return locale.value === 'ZH' ? '种子稿已显示，AI 正在后台精修' : 'Seed draft shown, AI is polishing in the background'
+})
+let projectRefreshTimer = null
 
 const formatDate = (timestamp) => {
   if (!timestamp) return '未知'
@@ -379,6 +393,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  stopProjectRefresh()
   if (typeof requestInterceptorId === 'number') {
     axios.interceptors.request.eject(requestInterceptorId)
   }
@@ -404,6 +419,44 @@ watch(() => route.params.id, (newId) => {
 
 const currentSessionId = ref(`session-${Date.now()}`)
 const generationPhase = ref('idle')
+
+const refreshLoadedProject = async () => {
+  if (!ensureAuthenticated()) return
+  const id = currentSessionId.value || route.params.id
+  if (!id) return
+  try {
+    const res = await axios.get(`/api/projects/${id}`)
+    const normalizedProject = normalizeWorkbenchResult(res.data)
+    result.value = normalizedProject
+    currentSessionId.value = id
+    isDesignStarted.value = !!normalizedProject?.prototypeHtml
+    if (normalizedProject?.metaData?.design_ready === 'true' || !['DESIGNING', 'QA'].includes(String(normalizedProject?.status || ''))) {
+      fetchHistory()
+    }
+  } catch (err) {
+    if (isAuthError(err)) return
+    console.error('Failed to refresh project', err)
+  }
+}
+
+const startProjectRefresh = () => {
+  if (projectRefreshTimer) return
+  projectRefreshTimer = window.setInterval(refreshLoadedProject, 5000)
+}
+
+const stopProjectRefresh = () => {
+  if (!projectRefreshTimer) return
+  window.clearInterval(projectRefreshTimer)
+  projectRefreshTimer = null
+}
+
+watch(isDesignRefining, (refining) => {
+  if (refining) {
+    startProjectRefresh()
+  } else {
+    stopProjectRefresh()
+  }
+}, {immediate: true})
 
 const handleGenerate = async () => {
   if (!ensureAuthenticated()) return
@@ -655,7 +708,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
 </script>
 
 <template>
-  <div class="h-full flex flex-col bg-black text-gray-300 select-none overflow-hidden">
+  <div class="h-screen min-h-screen flex flex-col bg-black text-gray-300 select-none overflow-hidden">
     <nav
         class="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-black/40 backdrop-blur-3xl z-40 shrink-0">
       <div class="flex items-center gap-6">
@@ -703,10 +756,10 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
       </div>
     </nav>
 
-    <div class="flex-1 flex overflow-hidden relative">
+    <div class="flex-1 min-h-0 flex overflow-hidden relative">
       <main
           :class="[isWorkbenchMode ? (isSidebarOpen ? 'w-[75%]' : 'w-full') : 'w-full flex items-center justify-center']"
-          class="relative flex-1 flex flex-col bg-[#111] overflow-hidden">
+          class="relative flex-1 min-h-0 flex flex-col bg-[#111] overflow-hidden">
         <div v-if="!isWorkbenchMode && !loading" class="max-w-2xl w-full px-6 text-center">
           <h2 class="text-5xl font-black mb-4 tracking-tighter text-white uppercase italic">{{ i18n.welcome }}</h2>
           <p class="text-gray-500 text-lg mb-12">{{ i18n.subtitle }}</p>
@@ -745,17 +798,22 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
         </div>
 
         <div v-show="isWorkbenchMode"
-             class="flex-1 relative overflow-hidden flex justify-center bg-[#0d0d0d] no-scrollbar">
+             class="flex-1 min-h-0 relative overflow-hidden flex justify-center bg-[#0d0d0d] no-scrollbar">
           <transition name="fade">
             <div v-show="activeTab === 'design'"
-                 class="h-full w-full transition-all duration-500 ease-in-out relative origin-top flex flex-col items-center overflow-auto no-scrollbar bg-[#0d0d0d] p-0">
+                 class="absolute inset-0 transition-all duration-500 ease-in-out bg-[#0d0d0d]">
+              <div v-if="designStatusText"
+                   class="pointer-events-none absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur">
+                <Loader2 v-if="isDesignRefining" class="h-3.5 w-3.5 animate-spin text-blue-400"/>
+                <span :class="isDesignRefining ? 'text-blue-300' : 'text-emerald-300'">{{ designStatusText }}</span>
+              </div>
               <div :class="[deviceType === 'desktop' ? 'p-0' : 'p-12']"
-                   class="flex-1 w-full flex justify-center items-center">
+                   class="absolute inset-0 flex justify-center items-stretch overflow-auto no-scrollbar">
                 <div
-                    :class="[deviceType === 'desktop' ? 'w-full h-full border-none shadow-none rounded-none' : (deviceType === 'tablet' ? 'w-[768px] h-[95%] rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden' : 'w-[375px] h-[90%] rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden')]"
+                    :class="[deviceType === 'desktop' ? 'absolute inset-0 w-full h-full border-none shadow-none rounded-none' : (deviceType === 'tablet' ? 'w-[768px] h-[95%] rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden' : 'w-[375px] h-[90%] rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden')]"
                     class="transition-all duration-700 relative origin-top shadow-[0_50px_120px_rgba(0,0,0,0.6)] flex justify-center shrink-0">
                   <iframe :srcdoc="injectInspectScript(result?.prototypeHtml, isDebugMode)"
-                          class="w-full h-full border-none relative z-10 bg-white" frameborder="0"></iframe>
+                          class="absolute inset-0 w-full h-full border-none z-10 bg-white" frameborder="0"></iframe>
                 </div>
               </div>
             </div>

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -21,6 +22,9 @@ public class UiDesignerAgent {
 
     private final LlmClient llmClient;
     private final ObjectMapper objectMapper;
+
+    @Value("${llm.timeout-seconds:600}")
+    private int llmTimeoutSeconds;
 
     private String getDynamicDNA(ProjectManifest manifest) {
         var meta = manifest.getMetaData();
@@ -95,37 +99,45 @@ public class UiDesignerAgent {
             String shellHtml = generateShell(manifest, primaryRoutes, lang);
 
             // STEP 2: Generate Page Components (Parallel Execution)
-            log.info("Step 2: Generating Feature Components (Parallel Bridge Active)...");
+            List<Route> componentRoutes = primaryRoutes.stream().limit(6).toList();
+            int componentConcurrency = Math.min(2, Math.max(1, componentRoutes.size()));
+            log.info("Step 2: Generating Feature Components (bounded concurrency: {})...", componentConcurrency);
             List<java.util.concurrent.CompletableFuture<String>> futures = new ArrayList<>();
-            for (Route route : primaryRoutes.stream().limit(6).toList()) {
-                ProjectManifest.PageSpec pageSpec = findPageSpec(manifest, route);
-                futures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-                    try {
-                        log.info("[Designer] Starting parallel generation for: {}", route.id);
-                        String rawHtml = generateComponent(manifest, route, pageSpec, lang);
-                        return ensureRenderableComponent(manifest, route, pageSpec, rawHtml);
-                    } catch (Exception e) {
-                        log.error("[Designer] Parallel component generation failed for {}: {}", route.id, e.getMessage());
-                        return buildFallbackComponent(manifest, route, pageSpec);
-                    }
-                }));
-            }
-
             StringBuilder contentSlots = new StringBuilder();
-            for (java.util.concurrent.CompletableFuture<String> future : futures) {
-                try {
-                    // Timeout after 60 seconds per page (effectively parallel)
-                    contentSlots.append(future.get(60, java.util.concurrent.TimeUnit.SECONDS)).append("\n");
-                } catch (Exception e) {
-                    log.error("[Designer] Feature component future timed out or failed", e);
+            java.util.concurrent.ExecutorService componentExecutor = java.util.concurrent.Executors.newFixedThreadPool(componentConcurrency);
+            try {
+                for (Route route : componentRoutes) {
+                    ProjectManifest.PageSpec pageSpec = findPageSpec(manifest, route);
+                    futures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                        try {
+                            log.info("[Designer] Starting component generation for: {}", route.id);
+                            String rawHtml = generateComponent(manifest, route, pageSpec, lang);
+                            return ensureRenderableComponent(manifest, route, pageSpec, rawHtml);
+                        } catch (Exception e) {
+                            log.error("[Designer] Component generation failed for {}: {}", route.id, e.getMessage());
+                            return buildFallbackComponent(manifest, route, pageSpec);
+                        }
+                    }, componentExecutor));
                 }
+
+                int componentTimeoutSeconds = componentWaitTimeoutSeconds();
+                for (java.util.concurrent.CompletableFuture<String> future : futures) {
+                    try {
+                        contentSlots.append(future.get(componentTimeoutSeconds, java.util.concurrent.TimeUnit.SECONDS)).append("\n");
+                    } catch (Exception e) {
+                        log.error("[Designer] Feature component future timed out or failed", e);
+                    }
+                }
+            } finally {
+                componentExecutor.shutdownNow();
             }
 
             // STEP 2b: Generate Detail Modal Component (OVERLAY slot)
             log.info("Step 2b: Generating Detail Modal for OVERLAY routes...");
+            String homeRouteId = firstPrimaryRouteId(primaryRoutes);
             String modalHtml = deterministicContentFirst
-                    ? buildFallbackDetailModal(lang)
-                    : generateDetailModal(manifest, overlayRoutes.get(0), lang);
+                    ? buildFallbackDetailModal(lang, homeRouteId)
+                    : generateDetailModal(manifest, overlayRoutes.get(0), lang, homeRouteId);
 
             // STEP 3: Assembly
             log.info("Step 3: Assembling prototype...");
@@ -169,9 +181,10 @@ public class UiDesignerAgent {
 
         boolean contentFirst = isContentFirst(manifest);
         String template = readResource(contentFirst ? "/templates/ContentFirstShell.html" : "/templates/StandardShell.html");
+        ShellCopy shellCopy = buildShellCopy(manifest, contentFirst);
 
         // Phase 1: Build the Shell (Instant Frame)
-        String shell = template
+        String shell = applyShellCopy(template, shellCopy)
                 .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
                 .replace("{{LOGO_AREA}}", "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>")
                 .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, primaryRoutes, contentFirst))
@@ -190,7 +203,7 @@ public class UiDesignerAgent {
             contentSlots.append(buildFallbackComponent(manifest, route, findPageSpec(manifest, route))).append("\n");
         }
 
-        String modalHtml = buildFallbackDetailModal(lang);
+        String modalHtml = buildFallbackDetailModal(lang, firstPrimaryRouteId(primaryRoutes));
         String finalHtml = shell
                 .replace("{{MOCK_DATA}}", "[]")
                 .replace("{{MODAL_SLOT}}", modalHtml)
@@ -198,6 +211,69 @@ public class UiDesignerAgent {
                 .replace("{{CONTENT_SLOT}}", contentSlots.toString());
 
         manifest.setPrototypeHtml(finalHtml);
+    }
+
+    private int componentWaitTimeoutSeconds() {
+        return Math.max(60, llmTimeoutSeconds);
+    }
+
+    private String firstPrimaryRouteId(List<Route> primaryRoutes) {
+        if (primaryRoutes == null || primaryRoutes.isEmpty() || primaryRoutes.get(0).id == null || primaryRoutes.get(0).id.isBlank()) {
+            return "pg1";
+        }
+        return primaryRoutes.get(0).id;
+    }
+
+    private String applyShellCopy(String template, ShellCopy shellCopy) {
+        return template
+                .replace("{{SEARCH_PLACEHOLDER}}", escapeHtml(shellCopy.searchPlaceholder()))
+                .replace("{{PUBLISH_LABEL}}", escapeHtml(shellCopy.publishLabel()))
+                .replace("{{POST_TITLE}}", escapeHtml(shellCopy.postTitle()))
+                .replace("{{POST_PLACEHOLDER}}", escapeHtml(shellCopy.postPlaceholder()))
+                .replace("{{POST_SUBMIT_LABEL}}", escapeHtml(shellCopy.postSubmitLabel()));
+    }
+
+    private ShellCopy buildShellCopy(ProjectManifest manifest, boolean contentFirst) {
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        String intent = manifest.getUserIntent() != null ? manifest.getUserIntent().toLowerCase(Locale.ROOT) : "";
+        if (isPhotographyIntent(intent)) {
+            return new ShellCopy(
+                    zh ? "搜索摄影师、作品风格、城市或可约档期..." : "Search photographers, styles, cities, or availability...",
+                    zh ? "发布作品" : "Publish work",
+                    zh ? "发布作品与可约档期" : "Publish work and availability",
+                    zh ? "介绍拍摄风格、服务城市、可预约档期或套餐亮点..." : "Describe your shooting style, service city, availability, or package highlights...",
+                    zh ? "更新作品" : "Publish"
+            );
+        }
+        if (containsAny(intent, "预约", "预订", "booking", "appointment", "inquiry", "询价", "咨询", "服务", "客户")) {
+            return new ShellCopy(
+                    zh ? "搜索服务、案例、城市或可预约时间..." : "Search services, cases, cities, or available times...",
+                    zh ? "发布服务" : "Publish service",
+                    zh ? "发布服务与可预约时间" : "Publish service and availability",
+                    zh ? "写下服务亮点、可服务范围、报价线索或预约说明..." : "Describe service highlights, scope, pricing hints, or booking notes...",
+                    zh ? "更新服务" : "Publish"
+            );
+        }
+        if (contentFirst) {
+            return new ShellCopy(
+                    zh ? "发现你感兴趣的话题..." : "Discover topics you care about...",
+                    zh ? "发布" : "Post",
+                    zh ? "发布新内容" : "Create a new post",
+                    zh ? "写点什么分享你的灵感..." : "Share a thought, note, or inspiration...",
+                    zh ? "立即发布" : "Post now"
+            );
+        }
+        return new ShellCopy(
+                zh ? "搜索功能、客户、订单或关键内容..." : "Search features, customers, orders, or key content...",
+                zh ? "新建" : "Create",
+                zh ? "新建内容" : "Create item",
+                zh ? "补充标题、说明、状态或下一步动作..." : "Add a title, description, status, or next action...",
+                zh ? "保存" : "Save"
+        );
+    }
+
+    private boolean isPhotographyIntent(String intent) {
+        return containsAny(intent, "摄影", "摄影师", "拍摄", "约拍", "photo", "photograph", "photographer", "portfolio", "档期", "作品展示");
     }
 
     private List<Route> extractRoutes(ProjectManifest manifest) {
@@ -285,11 +361,12 @@ public class UiDesignerAgent {
     private String generateShell(ProjectManifest manifest, List<Route> routes, String lang) {
         boolean contentFirst = isContentFirst(manifest);
         String template = readResource(contentFirst ? "/templates/ContentFirstShell.html" : "/templates/StandardShell.html");
+        ShellCopy shellCopy = buildShellCopy(manifest, contentFirst);
         String handbook = loadHandbook();
 
         if (contentFirst) {
             String safeLogo = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
-            return template
+            return applyShellCopy(template, shellCopy)
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
                     .replace("{{LOGO_AREA}}", safeLogo)
                     .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, routes, true))
@@ -361,7 +438,7 @@ public class UiDesignerAgent {
             if (logoHtml.isBlank())
                 logoHtml = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
 
-            String shell = template
+            String shell = applyShellCopy(template, shellCopy)
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
                     .replace("{{LOGO_AREA}}", logoHtml)
                     .replace("{{SIDEBAR_NAV}}", sidebarHtml)
@@ -373,7 +450,7 @@ public class UiDesignerAgent {
             log.error("Shell fragment generation failed, using minimal safe fallback shell", e);
             // Safe fallback: build sidebar from routes list directly
             String safeLogo = "<span class=\"text-xl font-bold text-rose-500\">" + (manifest.getOverview() != null ? manifest.getOverview() : "LingNow") + "</span>";
-            return template
+            return applyShellCopy(template, shellCopy)
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
                     .replace("{{LOGO_AREA}}", safeLogo)
                     .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, routes, contentFirst))
@@ -509,6 +586,9 @@ public class UiDesignerAgent {
     }
 
     private String buildFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
+        if (isPhotographyIntent(manifest.getUserIntent() != null ? manifest.getUserIntent().toLowerCase(Locale.ROOT) : "")) {
+            return buildPhotographyFallbackComponent(manifest, route, pageSpec);
+        }
         if (manifest.getDesignContract() != null && isContentFirst(manifest) && isContentFirstRoute(route)) {
             ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
             if (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL) {
@@ -569,6 +649,221 @@ public class UiDesignerAgent {
                 .replace("__FLOW__", zh ? "从当前模块进入详情或下一步操作，保持结构稳定并等待更精细的内容生成。" : "Move from this module into detail or the next action while keeping the structure stable for richer content generation.");
     }
 
+    private String buildPhotographyFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        String routeKey = ((route.id == null ? "" : route.id) + " " + (route.name == null ? "" : route.name)).toLowerCase(Locale.ROOT);
+        String title = photographyRouteLabel(route, zh);
+        if (containsAny(routeKey, "availability", "档期", "calendar")) {
+            return buildPhotographyAvailabilityComponent(route.id, title, zh);
+        }
+        if (containsAny(routeKey, "inquiries", "询价", "leads", "客户")) {
+            return buildPhotographyInquiryComponent(route.id, title, zh);
+        }
+        if (containsAny(routeKey, "orders", "订单", "booking")) {
+            return buildPhotographyOrdersComponent(route.id, title, zh);
+        }
+        if (containsAny(routeKey, "photographers", "摄影师")) {
+            return buildPhotographyDirectoryComponent(route.id, title, zh);
+        }
+        return buildPhotographyDiscoverComponent(manifest, route.id, title, zh);
+    }
+
+    private String buildPhotographyDiscoverComponent(ProjectManifest manifest, String routeId, String title, boolean zh) {
+        ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
+        String feed = buildPhotographySeededFeedJson(zh, 6);
+        return """
+                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                  <section class="rounded-[36px] bg-slate-950 p-8 text-white shadow-2xl">
+                    <div class="grid gap-8 xl:grid-cols-[minmax(0,1.2fr)_360px] xl:items-end">
+                      <div>
+                        <span class="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-rose-200">__BADGE__</span>
+                        <h1 class="mt-5 max-w-3xl text-4xl font-black leading-tight tracking-tight">__HERO__</h1>
+                        <p class="mt-4 max-w-2xl text-sm leading-7 text-slate-300">__DESC__</p>
+                        <div class="mt-6 flex flex-wrap gap-3">
+                          <button class="rounded-full bg-rose-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-rose-500/30">__CTA_PRIMARY__</button>
+                          <button class="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white/85">__CTA_SECONDARY__</button>
+                        </div>
+                      </div>
+                      <div class="grid grid-cols-3 gap-3 rounded-[28px] bg-white/10 p-4 backdrop-blur">
+                        <div class="rounded-2xl bg-white/10 p-4"><div class="text-2xl font-black">286</div><div class="mt-1 text-xs text-slate-300">__STAT_A__</div></div>
+                        <div class="rounded-2xl bg-white/10 p-4"><div class="text-2xl font-black">1.8k</div><div class="mt-1 text-xs text-slate-300">__STAT_B__</div></div>
+                        <div class="rounded-2xl bg-white/10 p-4"><div class="text-2xl font-black">92%</div><div class="mt-1 text-xs text-slate-300">__STAT_C__</div></div>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <div>
+                      <div class="mb-4 flex items-end justify-between">
+                        <div><h2 class="text-2xl font-black text-slate-900">__TITLE__</h2><p class="mt-1 text-sm text-slate-500">__SUBTITLE__</p></div>
+                      </div>
+                      <div class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+                        <template x-for='item in __FEED__' :key="item.id">
+                          <article @click="selectedItem = item; hash = '#detail'" class="group cursor-pointer overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-2xl">
+                            <div class="aspect-[4/3.2] overflow-hidden bg-slate-100"><img :src="item.cover" class="h-full w-full object-cover transition duration-500 group-hover:scale-105"/></div>
+                            <div class="space-y-4 p-5">
+                              <div class="flex items-center gap-3">
+                                <img :src="item.avatar" class="h-10 w-10 rounded-full object-cover"/>
+                                <div class="min-w-0 flex-1"><div class="truncate text-sm font-black text-slate-900" x-text="item.author"></div><div class="truncate text-xs text-slate-500" x-text="item.location"></div></div>
+                                <span class="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-black text-emerald-600">__OPEN__</span>
+                              </div>
+                              <div><h3 class="line-clamp-2 text-lg font-black text-slate-900" x-text="item.title"></h3><p class="mt-2 line-clamp-2 text-sm leading-6 text-slate-500" x-text="item.description"></p></div>
+                              <div class="flex flex-wrap gap-2"><template x-for="tag in item.tags.slice(0,3)" :key="tag"><span class="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-600" x-text="'#' + tag"></span></template></div>
+                              <div class="flex items-center justify-between border-t border-slate-100 pt-4 text-xs text-slate-500"><span x-text="item.category"></span><button class="rounded-full bg-slate-950 px-4 py-2 font-black text-white">__INQUIRE__</button></div>
+                            </div>
+                          </article>
+                        </template>
+                      </div>
+                    </div>
+                    <aside class="space-y-4">
+                      <section class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-900">__SIDE_TITLE__</h3>
+                        <div class="mt-4 space-y-3">
+                          <div class="rounded-2xl bg-slate-50 p-4"><div class="text-sm font-black text-slate-900">__SIDE_A__</div><div class="mt-1 text-xs text-slate-500">__SIDE_A_DESC__</div></div>
+                          <div class="rounded-2xl bg-slate-50 p-4"><div class="text-sm font-black text-slate-900">__SIDE_B__</div><div class="mt-1 text-xs text-slate-500">__SIDE_B_DESC__</div></div>
+                          <div class="rounded-2xl bg-slate-50 p-4"><div class="text-sm font-black text-slate-900">__SIDE_C__</div><div class="mt-1 text-xs text-slate-500">__SIDE_C_DESC__</div></div>
+                        </div>
+                      </section>
+                    </aside>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", routeId)
+                .replace("__BADGE__", zh ? profile.surfaceLabelZh() : profile.surfaceLabelEn())
+                .replace("__HERO__", zh ? profile.heroTitleZh() : profile.heroTitleEn())
+                .replace("__DESC__", zh ? profile.heroDescriptionZh() : profile.heroDescriptionEn())
+                .replace("__CTA_PRIMARY__", zh ? "发起询价" : "Start inquiry")
+                .replace("__CTA_SECONDARY__", zh ? "查看本周档期" : "View availability")
+                .replace("__STAT_A__", zh ? "认证摄影师" : "Verified photographers")
+                .replace("__STAT_B__", zh ? "客户询价" : "Client inquiries")
+                .replace("__STAT_C__", zh ? "按期交付" : "On-time delivery")
+                .replace("__TITLE__", title)
+                .replace("__SUBTITLE__", zh ? "用作品质感、城市、档期和询价热度帮助客户快速筛选。" : "Filter by portfolio quality, city, availability, and inquiry heat.")
+                .replace("__FEED__", feed)
+                .replace("__OPEN__", zh ? "可约" : "Open")
+                .replace("__INQUIRE__", zh ? "询价" : "Inquire")
+                .replace("__SIDE_TITLE__", zh ? "预约转化路径" : "Booking conversion path")
+                .replace("__SIDE_A__", zh ? "作品展示" : "Portfolio")
+                .replace("__SIDE_A_DESC__", zh ? "先建立风格信任，再进入详情。" : "Build style trust before detail view.")
+                .replace("__SIDE_B__", zh ? "档期预约" : "Availability")
+                .replace("__SIDE_B_DESC__", zh ? "突出本周/本月可约时间。" : "Surface this week/month slots.")
+                .replace("__SIDE_C__", zh ? "客户询价" : "Inquiry")
+                .replace("__SIDE_C_DESC__", zh ? "把预算、城市、拍摄类型收进线索池。" : "Capture budget, city, and shoot type.");
+    }
+
+    private String buildPhotographyDirectoryComponent(String routeId, String title, boolean zh) {
+        return """
+                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
+                    <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
+                    <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-500">__DESC__</p>
+                  </section>
+                  <section class="mt-6 grid gap-4">
+                    <template x-for="person in [
+                      {name:'林屿影像工作室', city:'上海 / 杭州', style:'婚礼纪实 · 自然光', price:'¥4800 起', status:'本周可约', score:'4.9'},
+                      {name:'北辰商业摄影', city:'北京', style:'品牌商业 · 产品棚拍', price:'¥6800 起', status:'3 天内可排期', score:'4.8'},
+                      {name:'小满家庭影像', city:'广州', style:'亲子写真 · 外景抓拍', price:'¥2600 起', status:'周日可约', score:'4.7'},
+                      {name:'阿澈人像计划', city:'成都', style:'人像约拍 · 胶片质感', price:'¥1600 起', status:'明晚可约', score:'4.9'}
+                    ]" :key="person.name">
+                      <article class="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
+                        <div><div class="text-xl font-black text-slate-900" x-text="person.name"></div><div class="mt-2 flex flex-wrap gap-2 text-xs text-slate-500"><span x-text="person.city"></span><span>·</span><span x-text="person.style"></span><span>·</span><span x-text="person.price"></span></div></div>
+                        <div class="flex items-center gap-3"><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600" x-text="person.status"></span><button class="rounded-full bg-slate-950 px-5 py-2 text-sm font-black text-white">__CTA__</button></div>
+                      </article>
+                    </template>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", routeId)
+                .replace("__TITLE__", title)
+                .replace("__DESC__", zh ? "按城市、风格、价格与可约状态管理摄影师供给，帮助客户从作品浏览自然走向询价。" : "Manage photographer supply by city, style, price, and availability.")
+                .replace("__CTA__", zh ? "发起询价" : "Inquire");
+    }
+
+    private String buildPhotographyAvailabilityComponent(String routeId, String title, boolean zh) {
+        return """
+                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
+                    <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
+                    <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
+                  </section>
+                  <section class="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <template x-for="slot in [
+                      {day:'周五', time:'10:00 - 14:00', type:'商业棚拍', owner:'北辰商业摄影'},
+                      {day:'周六', time:'15:00 - 18:00', type:'人像约拍', owner:'阿澈人像计划'},
+                      {day:'周日', time:'09:30 - 12:30', type:'亲子写真', owner:'小满家庭影像'},
+                      {day:'下周三', time:'全天', type:'婚礼纪实', owner:'林屿影像工作室'},
+                      {day:'下周五', time:'19:00 - 21:00', type:'活动跟拍', owner:'峰会现场影像'},
+                      {day:'本月余量', time:'18 个半天档', type:'多城市可约', owner:'平台摄影师池'}
+                    ]" :key="slot.day + slot.time">
+                      <article class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center justify-between"><span class="text-sm font-black text-rose-600" x-text="slot.day"></span><span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-600">__OPEN__</span></div>
+                        <div class="mt-4 text-2xl font-black text-slate-900" x-text="slot.time"></div>
+                        <div class="mt-2 text-sm text-slate-500" x-text="slot.type"></div>
+                        <div class="mt-5 rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700" x-text="slot.owner"></div>
+                      </article>
+                    </template>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", routeId)
+                .replace("__TITLE__", title)
+                .replace("__DESC__", zh ? "把可预约档期作为转化核心，让客户不用来回沟通就能判断是否可约。" : "Make availability the conversion core so clients can decide before back-and-forth.")
+                .replace("__OPEN__", zh ? "可预约" : "Open");
+    }
+
+    private String buildPhotographyInquiryComponent(String routeId, String title, boolean zh) {
+        return """
+                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
+                    <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
+                    <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
+                  </section>
+                  <section class="mt-6 grid gap-5 xl:grid-cols-3">
+                    <template x-for="column in [
+                      {name:'新询价', count:12, leads:['婚礼跟拍 · 上海 · ¥8000','亲子写真 · 广州 · ¥3000','商业主图 · 北京 · 待报价']},
+                      {name:'方案沟通', count:8, leads:['旅拍婚纱 · 三亚 · 需路线','活动跟拍 · 深圳 · 双机位','人像约拍 · 成都 · 明晚']},
+                      {name:'待确认', count:5, leads:['婚礼纪实 · 杭州 · 已发报价','品牌棚拍 · 北京 · 等合同','家庭影像 · 广州 · 等定金']}
+                    ]" :key="column.name">
+                      <div class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-center justify-between"><h2 class="text-xl font-black text-slate-900" x-text="column.name"></h2><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600" x-text="column.count"></span></div>
+                        <div class="mt-4 space-y-3"><template x-for="lead in column.leads" :key="lead"><div class="rounded-2xl bg-slate-50 p-4 text-sm font-bold text-slate-700" x-text="lead"></div></template></div>
+                      </div>
+                    </template>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", routeId)
+                .replace("__TITLE__", title)
+                .replace("__DESC__", zh ? "用看板承接客户询价，从预算、城市、类型到报价状态都能继续推进。" : "Track client inquiries from budget, city, shoot type, and quote status.");
+    }
+
+    private String buildPhotographyOrdersComponent(String routeId, String title, boolean zh) {
+        return """
+                <div x-show="hash === '#__ID__'" class="min-h-screen animate-fade-in bg-slate-50 pb-16">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
+                    <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
+                    <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
+                  </section>
+                  <section class="mt-6 grid gap-4">
+                    <template x-for="order in [
+                      {id:'LN-2401', title:'上海婚礼纪实全天档', stage:'已付定金', date:'4月18日', amount:'¥12,800'},
+                      {id:'LN-2402', title:'北京品牌产品棚拍', stage:'待确认脚本', date:'4月21日', amount:'¥18,600'},
+                      {id:'LN-2403', title:'广州亲子外景写真', stage:'精修交付中', date:'4月25日', amount:'¥3,200'}
+                    ]" :key="order.id">
+                      <article class="grid gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-[auto_1fr_auto] md:items-center">
+                        <div class="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white" x-text="order.id"></div>
+                        <div><div class="text-lg font-black text-slate-900" x-text="order.title"></div><div class="mt-1 text-sm text-slate-500"><span x-text="order.date"></span><span class="mx-2">·</span><span x-text="order.stage"></span></div></div>
+                        <div class="text-right"><div class="text-xl font-black text-slate-900" x-text="order.amount"></div><button class="mt-2 rounded-full bg-rose-500 px-4 py-2 text-xs font-black text-white">__CTA__</button></div>
+                      </article>
+                    </template>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", routeId)
+                .replace("__TITLE__", title)
+                .replace("__DESC__", zh ? "把已成交预约继续推进到合同、定金、拍摄、选片和交付。" : "Move booked shoots through contract, deposit, shoot, selection, and delivery.")
+                .replace("__CTA__", zh ? "查看进度" : "View");
+    }
+
     private String buildShapeInstruction(ProjectManifest manifest) {
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
         if (contract == null) {
@@ -603,6 +898,35 @@ public class UiDesignerAgent {
     }
 
     private String buildRealMediaArrayJson(boolean cover, ShapeSurfaceProfile profile) {
+        if (isPhotographySurface(profile)) {
+            List<String> media = cover
+                    ? List.of(
+                    "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1519225421980-715cb0215aed?q=80&w=1200",
+                    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200"
+            )
+                    : List.of(
+                    "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
+                    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256",
+                    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256",
+                    "https://images.unsplash.com/photo-1504257432389-52343af06ae3?q=80&w=256",
+                    "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256",
+                    "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=256",
+                    "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?q=80&w=256",
+                    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256"
+            );
+            try {
+                return objectMapper.writeValueAsString(media);
+            } catch (Exception e) {
+                log.warn("[Designer] Failed to serialize photography media array", e);
+                return "[]";
+            }
+        }
         List<String> media = cover
                 ? (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL
                 ? List.of(
@@ -654,10 +978,125 @@ public class UiDesignerAgent {
     }
 
     private String buildSeededFeedJson(boolean zh, int count, ShapeSurfaceProfile profile) {
+        if (isPhotographySurface(profile)) {
+            return buildPhotographySeededFeedJson(zh, count);
+        }
         if (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL) {
             return buildLifestyleSeededFeedJson(zh, count);
         }
         return buildKnowledgeSeededFeedJson(zh, count);
+    }
+
+    private boolean isPhotographySurface(ShapeSurfaceProfile profile) {
+        return profile != null && containsAny(
+                (profile.surfaceLabelZh() + " " + profile.surfaceLabelEn() + " " + profile.categoryFallbackZh()).toLowerCase(Locale.ROOT),
+                "摄影", "photography", "photographer");
+    }
+
+    private String buildPhotographySeededFeedJson(boolean zh, int count) {
+        List<Map<String, Object>> cards = new ArrayList<>();
+        cards.add(seedCard(
+                "id", "photographer-1",
+                "title", zh ? "城市纪实婚礼摄影：自然光、低打扰、48 小时预告片" : "Documentary wedding photography with natural light and a 48-hour preview",
+                "author", zh ? "林屿影像工作室" : "Linyu Studio",
+                "avatar", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
+                "description", zh ? "主打真实情绪和现场叙事，上海/杭州本周末仍有半天档期，可先询价确认套系。" : "Natural documentary coverage for Shanghai and Hangzhou, with half-day slots still open this weekend.",
+                "cover", "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1200",
+                "location", zh ? "上海 · 本周可约" : "Shanghai · Available this week",
+                "time", zh ? "刚更新档期" : "Availability updated",
+                "category", zh ? "婚礼纪实" : "Wedding documentary",
+                "mediaType", zh ? "作品集" : "Portfolio",
+                "likes", "4.8w",
+                "comments", "126",
+                "collects", "2380",
+                "tags", List.of(zh ? "婚礼" : "Wedding", zh ? "自然光" : "Natural light", zh ? "可约档期" : "Available")
+        ));
+        cards.add(seedCard(
+                "id", "photographer-2",
+                "title", zh ? "品牌商业棚拍：从视觉提案到成片交付一站式" : "Commercial studio shoots from visual proposal to final delivery",
+                "author", zh ? "北辰商业摄影" : "Northstar Commercial",
+                "avatar", "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256",
+                "description", zh ? "适合新品主图、品牌官网和社媒发布，支持询价后自动生成拍摄清单与报价范围。" : "Built for product launches, brand websites, and social campaigns with quote-ready shoot scopes.",
+                "cover", "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=1200",
+                "location", zh ? "北京 · 商业棚" : "Beijing · Studio",
+                "time", zh ? "1小时前" : "1h ago",
+                "category", zh ? "商业拍摄" : "Commercial",
+                "mediaType", zh ? "案例" : "Case study",
+                "likes", "2.6w",
+                "comments", "88",
+                "collects", "1420",
+                "tags", List.of(zh ? "产品摄影" : "Product", zh ? "品牌视觉" : "Brand", zh ? "报价快" : "Fast quote")
+        ));
+        cards.add(seedCard(
+                "id", "photographer-3",
+                "title", zh ? "亲子写真预约：外景抓拍 + 当日精修预览" : "Family portrait booking with outdoor candids and same-day previews",
+                "author", zh ? "小满家庭影像" : "Mellow Family Photo",
+                "avatar", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256",
+                "description", zh ? "公园、社区和家中都能拍，按宝宝作息安排时段，询价时直接带出推荐套餐。" : "Outdoor, home, or neighborhood sessions scheduled around children's routines with package suggestions.",
+                "cover", "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?q=80&w=1200",
+                "location", zh ? "广州 · 周日可约" : "Guangzhou · Sunday open",
+                "time", zh ? "2小时前" : "2h ago",
+                "category", zh ? "亲子写真" : "Family portraits",
+                "mediaType", zh ? "档期" : "Availability",
+                "likes", "1.9w",
+                "comments", "73",
+                "collects", "980",
+                "tags", List.of(zh ? "亲子" : "Family", zh ? "外景" : "Outdoor", zh ? "当日预览" : "Same-day preview")
+        ));
+        cards.add(seedCard(
+                "id", "photographer-4",
+                "title", zh ? "人像约拍：复古街区、胶片质感、两小时轻写真" : "Portrait sessions with vintage streets, film tones, and two-hour shoots",
+                "author", zh ? "阿澈人像计划" : "Ache Portrait Lab",
+                "avatar", "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256",
+                "description", zh ? "适合头像、生日纪念和情侣轻写真，可查看完整客片后再发起询价。" : "Great for headshots, birthdays, and couple portraits with full galleries available before inquiry.",
+                "cover", "https://images.unsplash.com/photo-1523438885200-e635ba2c371e?q=80&w=1200",
+                "location", zh ? "成都 · 明晚可约" : "Chengdu · Tomorrow evening",
+                "time", zh ? "3小时前" : "3h ago",
+                "category", zh ? "人像约拍" : "Portrait",
+                "mediaType", zh ? "客片" : "Gallery",
+                "likes", "3.1w",
+                "comments", "154",
+                "collects", "1760",
+                "tags", List.of(zh ? "人像" : "Portrait", zh ? "胶片感" : "Film tone", zh ? "轻写真" : "Casual shoot")
+        ));
+        cards.add(seedCard(
+                "id", "photographer-5",
+                "title", zh ? "活动跟拍团队：论坛、发布会、年会即时出图" : "Event coverage team for forums, launches, and annual meetings",
+                "author", zh ? "峰会现场影像" : "LiveFrame Events",
+                "avatar", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256",
+                "description", zh ? "双机位覆盖签到、嘉宾、舞台和媒体图，支持半日/全天快速询价。" : "Two-camera coverage for check-in, speakers, stage, and press images with half-day or full-day quotes.",
+                "cover", "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=1200",
+                "location", zh ? "深圳 · 企业服务" : "Shenzhen · Corporate",
+                "time", zh ? "5小时前" : "5h ago",
+                "category", zh ? "活动跟拍" : "Event coverage",
+                "mediaType", zh ? "服务" : "Service",
+                "likes", "1.4w",
+                "comments", "61",
+                "collects", "840",
+                "tags", List.of(zh ? "发布会" : "Launch", zh ? "即时出图" : "Fast delivery", zh ? "双机位" : "Two cameras")
+        ));
+        cards.add(seedCard(
+                "id", "photographer-6",
+                "title", zh ? "旅拍摄影师：海边婚纱与目的地轻婚礼" : "Destination photographer for seaside bridal and intimate weddings",
+                "author", zh ? "南岛旅拍" : "South Island Photo",
+                "avatar", "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=256",
+                "description", zh ? "三亚、厦门、大理多地可约，作品页直接展示路线、天气备选和套餐差异。" : "Available in Sanya, Xiamen, and Dali with route, weather backup, and package comparisons.",
+                "cover", "https://images.unsplash.com/photo-1519225421980-715cb0215aed?q=80&w=1200",
+                "location", zh ? "三亚 · 旅拍档期" : "Sanya · Destination slots",
+                "time", zh ? "昨天" : "Yesterday",
+                "category", zh ? "旅拍婚纱" : "Destination bridal",
+                "mediaType", zh ? "路线" : "Route",
+                "likes", "5.2w",
+                "comments", "241",
+                "collects", "3160",
+                "tags", List.of(zh ? "旅拍" : "Travel shoot", zh ? "婚纱" : "Bridal", zh ? "目的地" : "Destination")
+        ));
+        try {
+            return objectMapper.writeValueAsString(cards.subList(0, Math.min(cards.size(), Math.max(count, 4))));
+        } catch (Exception e) {
+            log.warn("[Designer] Failed to serialize photography feed cards", e);
+            return "[]";
+        }
     }
 
     private String buildLifestyleSeededFeedJson(boolean zh, int count) {
@@ -854,12 +1293,25 @@ public class UiDesignerAgent {
             return buildFallbackCategoryNav(manifest, routes);
         }
         StringBuilder fallbackNav = new StringBuilder();
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        boolean photographyIntent = isPhotographyIntent(manifest.getUserIntent() != null ? manifest.getUserIntent().toLowerCase(Locale.ROOT) : "");
         for (Route route : routes) {
+            String label = escapeHtml(photographyIntent ? photographyRouteLabel(route, zh) : route.name);
             fallbackNav.append(String.format(
                     "<a @click=\"hash='#%s'\" :class=\"hash==='#%s'?'bg-rose-50 text-rose-600 font-semibold':''\" class=\"flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-700 hover:bg-slate-100 transition-all text-sm\">%s</a>\n",
-                    route.id, route.id, route.name));
+                    route.id, route.id, label));
         }
         return fallbackNav.toString();
+    }
+
+    private String photographyRouteLabel(Route route, boolean zh) {
+        String routeKey = ((route.id == null ? "" : route.id) + " " + (route.name == null ? "" : route.name)).toLowerCase(Locale.ROOT);
+        if (containsAny(routeKey, "discover", "home", "作品", "发现")) return zh ? "发现作品" : "Discover";
+        if (containsAny(routeKey, "photographers", "摄影师")) return zh ? "摄影师" : "Photographers";
+        if (containsAny(routeKey, "availability", "档期", "calendar")) return zh ? "档期预约" : "Availability";
+        if (containsAny(routeKey, "inquiries", "询价", "客户", "leads")) return zh ? "客户询价" : "Inquiries";
+        if (containsAny(routeKey, "orders", "订单", "booking")) return zh ? "订单交付" : "Orders";
+        return route.name == null || route.name.isBlank() ? (zh ? "业务页面" : "Page") : route.name;
     }
 
     private String buildFallbackCategoryNav(ProjectManifest manifest, List<Route> routes) {
@@ -1220,6 +1672,35 @@ public class UiDesignerAgent {
 
         String vibeColor = detectVibeColor(manifest);
 
+        if (isPhotographyIntent(intent)) {
+            layout = ProjectManifest.LayoutRhythm.WATERFALL;
+            return new ShapeSurfaceProfile(
+                    layout,
+                    vibeColor,
+                    List.of("推荐", "婚礼", "人像", "商业", "本地档期"),
+                    List.of("For you", "Wedding", "Portrait", "Commercial", "Local slots"),
+                    List.of("本周可约", "婚礼纪实", "商业棚拍", "亲子写真"),
+                    List.of("Available this week", "Wedding documentary", "Commercial studio", "Family portraits"),
+                    "摄影师接单平台", "Photography booking marketplace",
+                    "找到风格合拍且档期可约的摄影师", "Find photographers whose style and availability fit",
+                    "先看作品质感、服务城市和可约档期，再发起询价或收藏备选。",
+                    "Start from portfolio quality, service city, and availability before sending an inquiry or saving options.",
+                    "摄影师推荐", "Recommended photographers",
+                    "围绕作品集、档期、城市和询价热度组织发现流，帮助客户快速做出预约判断。",
+                    "Organize discovery around portfolios, availability, cities, and inquiry heat so clients can book faster.",
+                    "可约档期", "Available slots",
+                    "询价热度", "Inquiry heat",
+                    "作品集", "Portfolio",
+                    "热门服务", "Popular services",
+                    "客户最常比较的拍摄类型与档期线索", "The shoot types and availability signals clients compare most",
+                    "光影工作室", "Photo studio",
+                    "本地可约", "Local availability",
+                    "摄影服务", "Photography service",
+                    "一位值得预约的摄影师", "A photographer worth booking",
+                    "人像约拍", "Portrait booking"
+            );
+        }
+
         if (layout == ProjectManifest.LayoutRhythm.WATERFALL || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY || discoveryLikeSurface) {
             return new ShapeSurfaceProfile(
                     layout,
@@ -1342,7 +1823,7 @@ public class UiDesignerAgent {
      * Phase 7.3.2: Generate a dedicated Detail Modal component for the OVERLAY slot.
      * This closes the interaction loop: card click → selectedItem set → modal renders.
      */
-    private String generateDetailModal(ProjectManifest manifest, Route overlayRoute, String lang) {
+    private String generateDetailModal(ProjectManifest manifest, Route overlayRoute, String lang, String homeRouteId) {
         String handbook = loadHandbook();
         String langInstruction = "ZH".equalsIgnoreCase(lang) ? "Use Chinese labels." : "Use English labels.";
 
@@ -1355,11 +1836,11 @@ public class UiDesignerAgent {
                 - The modal is ALREADY wrapped by `<template x-if="selectedItem">` in the shell. DO NOT add x-if.
                 - Render fields from `selectedItem` using Alpine.js expressions: `x-text="selectedItem.fieldName"`.
                 - MUST include: large hero image/cover, title, author info (avatar + name), stats (likes, comments, collects), full body content/description, tags, a comment input area, and a close button.
-                - Close button MUST: @click="selectedItem = null; hash = '#pg1'".
+                - Close button MUST: @click="selectedItem = null; hash = '#%s'".
                 - Style: premium card, rounded-3xl, bg-white, shadow-2xl, overflow-y-auto max-h-[90vh].
                 - %s
                 OUTPUT: Return ONLY a raw HTML snippet (no ```html markers). Start with a <div class="relative ...">
-                """, handbook, langInstruction);
+                """, handbook, homeRouteId, langInstruction);
 
         String userPrompt = String.format(
                 "User Intent: %s\nMock Data sample: %s\nGenerate the detail modal inner content.",
@@ -1371,15 +1852,15 @@ public class UiDesignerAgent {
             return parseHtmlSnippet(response);
         } catch (java.io.IOException e) {
             log.error("Failed to generate detail modal", e);
-            return buildFallbackDetailModal(lang);
+            return buildFallbackDetailModal(lang, homeRouteId);
         }
     }
 
-    private String buildFallbackDetailModal(String lang) {
+    private String buildFallbackDetailModal(String lang, String homeRouteId) {
         boolean zh = !"EN".equalsIgnoreCase(lang);
         return """
                 <div class="relative bg-white rounded-3xl p-8 max-w-3xl mx-auto shadow-2xl">
-                  <button @click="selectedItem = null; hash = '#pg1'" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
+                  <button @click="selectedItem = null; hash = '#%s'" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
                   <div class="overflow-hidden rounded-2xl bg-slate-100">
                     <img :src="selectedItem.cover || selectedItem.image || selectedItem.thumbUrl" class="h-72 w-full object-cover" />
                   </div>
@@ -1402,6 +1883,7 @@ public class UiDesignerAgent {
                   </div>
                 </div>
                 """.formatted(
+                homeRouteId,
                 zh ? "刚刚" : "just now",
                 zh ? "详情" : "Detail",
                 zh ? "点赞" : "Likes",
@@ -1464,6 +1946,15 @@ public class UiDesignerAgent {
     }
 
     private record Route(String id, String name, String navType) {
+    }
+
+    private record ShellCopy(
+            String searchPlaceholder,
+            String publishLabel,
+            String postTitle,
+            String postPlaceholder,
+            String postSubmitLabel
+    ) {
     }
 
     /**

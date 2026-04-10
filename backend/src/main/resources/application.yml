@@ -48,7 +48,7 @@ logging:
 # LingNow.cc LLM 配置（metapi 中转，OpenAI 兼容接口）
 lingnow:
   llm:
-    api-key: sk-Sjwg1gJ2q3sbQlRDD
-    base-url: http://127.0.0.1:8317/v1
+    api-key: sk-5b5c620cf339c85fae96fb39f9240001bdc4f8cb390fa2cc89ed7766643bfe5c
+    base-url: http://146.190.94.204:8080/v1
     model: "gpt-5.4"
-    timeout-seconds: 18000
+    timeout-seconds: 600

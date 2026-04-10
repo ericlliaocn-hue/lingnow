@@ -8,7 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,20 +33,27 @@ public class LlmClient {
         this.httpClient = new OkHttpClient.Builder()
                 .connectTimeout(Math.min(timeoutSeconds, 60), TimeUnit.SECONDS)
                 .writeTimeout(Math.min(timeoutSeconds, 60), TimeUnit.SECONDS)
+                .callTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
                 .addInterceptor(chain -> {
                     Request request = chain.request();
                     Exception lastException = null;
+                    String lastError = null;
                     for (int tryCount = 1; tryCount <= 5; tryCount++) {
                         try {
                             if (tryCount > 1) {
                                 log.warn("Retrying LLM API call... Attempt {}/5", tryCount);
                                 Thread.sleep(2000L * tryCount); // 递增避震
                             }
+                            long startedAt = System.nanoTime();
                             Response response = chain.proceed(request);
+                            long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
                             if (response.isSuccessful()) {
                                 return response;
                             }
+                            String errorBody = response.body() != null ? response.body().string() : "No error body";
+                            lastError = "HTTP " + response.code() + " after " + durationMillis + "ms: " + errorBody;
+                            log.warn("LLM API returned non-success (attempt {}/5): {}", tryCount, lastError);
                             response.close();
                         } catch (Exception e) {
                             lastException = e;
@@ -55,7 +65,8 @@ public class LlmClient {
                         }
                     }
                     throw new IOException("LLM API failed after 5 attempts. Last error: "
-                            + (lastException != null ? lastException.getMessage() : "Unknown"), lastException);
+                            + (lastError != null ? lastError : (lastException != null ? lastException.getMessage() : "Unknown")),
+                            lastException);
                 })
                 .build();
     }
@@ -78,6 +89,7 @@ public class LlmClient {
         // Build Payload
         ObjectNode payload = objectMapper.createObjectNode();
         payload.put("model", properties.getModel());
+        payload.put("stream", true);
         
         ArrayNode messages = payload.putArray("messages");
         
@@ -113,11 +125,55 @@ public class LlmClient {
                 throw new IOException("Unexpected code " + response);
             }
 
-            JsonNode responseJson = objectMapper.readTree(response.body().string());
-            String result = responseJson.path("choices").get(0).path("message").path("content").asText();
+            if (response.body() == null) {
+                throw new IOException("LLM response body is empty");
+            }
+
+            String result = parseStreamingResponse(response.body());
             
             log.debug("LLM Response received (length: {})", result.length());
             return result;
         }
+    }
+
+    private String parseStreamingResponse(ResponseBody responseBody) throws IOException {
+        StringBuilder result = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(responseBody.byteStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.isBlank() || line.startsWith(":")) {
+                    continue;
+                }
+
+                String data = line.startsWith("data:") ? line.substring(5).trim() : line.trim();
+                if ("[DONE]".equals(data)) {
+                    break;
+                }
+
+                JsonNode event = objectMapper.readTree(data);
+                JsonNode choices = event.path("choices");
+                if (!choices.isArray() || choices.isEmpty()) {
+                    continue;
+                }
+
+                JsonNode choice = choices.get(0);
+                String content = choice.path("delta").path("content").asText(null);
+                if (content == null || content.isEmpty()) {
+                    content = choice.path("message").path("content").asText(null);
+                }
+                if (content == null || content.isEmpty()) {
+                    content = choice.path("text").asText(null);
+                }
+                if (content != null) {
+                    result.append(content);
+                }
+            }
+        }
+
+        if (result.isEmpty()) {
+            throw new IOException("LLM stream completed without content");
+        }
+        return result.toString();
     }
 }
