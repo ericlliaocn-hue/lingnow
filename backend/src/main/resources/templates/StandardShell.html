@@ -14,6 +14,12 @@
             color-scheme: light;
         }
 
+        {
+        {
+            THEME_CSS
+        }
+        }
+
         html, body {
             font-family: "Inter", sans-serif;
         }
@@ -46,28 +52,84 @@
      class="min-h-screen"
      x-data="{
             hash: window.location.hash || '#pg1',
+            detailReturnHash: window.location.hash && window.location.hash !== '#detail' ? window.location.hash : '#pg1',
             selectedItem: null,
             selectedSlot: null,
             selectedLead: null,
             activeOrder: null,
             drawerOpen: false,
             postOpen: false,
+            postDraftKind: 'generic',
+            postTarget: '#pg1',
             notificationsOpen: false,
             bookingConfirmed: false,
             inquirySubmitted: false,
             toast: '',
+            toastTimer: null,
             draftInquiry: { photographer: '', city: '', service: '', budget: '', note: '' },
             go(target) {
                 this.hash = target;
                 window.location.hash = target;
             },
+            showToast(message) {
+                this.toast = message;
+                if (this.toastTimer) clearTimeout(this.toastTimer);
+                this.toastTimer = setTimeout(() => { this.toast = ''; }, 2200);
+            },
+            openComposer(kind = 'generic', target = null) {
+                this.postDraftKind = kind;
+                this.postTarget = target || this.hash || '#pg1';
+                this.postOpen = true;
+                const openMap = {
+                    generic: '已打开新建面板',
+                    service: '已打开服务面板',
+                    portfolio: '已打开作品面板',
+                    lead: '已打开新建线索面板',
+                    appointment: '已打开预约面板',
+                    schedule: '已打开排课面板',
+                    vehicle: '已打开车源面板',
+                    property: '已打开房源面板',
+                    ticket: '已打开场次面板',
+                    course: '已打开课程面板',
+                    product: '已打开商品面板',
+                    workorder: '已打开工单面板',
+                    order: '已打开订单面板',
+                    comment: '已打开评论面板',
+                    post: '已打开发布面板'
+                };
+                this.showToast(openMap[kind] || '已打开发布面板');
+            },
+            submitPost() {
+                this.postOpen = false;
+                const messageMap = {
+                    generic: '草稿已保存',
+                    service: '服务草稿已保存',
+                    portfolio: '作品草稿已保存',
+                    lead: '新线索已加入草稿',
+                    appointment: '预约草稿已保存',
+                    schedule: '排课草稿已保存',
+                    vehicle: '车源草稿已保存',
+                    property: '房源草稿已保存',
+                    ticket: '场次草稿已保存',
+                    course: '课程草稿已保存',
+                    product: '商品草稿已保存',
+                    workorder: '工单草稿已保存',
+                    order: '订单草稿已保存',
+                    comment: '评论已发布',
+                    post: '内容已发布'
+                };
+                this.showToast(messageMap[this.postDraftKind] || '草稿已保存');
+                if (this.postTarget) this.go(this.postTarget);
+            },
             openDetail(item) {
+                this.detailReturnHash = this.hash && this.hash !== '#detail' ? this.hash : (this.detailReturnHash || '#pg1');
                 this.selectedItem = item;
                 this.go('#detail');
             },
-            closeDetail(fallback = '#pg1') {
+            closeDetail(fallback = null) {
                 this.selectedItem = null;
-                this.go(fallback);
+                const target = fallback || (this.detailReturnHash && this.detailReturnHash !== '#detail' ? this.detailReturnHash : '#pg1');
+                this.go(target);
             },
             startInquiry(item = null) {
                 const source = item || this.selectedItem || {};
@@ -88,21 +150,95 @@
             },
             confirmBooking() {
                 this.bookingConfirmed = true;
-                this.toast = '档期已锁定，可继续提交询价';
+                this.showToast('档期已锁定，可继续提交询价');
                 this.go('#pg4');
             },
             submitInquiry() {
                 this.inquirySubmitted = true;
-                this.toast = '询价已提交，订单已进入待确认';
+                this.showToast('询价已提交，订单已进入待确认');
                 this.go('#pg5');
             },
             advanceOrder(order) {
                 this.activeOrder = order;
                 if (order) order.stage = '下一步跟进中';
-                this.toast = '订单状态已推进';
+                this.showToast('订单状态已推进');
+            },
+            handleLooseAction(label, target = null) {
+                const normalized = String(label || '').toLowerCase();
+                if (normalized.includes('查看详情') || normalized.includes('详情')) {
+                    if (target === '#detail' && this.selectedItem) {
+                        this.go('#detail');
+                    } else if (target) {
+                        this.go(target);
+                    }
+                    this.showToast(`${label} 已打开`);
+                    return;
+                }
+                if (normalized.includes('清空') || normalized.includes('取消')) {
+                    this.selectedItem = null;
+                    this.selectedSlot = null;
+                    this.selectedLead = null;
+                    this.activeOrder = null;
+                    this.showToast('已清空当前选择');
+                    if (target) this.go(target);
+                    return;
+                }
+                if (normalized.includes('发布') || normalized.includes('新建') || normalized.includes('添加') || normalized.includes('评论')) {
+                    const kind = normalized.includes('线索')
+                        ? 'lead'
+                        : normalized.includes('工单')
+                            ? 'workorder'
+                            : normalized.includes('预约')
+                                ? 'appointment'
+                                : normalized.includes('排课')
+                                    ? 'schedule'
+                                    : normalized.includes('课程')
+                                        ? 'course'
+                                        : normalized.includes('车源')
+                                            ? 'vehicle'
+                                            : normalized.includes('房源')
+                                                ? 'property'
+                                                : normalized.includes('场次') || normalized.includes('票')
+                                                    ? 'ticket'
+                                                    : normalized.includes('商品')
+                                                        ? 'product'
+                        : normalized.includes('订单')
+                            ? 'order'
+                            : normalized.includes('服务')
+                                ? 'service'
+                                : normalized.includes('作品')
+                                    ? 'portfolio'
+                                : normalized.includes('评论')
+                                    ? 'comment'
+                                    : 'generic';
+                    this.openComposer(kind, target);
+                    return;
+                }
+                if (normalized.includes('分配') || normalized.includes('指派') || normalized.includes('负责人') || normalized.includes('派单')) {
+                    this.activeOrder = { id: 'AUTO', title: label, stage: '已分配' };
+                    this.showToast(`${label} 已执行`);
+                    if (target) this.go(target);
+                    return;
+                }
+                if (normalized.includes('推进') || normalized.includes('跟进') || normalized.includes('升级') || normalized.includes('确认') || normalized.includes('锁定')
+                    || normalized.includes('预约') || normalized.includes('报名') || normalized.includes('支付') || normalized.includes('概率')
+                    || normalized.includes('金额') || normalized.includes('记录')) {
+                    this.activeOrder = { id: 'AUTO', title: label, stage: '已更新' };
+                    this.showToast(`${label} 已记录`);
+                    if (target && target !== '#detail') this.go(target);
+                    return;
+                }
+                if (target) this.go(target);
+                this.showToast(`${label} 已触发`);
             },
             mockData: {{MOCK_DATA}}
          }">
+
+    <div class="fixed left-4 top-20 z-[70] rounded-full bg-slate-950 px-4 py-2.5 text-sm font-bold text-white shadow-2xl shadow-slate-300/60"
+         x-cloak
+         x-show="toast"
+         x-text="toast"
+         x-transition.opacity.duration.180ms></div>
 
     <!-- HEADER: UTILITY & USER AREA (Clean IA) -->
     <header class="sticky top-0 z-40 w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
@@ -118,15 +254,16 @@
             <div class="hidden flex-1 max-w-md mx-8 md:block">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input class="w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border-transparent focus:bg-white focus:ring-2 focus:ring-rose-200 transition-all text-sm"
+                    <input class="shell-search-focus w-full h-10 pl-10 pr-4 rounded-full bg-slate-100 border-transparent focus:bg-white transition-all text-sm"
                            placeholder="{{SEARCH_PLACEHOLDER}}"
                            type="text">
                 </div>
             </div>
 
             <div class="flex items-center gap-2">
-                <button @click="postOpen = true"
-                        class="flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-rose-200 hover:bg-rose-600 transition">
+                <button @click="openComposer('{{PUBLISH_KIND}}', hash)"
+                        class="shell-primary-button flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition"
+                        data-lingnow-action="shell-open-composer">
                     <i class="fa-solid fa-plus"></i>
                     <span>{{PUBLISH_LABEL}}</span>
                 </button>
@@ -163,7 +300,7 @@
     <!-- OVERLAY: UNIVERSAL DETAIL MODAL (Process Guarantee) -->
     <template x-if="selectedItem">
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4" x-cloak>
-            <div @click="selectedItem = null" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+            <div @click="closeDetail()" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
             <div class="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200">
                 {{MODAL_SLOT}}
             </div>
@@ -176,12 +313,13 @@
             <div @click="postOpen = false" class="absolute inset-0 bg-slate-900/40"></div>
             <div class="relative w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl">
                 <h3 class="text-lg font-bold mb-4">{{POST_TITLE}}</h3>
-                <textarea class="w-full h-32 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4"
+                <textarea class="shell-field-focus w-full h-32 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4"
                           placeholder="{{POST_PLACEHOLDER}}"></textarea>
                 <div class="flex gap-2">
                     <button @click="postOpen = false" class="flex-1 py-2 rounded-xl bg-slate-100 font-bold">取消
                     </button>
-                    <button @click="postOpen = false" class="flex-1 py-2 rounded-xl bg-rose-500 text-white font-bold">
+                    <button @click="submitPost()" class="shell-submit-button flex-1 py-2 rounded-xl font-bold transition"
+                            data-lingnow-action="shell-submit-composer">
                         {{POST_SUBMIT_LABEL}}
                     </button>
                 </div>

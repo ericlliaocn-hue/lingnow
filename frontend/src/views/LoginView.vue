@@ -21,7 +21,9 @@ const i18n = computed(() => ({
     action: '登录',
     loading: '登录中...',
     switch_lang: 'ZH/EN',
-    invalid: '用户名或密码无效'
+    invalid: '用户名或密码无效',
+    unavailable: '登录服务不可用，请确认前后端都已启动。',
+    unexpected: '登录失败，请稍后重试。'
   },
   EN: {
     title: 'Welcome back to LingNow',
@@ -31,7 +33,9 @@ const i18n = computed(() => ({
     action: 'Sign in',
     loading: 'Signing in...',
     switch_lang: 'EN/ZH',
-    invalid: 'Invalid username or password'
+    invalid: 'Invalid username or password',
+    unavailable: 'Login service is unavailable. Please make sure both frontend and backend are running.',
+    unexpected: 'Login failed. Please try again later.'
   }
 }[locale.value]))
 
@@ -45,6 +49,17 @@ const resolveRedirect = () => {
   return typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'
 }
 
+const resolveLoginError = (err) => {
+  const status = err?.response?.status
+  if (status === 401) {
+    return i18n.value.invalid
+  }
+  if (!err?.response) {
+    return i18n.value.unavailable
+  }
+  return String(err?.response?.data?.message || err?.response?.data?.error || i18n.value.unexpected)
+}
+
 const handleLogin = async () => {
   if (!authData.value.username || !authData.value.password || loading.value) return
   loading.value = true
@@ -54,7 +69,8 @@ const handleLogin = async () => {
     localStorage.setItem('user', JSON.stringify(res.data))
     router.replace(resolveRedirect())
   } catch (err) {
-    error.value = i18n.value.invalid
+    console.error('Login failed', err)
+    error.value = resolveLoginError(err)
   } finally {
     loading.value = false
   }
@@ -62,27 +78,35 @@ const handleLogin = async () => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-black text-white relative overflow-hidden">
-    <div
-        class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.16),transparent_35%),radial-gradient(circle_at_bottom_right,rgba(244,63,94,0.14),transparent_28%)]"></div>
+  <div class="min-h-screen relative overflow-hidden text-white selection:bg-cyan-500/30">
+    <div class="pointer-events-none absolute inset-0">
+      <div
+          class="absolute left-1/2 top-0 h-[440px] w-[760px] -translate-x-1/2 rounded-full bg-cyan-500/10 blur-[120px]"></div>
+      <div
+          class="absolute bottom-[-120px] right-[-80px] h-[360px] w-[360px] rounded-full bg-purple-600/10 blur-[120px]"></div>
+    </div>
     <div class="relative z-10 flex min-h-screen flex-col">
       <header class="h-16 px-8 border-b border-white/5 bg-black/40 backdrop-blur-3xl flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 flex items-center justify-center">
-            <img alt="Logo" class="w-full h-full object-contain" src="/logo-icon.png"/>
+            <svg class="h-9 w-auto logo-heartbeat text-white fill-current" viewBox="0 0 100 100">
+              <rect height="50" rx="6" width="80" x="10" y="25"/>
+              <path d="M25 35 V65 H38 V35 L55 65 V35 H68 V65" fill="none" stroke="black" stroke-linecap="square"
+                    stroke-width="8"/>
+            </svg>
           </div>
-          <h1 class="text-xl font-black tracking-tighter uppercase italic">LingNow</h1>
+          <h1 class="text-xl font-black tracking-tighter uppercase italic text-white">LingNow</h1>
         </div>
         <button
-            class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 transition-all"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 glass-morphism text-xs font-bold transition-all hover:border-white/30"
             @click="toggleLang">
           <Globe class="w-3.5 h-3.5 text-gray-500"/>
           <span class="text-[10px] font-black">{{ i18n.switch_lang }}</span>
         </button>
       </header>
 
-      <main class="flex-1 flex items-center justify-center px-6">
-        <div class="w-full max-w-md rounded-[32px] border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-2xl">
+      <main class="flex-1 flex items-center justify-center px-6 py-16">
+        <div class="w-full max-w-md rounded-[32px] border border-white/10 bg-black/30 p-8 shadow-2xl backdrop-blur-3xl">
           <div class="mb-8 text-center">
             <h2 class="text-4xl font-black tracking-tighter">{{ i18n.title }}</h2>
             <p class="mt-3 text-sm leading-6 text-gray-400">{{ i18n.subtitle }}</p>

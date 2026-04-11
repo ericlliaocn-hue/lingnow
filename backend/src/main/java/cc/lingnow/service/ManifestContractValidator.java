@@ -141,11 +141,8 @@ public class ManifestContractValidator {
         String shellPattern = resolveShellPattern(manifest.getUxStrategy(), manifest.getArchetype(), manifest.getUserIntent());
         ShapeProfile profile = detectDetailedShapeProfile(manifest, pages);
         boolean contentCommunity = profile.isContentCommunity();
-        String contentMode = switch (shellPattern) {
-            case "MINIMAL_HEADER_DRAWER_ONLY" -> "CONTENT_FIRST";
-            case "PERSISTENT_TOP_DYNAMIC_SIDEBAR" -> "CONTENT_FIRST";
-            default -> contentCommunity ? "CONTENT_FIRST" : "SIDEBAR_FIRST";
-        };
+        String contentMode = contentCommunity ? "CONTENT_FIRST" : "SIDEBAR_FIRST";
+        String normalizedShellPattern = contentCommunity ? shellPattern : "SIDEBAR_PRIMARY_NAV";
 
         long primaryCount = pages.stream().filter(page -> "PRIMARY".equals(page.getNavRole())).count();
         boolean requiresComposer = pages.stream().anyMatch(page -> "UTILITY".equals(page.getNavRole()))
@@ -165,7 +162,7 @@ public class ManifestContractValidator {
                 .navigationMode(profile.navigationMode())
                 .mainLoop(profile.mainLoop())
                 .uiTone(profile.uiTone())
-                .shellPattern(shellPattern)
+                .shellPattern(normalizedShellPattern)
                 .contentMode(contentMode)
                 .minPrimarySections((int) Math.max(1, Math.min(primaryCount, 4)))
                 .minPrimaryCards(resolveMinPrimaryCards(profile, contentMode))
@@ -215,7 +212,7 @@ public class ManifestContractValidator {
         boolean education = containsAny(source, "课程", "训练营", "章节", "老师", "习题", "题库", "考试",
                 "course", "learn", "lesson", "teacher", "education");
 
-        if (corporateSite && !likelyCommunity) {
+        if (corporateSite && !likelyCommunity && !enterpriseDashboard && !commerce && !education) {
             return new ShapeProfile(false,
                     ProjectManifest.PrimaryGoal.READ,
                     ProjectManifest.ContentUnit.MIXED,

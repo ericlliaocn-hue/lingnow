@@ -101,7 +101,13 @@ public class AutoRepairAgent {
         String repaired = html;
         repaired = replaceFirstTagBlock(repaired, "header", normalizeFragment(root.path("header").asText("")));
         repaired = replaceFirstTagBlock(repaired, "main", normalizeFragment(root.path("main").asText("")));
-        repaired = replaceDetailTemplate(repaired, normalizeFragment(root.path("detailTemplate").asText("")));
+        String currentDetail = extractDetailTemplate(repaired);
+        String candidateDetail = normalizeFragment(root.path("detailTemplate").asText(""));
+        if (shouldPreserveCurrentDetailTemplate(currentDetail, candidateDetail, auditReport)) {
+            log.info("[AutoRepair] Preserving existing workflow detail template instead of downgrading to a generic content modal.");
+        } else {
+            repaired = replaceDetailTemplate(repaired, candidateDetail);
+        }
 
         return repaired;
     }
@@ -252,6 +258,43 @@ public class AutoRepairAgent {
             return html;
         }
         return html.replace(current, normalizeFragment(replacement));
+    }
+
+    private boolean shouldPreserveCurrentDetailTemplate(String current, String candidate, String auditReport) {
+        if (current == null || current.isBlank()) {
+            return false;
+        }
+        if (candidate == null || candidate.isBlank()) {
+            return true;
+        }
+        String currentLower = current.toLowerCase();
+        String candidateLower = candidate.toLowerCase();
+        String auditLower = auditReport == null ? "" : auditReport.toLowerCase();
+
+        boolean currentWorkflowDetail = currentLower.contains("detail-tertiary")
+                || currentLower.contains("detail-secondary")
+                || currentLower.contains("原型状态")
+                || currentLower.contains("prototype state")
+                || currentLower.contains("-detail");
+        boolean candidateWorkflowDetail = candidateLower.contains("detail-tertiary")
+                || candidateLower.contains("detail-secondary")
+                || candidateLower.contains("原型状态")
+                || candidateLower.contains("prototype state");
+        boolean candidateLooksGenericContent = candidateLower.contains("内容详情")
+                || candidateLower.contains("评论区")
+                || candidateLower.contains("点赞")
+                || candidateLower.contains("收藏")
+                || candidateLower.contains("likes")
+                || candidateLower.contains("comments")
+                || candidateLower.contains("collects");
+        boolean auditRequiresWorkflowPanel = auditLower.contains("详情处理面板")
+                || auditLower.contains("不是 crm")
+                || auditLower.contains("线索")
+                || auditLower.contains("商机")
+                || auditLower.contains("pipeline")
+                || auditLower.contains("workflow");
+
+        return currentWorkflowDetail && (!candidateWorkflowDetail || (auditRequiresWorkflowPanel && candidateLooksGenericContent));
     }
 
     private String normalizeFragment(String fragment) {
