@@ -891,20 +891,23 @@ public class PrototypeBundleCompiler {
 
     private String buildIntroductionNarrative(ProjectManifest manifest, DomainSignals domain, StructuralProfile profile, String referenceSignal) {
         if (!referenceSignal.isBlank()) {
-            return "好的，我明白您想要设计一个参考“" + referenceSignal + "”风格的界面。系统会结合需求内容，围绕"
-                    + humanizeInteractionModes(profile.interactionModes(), domain.interactionModel())
-                    + "来组织页面结构和内容节奏。";
+            return "我理解你要做的是一个参考“" + referenceSignal + "”气质的"
+                    + humanizePrimaryObject(domain.primaryObject()) + "型产品，会先确定核心页面、关键操作和视觉风格。";
         }
-        return "好的，我理解您想要构建一个围绕“" + domain.primaryObject() + "”展开的产品。系统会先拆解核心对象、主循环、状态推进和页面集合，再进入原型生成。";
+        return "我理解这是一个围绕" + humanizePrimaryObject(domain.primaryObject())
+                + "展开的产品，会先确定核心页面、关键操作和视觉风格，再进入原型生成。";
     }
 
     private String buildScreenPlanTitle(String referenceSignal) {
-        return referenceSignal == null || referenceSignal.isBlank()
-                ? "我计划为您设计以下几个核心页面："
-                : "我计划为您设计以下几个核心页面：";
+        return "核心页面";
     }
 
     private List<PrototypeBundle.ScreenBullet> buildScreenBullets(ProjectManifest manifest, DomainSignals domain, List<PrototypeBundle.ScreenPlan> screens, String referenceSignal) {
+        List<PrototypeBundle.ScreenBullet> pageBullets = buildPageDrivenScreenBullets(manifest, domain);
+        if (!pageBullets.isEmpty() && !isWeakScreenBulletPlan(pageBullets)) {
+            return dedupeBullets(pageBullets);
+        }
+
         RequirementEvidence evidence = buildRequirementEvidence(manifest);
         List<PrototypeBundle.ScreenBullet> evidenceBullets = buildEvidenceDrivenScreenBullets(evidence, domain);
         if (!evidenceBullets.isEmpty() && !isWeakScreenBulletPlan(evidenceBullets)) {
@@ -949,10 +952,39 @@ public class PrototypeBundleCompiler {
         return labels.size() < Math.min(3, bullets.size()) || genericCount >= Math.max(2, labels.size() - 1);
     }
 
+    private List<PrototypeBundle.ScreenBullet> buildPageDrivenScreenBullets(ProjectManifest manifest, DomainSignals domain) {
+        List<ProjectManifest.PageSpec> pages = manifest.getPages() == null ? List.of() : manifest.getPages();
+        if (pages.isEmpty()) {
+            return List.of();
+        }
+        return pages.stream()
+                .sorted(Comparator.comparingInt(this::screenPriority))
+                .map(page -> buildBulletFromPage(page, domain))
+                .filter(Objects::nonNull)
+                .filter(bullet -> !safe(bullet.getLabel()).isBlank())
+                .limit(5)
+                .collect(Collectors.toList());
+    }
+
+    private int screenPriority(ProjectManifest.PageSpec page) {
+        String route = safe(page.getRoute()).toLowerCase(Locale.ROOT);
+        String description = safe(page.getDescription()).toLowerCase(Locale.ROOT);
+        String source = route + " " + description;
+        if (containsAny(source, "home", "index", "首页")) return 0;
+        if (containsAny(source, "discover", "发现")) return 1;
+        if (containsAny(source, "detail", ":id", "详情", "post")) return 2;
+        if (containsAny(source, "profile", "user", "主页")) return 3;
+        if (containsAny(source, "publish", "create", "发布", "新建")) return 4;
+        if (containsAny(source, "following", "关注")) return 5;
+        if (containsAny(source, "search", "搜索")) return 6;
+        if (containsAny(source, "notification", "通知", "message", "消息")) return 7;
+        return 8;
+    }
+
     private List<PrototypeBundle.ScreenBullet> buildDefaultScreenBullets(DomainSignals domain) {
         List<PrototypeBundle.ScreenBullet> bullets = new ArrayList<>();
         for (String title : domain.defaultScreenTitles().stream().limit(4).toList()) {
-            bullets.add(bullet(slugify(title), title, "围绕“" + domain.primaryObject() + "”主循环展开的关键页面。"));
+            bullets.add(bullet(slugify(title), title, "承接主要内容、状态与关键操作。"));
         }
         return dedupeBullets(bullets);
     }
@@ -1182,7 +1214,7 @@ public class PrototypeBundleCompiler {
         List<String> modes = domain.interactionModes();
 
         if (modes.contains("feed-first")) {
-            bullets.add(bullet("home", "社区首页", "展示推荐流、关注流与内容发现。"));
+            bullets.add(bullet("home", "社区首页", "展示推荐内容、关注更新与近期灵感。"));
         } else if (modes.contains("dashboard")) {
             bullets.add(bullet("dashboard", "总览看板", "集中展示关键指标、风险信号与待处理事项。"));
         } else if (modes.contains("pipeline")) {
@@ -1194,7 +1226,7 @@ public class PrototypeBundleCompiler {
         }
 
         if (modes.contains("detail-consumption")) {
-            bullets.add(bullet("detail", "帖子详情页", "包含大图/视频展示、作者信息、评论区及互动按钮。"));
+            bullets.add(bullet("detail", "内容详情页", "查看完整图文、作者信息与评论互动。"));
         } else if (modes.contains("workflow")) {
             bullets.add(bullet("detail", "详情处理页", "展示对象详情、状态推进与关键动作入口。"));
         } else if (modes.contains("document-workspace")) {
@@ -1202,13 +1234,13 @@ public class PrototypeBundleCompiler {
         }
 
         if (modes.contains("creator-profile")) {
-            bullets.add(bullet("profile", "用户个人主页", "展示用户信息、笔记分类及瀑布流作品。"));
+            bullets.add(bullet("profile", "个人主页", "展示创作者资料、内容分组与代表作品。"));
         } else if (modes.contains("assignment")) {
             bullets.add(bullet("owners", "负责人视图", "展示负责人、分配状态与负载情况。"));
         }
 
         if (modes.contains("composer")) {
-            bullets.add(bullet("publish", "发布笔记页", "一个简洁的发布流程界面。"));
+            bullets.add(bullet("publish", "发布页", "上传内容、填写标题标签并完成发布。"));
         } else if (modes.contains("service-catalog")) {
             bullets.add(bullet("services", "服务选择页", "展示服务项目、医生信息与预约入口。"));
         } else if (modes.contains("review")) {
@@ -1228,12 +1260,12 @@ public class PrototypeBundleCompiler {
         String label;
         String desc;
 
-        if (containsAny(route, "discover") || description.contains("发现页")) {
+        if (containsAny(route, "home", "index") || description.contains("首页")) {
+            label = domain.interactionModes().contains("feed-first") ? "社区首页" : "首页";
+        } else if (containsAny(route, "discover") || description.contains("发现页")) {
             label = "发现页";
         } else if (containsAny(route, "following") || description.contains("关注流")) {
             label = "关注流页";
-        } else if (containsAny(route, "home", "index") || description.contains("首页")) {
-            label = domain.interactionModes().contains("feed-first") ? "社区首页" : "首页";
         } else if (containsAny(route, "publish", "post/new", "create") || description.contains("发布")) {
             label = description.contains("笔记") ? "发布笔记页" : "发布页";
         } else if (containsAny(route, "search") || description.contains("搜索")) {
@@ -1273,10 +1305,9 @@ public class PrototypeBundleCompiler {
 
     private String buildNextStepNarrative(String referenceSignal, StructuralProfile profile, String styleSummary) {
         if (referenceSignal != null && !referenceSignal.isBlank()) {
-            return "我将先为您创建一个符合“" + referenceSignal + "”视觉风格（" + styleSummary + "）的设计系统，然后开始设计这些页面。您看这样安排可以吗？";
+            return "接下来会先确定贴合参考方向的视觉风格和品牌主色，再生成这些核心页面，并补齐 mock 内容与可点击交互。";
         }
-        return "我将先基于" + humanizeInteractionModes(profile.interactionModes(), "当前需求")
-                + "整理设计系统，视觉上会采用" + styleSummary + "，再开始生成这些页面。";
+        return "接下来会先确定视觉风格和品牌主色，再生成这些核心页面，并补齐 mock 内容与可点击交互。";
     }
 
     private String buildStyleSummary(ProjectManifest manifest, DomainSignals domain, StructuralProfile profile) {
@@ -1324,6 +1355,22 @@ public class PrototypeBundleCompiler {
             case "workspace" -> "工作台操作";
             case "progress" -> "进度跟踪";
             default -> mode;
+        };
+    }
+
+    private String humanizePrimaryObject(String primaryObject) {
+        return switch (safe(primaryObject).toLowerCase(Locale.ROOT)) {
+            case "post", "thread", "article" -> "内容";
+            case "booking" -> "预约";
+            case "candidate" -> "候选人";
+            case "subscription" -> "订阅";
+            case "listing" -> "商品与服务";
+            case "job" -> "任务";
+            case "patient" -> "患者";
+            case "sample" -> "样本";
+            case "quote" -> "报价";
+            case "record", "application" -> "记录";
+            default -> primaryObject;
         };
     }
 

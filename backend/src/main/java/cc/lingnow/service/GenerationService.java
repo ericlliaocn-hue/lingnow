@@ -421,6 +421,9 @@ public class GenerationService {
         if (!(source.contains("小红书") || source.contains("穿搭") || source.contains("ootd") || source.contains("搭配"))) {
             return false;
         }
+        if ("false".equalsIgnoreCase(manifest.getMetaData() != null ? manifest.getMetaData().getOrDefault("design_ready", "false") : "false")) {
+            return true;
+        }
         String htmlLower = manifest.getPrototypeHtml().toLowerCase();
         return htmlLower.contains("共读")
                 || htmlLower.contains("learning")

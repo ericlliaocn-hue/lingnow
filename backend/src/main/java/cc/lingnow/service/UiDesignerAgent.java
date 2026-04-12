@@ -532,6 +532,28 @@ public class UiDesignerAgent {
                     color: var(--shell-accent-soft-text);
                 }
                 
+                .shell-accent-panel {
+                    background: color-mix(in srgb, var(--shell-accent-soft) 70%%, white);
+                    border-color: color-mix(in srgb, var(--shell-accent) 16%%, white);
+                }
+                
+                .shell-accent-tag {
+                    background: var(--shell-accent-soft);
+                    color: var(--shell-accent-soft-text);
+                }
+                
+                .shell-accent-outline {
+                    border-color: color-mix(in srgb, var(--shell-accent) 22%%, white);
+                }
+                
+                .shell-accent-text {
+                    color: var(--shell-accent-strong);
+                }
+                
+                .shell-accent-wash {
+                    background: color-mix(in srgb, var(--shell-accent) 6%%, white);
+                }
+                
                 .shell-flow-active {
                     border-color: var(--shell-accent-ring);
                     background: var(--shell-accent-soft);
@@ -654,10 +676,10 @@ public class UiDesignerAgent {
             return "关注流页";
         }
         if (route.contains("profile") || route.contains("user")) {
-            return "创作者主页";
+            return "个人主页";
         }
         if (route.contains("publish")) {
-            return "发布笔记页";
+            return "发布页";
         }
         if (route.contains("post") || route.contains("detail")) {
             return "帖子详情页";
@@ -690,11 +712,33 @@ public class UiDesignerAgent {
         if (manifest.getPages() == null) return null;
         return manifest.getPages().stream()
                 .filter(p -> {
-                    String specRoute = p.getRoute().toLowerCase().replace("/", "");
-                    String description = p.getDescription() != null ? p.getDescription().toLowerCase() : "";
-                    String routeName = route.name.toLowerCase();
-                    // Multi-layer fuzzy match: Route mapping + Description scanning
-                    return specRoute.contains(routeName) || routeName.contains(specRoute) || description.contains(routeName);
+                    String specRoute = safe(p.getRoute()).toLowerCase(Locale.ROOT).replace("/", "");
+                    String description = safe(p.getDescription()).toLowerCase(Locale.ROOT);
+                    String routeName = safe(route.name).toLowerCase(Locale.ROOT);
+                    String primaryLabel = primaryRouteLabel(p).toLowerCase(Locale.ROOT);
+                    if (specRoute.contains(routeName) || routeName.contains(specRoute) || description.contains(routeName) || primaryLabel.contains(routeName)) {
+                        return true;
+                    }
+                    String specHaystack = specRoute + " " + description + " " + primaryLabel;
+                    if (containsAny(routeName, "首页", "home")) {
+                        return containsAny(specHaystack, "首页", "home", "社区首页");
+                    }
+                    if (containsAny(routeName, "发现", "discover")) {
+                        return containsAny(specHaystack, "发现", "discover");
+                    }
+                    if (containsAny(routeName, "个人", "主页", "创作者", "profile", "user")) {
+                        return containsAny(specHaystack, "个人主页", "用户个人主页", "创作者主页", "profile", "user");
+                    }
+                    if (containsAny(routeName, "发布", "publish", "新建")) {
+                        return containsAny(specHaystack, "发布", "publish", "新建");
+                    }
+                    if (containsAny(routeName, "详情", "post", "detail")) {
+                        return containsAny(specHaystack, "详情", "post", "detail");
+                    }
+                    if (containsAny(routeName, "关注", "following")) {
+                        return containsAny(specHaystack, "关注", "following");
+                    }
+                    return false;
                 })
                 .findFirst()
                 .orElse(null);
@@ -1003,26 +1047,27 @@ public class UiDesignerAgent {
 
         String html = """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
-                  <section class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+                  <section class="shell-accent-panel shell-accent-outline rounded-[32px] border p-6 shadow-sm">
                     <div class="flex items-end justify-between gap-4">
                       <div>
+                        <span class="shell-accent-tag inline-flex rounded-full px-3 py-1 text-[11px] font-semibold">__BADGE__</span>
                         <h2 class="text-2xl font-black text-slate-900">__TITLE__</h2>
                         <p class="mt-2 text-sm leading-7 text-slate-500">__DESC__</p>
                       </div>
                       <div class="flex flex-wrap gap-3 text-sm">
-                        <button @click="activeSignal = 'hot'" class="rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700">__HOT__</button>
-                        <button @click="activeSignal = 'saved'" class="rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700">__SAVED__</button>
+                        <button @click="activeSignal = 'hot'" :class="activeSignal === 'hot' ? 'shell-pill-active' : 'bg-white text-slate-700 shell-accent-outline'" class="rounded-full border px-4 py-2 font-semibold transition-all">__HOT__</button>
+                        <button @click="activeSignal = 'saved'" :class="activeSignal === 'saved' ? 'shell-pill-active' : 'bg-white text-slate-700 shell-accent-outline'" class="rounded-full border px-4 py-2 font-semibold transition-all">__SAVED__</button>
                       </div>
                     </div>
                   </section>
                   <section class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
                     <aside class="space-y-4">
-                      <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                      <section class="shell-accent-panel rounded-[28px] border bg-white p-5 shadow-sm">
                         <h3 class="text-lg font-black text-slate-900">__TOPIC_TITLE__</h3>
                         <p class="mt-2 text-xs leading-6 text-slate-500">__TOPIC_DESC__</p>
                         <div class="mt-4 space-y-3">
                           <template x-for="topic in __HOT_TOPICS__" :key="topic">
-                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100" x-text="'#' + topic"></button>
+                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-white/80 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-white" x-text="'#' + topic"></button>
                           </template>
                         </div>
                       </section>
@@ -1044,7 +1089,7 @@ public class UiDesignerAgent {
                       </div>
                       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, 6)' :key="(item.id || item.title || index) + '-' + index">
-                          <article @click="selectedItem = item; hash = '#detail'" class="group cursor-pointer overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:bg-white hover:shadow-lg">
+                          <article @click="openDetail(item)" data-lingnow-action="open-detail" class="group cursor-pointer overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:bg-white hover:shadow-lg">
                             <div class="aspect-[4/5] overflow-hidden bg-slate-100">
                               <img :src="item.cover" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                             </div>
@@ -1056,7 +1101,7 @@ public class UiDesignerAgent {
                               <h4 class="line-clamp-2 text-base font-black text-slate-900" x-text="item.title"></h4>
                               <div class="flex flex-wrap gap-2">
                                 <template x-for="tag in item.tags.slice(0, 2)" :key="tag">
-                                  <span class="rounded-full bg-__ACCENT__/5 px-2.5 py-1 text-[10px] font-semibold text-__ACCENT__" x-text="'#' + tag"></span>
+                                  <span class="shell-accent-tag rounded-full px-2.5 py-1 text-[10px] font-semibold" x-text="'#' + tag"></span>
                                 </template>
                               </div>
                             </div>
@@ -1070,6 +1115,7 @@ public class UiDesignerAgent {
                 .replace("__ACCENT__", accentColor);
 
         return html.replace("__ID__", route.id)
+                .replace("__BADGE__", zh ? "趋势探索" : "Trend explorer")
                 .replace("__TITLE__", zh ? "发现页" : "Discover")
                 .replace("__DESC__", zh ? "按风格、场景、品牌和热度聚合内容，帮助用户探索新的穿搭方向。" : "Browse style directions by occasion, brand, and momentum.")
                 .replace("__HOT__", zh ? "热榜" : "Trending")
@@ -1219,9 +1265,7 @@ public class UiDesignerAgent {
 
     private String buildDefaultWorkflowFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, GenericWorkflowProfile profile, boolean zh) {
         String title = escapeHtml(route.name);
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null
-                ? pageSpec.getDescription()
-                : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String itemJson = serializeSeedItems(profile.items());
         String nextRoute = nextRouteId(route.id);
         return """
@@ -1339,7 +1383,7 @@ public class UiDesignerAgent {
 
     private String buildPipelineBoardFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, GenericWorkflowProfile profile, boolean zh) {
         String title = escapeHtml(route.name);
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String itemJson = serializeSeedItems(profile.items());
         String nextRoute = nextRouteId(route.id);
         return """
@@ -1473,7 +1517,7 @@ public class UiDesignerAgent {
 
     private String buildBookingStudioFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, GenericWorkflowProfile profile, boolean zh) {
         String title = escapeHtml(route.name);
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String itemJson = serializeSeedItems(profile.items());
         String nextRoute = nextRouteId(route.id);
         return """
@@ -1601,7 +1645,7 @@ public class UiDesignerAgent {
 
     private String buildMarketplaceHubFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, GenericWorkflowProfile profile, boolean zh) {
         String title = escapeHtml(route.name);
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String itemJson = serializeSeedItems(profile.items());
         String nextRoute = nextRouteId(route.id);
         return """
@@ -1727,7 +1771,7 @@ public class UiDesignerAgent {
 
     private String buildOpsCommandFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, GenericWorkflowProfile profile, boolean zh) {
         String title = escapeHtml(route.name);
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String itemJson = serializeSeedItems(profile.items());
         return """
                 <div x-show="hash === '#__ID__'" data-lingnow-flow="__FLOW__" data-lingnow-layout="ops-command" class="animate-fade-in pb-10 space-y-6">
@@ -1832,7 +1876,7 @@ public class UiDesignerAgent {
 
     private String buildLearningCampusFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, GenericWorkflowProfile profile, boolean zh) {
         String title = escapeHtml(route.name);
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String itemJson = serializeSeedItems(profile.items());
         String nextRoute = nextRouteId(route.id);
         return """
@@ -3570,10 +3614,13 @@ public class UiDesignerAgent {
     private String buildFallbackCategoryNav(ProjectManifest manifest, List<Route> routes) {
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
         ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
-        List<Route> contentRoutes = routes.stream().filter(this::isContentFirstRoute).toList();
-        if (contentRoutes.size() >= 2) {
+        List<Route> navigationRoutes = routes.stream()
+                .filter(route -> isContentFirstRoute(route)
+                        || containsAny(safe(route.name).toLowerCase(Locale.ROOT), "个人", "主页", "profile", "user"))
+                .toList();
+        if (navigationRoutes.size() >= 2) {
             StringBuilder nav = new StringBuilder();
-            for (Route route : contentRoutes) {
+            for (Route route : navigationRoutes) {
                 String label = escapeHtml(route.name == null || route.name.isBlank() ? route.id : route.name);
                 nav.append(String.format(
                         "<button @click=\"go('#%s')\" :class=\"hash==='#%s'?'shell-pill-active':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
@@ -3585,7 +3632,7 @@ public class UiDesignerAgent {
             return nav.toString();
         }
 
-        String homeRouteId = contentRoutes.stream()
+        String homeRouteId = navigationRoutes.stream()
                 .map(route -> route.id)
                 .findFirst()
                 .orElse(routes.isEmpty() ? "pg1" : routes.get(0).id);
@@ -3840,11 +3887,23 @@ public class UiDesignerAgent {
         return "<button data-lingnow-action=\"" + actionName + "\" @click=\"" + clickExpr + "\" class=\"rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50\">" + escapeHtml(label) + "</button>";
     }
 
+    private String visibleSurfaceDescription(Route route, ProjectManifest.PageSpec pageSpec, boolean zh) {
+        String pageDescription = pageSpec != null ? safe(pageSpec.getDescription()).trim() : "";
+        if (!pageDescription.isBlank()) {
+            return escapeHtml(pageDescription);
+        }
+        String routeName = route != null ? safe(route.name).trim() : "";
+        if (!routeName.isBlank()) {
+            return escapeHtml(routeName + (zh ? "，用于承接主要内容与关键操作。" : ", covering the main content and key actions."));
+        }
+        return escapeHtml(zh ? "用于承接主要内容与关键操作。" : "Covers the main content and key actions.");
+    }
+
     private String buildWaterfallFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, ShapeSurfaceProfile profile) {
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
         int primaryCards = contract != null ? Math.max(contract.getMinPrimaryCards(), 6) : 6;
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String coverPool = buildRealMediaArrayJson(true, profile);
         String avatarPool = buildRealMediaArrayJson(false, profile);
         String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 6), profile);
@@ -3866,17 +3925,23 @@ public class UiDesignerAgent {
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
                   <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
                     <div class="space-y-4">
-                      <div class="flex items-end justify-between gap-4">
-                        <div><h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2><p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p></div>
-                        <div class="flex flex-wrap gap-3 text-sm">
-                          <button @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'" :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
-                          <button @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'" :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
-                          <button @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'" :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
+                      <div class="shell-accent-panel shell-accent-outline rounded-[28px] border px-5 py-4">
+                        <div class="flex items-end justify-between gap-4">
+                          <div>
+                            <span class="shell-accent-tag inline-flex rounded-full px-3 py-1 text-[11px] font-semibold">__SURFACE_BADGE__</span>
+                            <h2 class="mt-3 text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2>
+                            <p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p>
+                          </div>
+                          <div class="flex flex-wrap gap-3 text-sm">
+                            <button @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'" :class="activeSignal === 'saved' ? 'shell-pill-active' : 'bg-white text-slate-700 shell-accent-outline'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
+                            <button @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'" :class="activeSignal === 'hot' ? 'shell-pill-active' : 'bg-white text-slate-700 shell-accent-outline'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
+                            <button @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'" :class="activeSignal === 'media' ? 'shell-pill-active' : 'bg-white text-slate-700 shell-accent-outline'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
+                          </div>
                         </div>
                       </div>
                       <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
                         <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
-                          <article @click="selectedItem = item; hash = '#detail'" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                          <article @click="openDetail(item)" data-lingnow-action="open-detail" class="lingnow-waterfall-card group mb-5 cursor-pointer break-inside-avoid overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl">
                             <div class="overflow-hidden bg-slate-100" :class="index % 5 === 0 ? 'aspect-[4/6]' : (index % 5 === 1 ? 'aspect-[4/5]' : (index % 5 === 2 ? 'aspect-[4/4.8]' : (index % 5 === 3 ? 'aspect-[4/5.4]' : 'aspect-[4/6.2]')))">
                               <img :src='item.cover || item.image || item.thumbUrl || __COVER_POOL__[index % __COVER_POOL__.length]' class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                             </div>
@@ -3887,7 +3952,7 @@ public class UiDesignerAgent {
                                   <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
                                   <div class="truncate text-[10px] text-slate-500"><span x-text="item.location || '__LOCATION_FALLBACK__'"></span><span class="mx-1">·</span><span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span></div>
                                 </div>
-                                <button @click="handleLooseAction('__FOLLOW_LABEL__')" data-lingnow-action="feed-follow" class="ml-auto rounded-full bg-__ACCENT__/10 px-3 py-1 text-[10px] font-bold text-__ACCENT__">__FOLLOW_LABEL__</button>
+                                <button @click="handleLooseAction('__FOLLOW_LABEL__')" data-lingnow-action="feed-follow" class="shell-primary-button ml-auto rounded-full px-3 py-1 text-[10px] font-bold text-white">__FOLLOW_LABEL__</button>
                               </div>
                               <div>
                                 <h3 class="line-clamp-2 text-base font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
@@ -3895,7 +3960,7 @@ public class UiDesignerAgent {
                               </div>
                               <div class="flex flex-wrap gap-2">
                                 <template x-for="(tag, tagIndex) in ((Array.isArray(item.tags) && item.tags.length ? item.tags.slice(0, 2) : [item.topic || '__TOPIC_FALLBACK__']))" :key="tag + '-' + tagIndex">
-                                  <span class="rounded-full bg-__ACCENT__/5 px-2 py-0.5 text-[10px] font-semibold text-__ACCENT__" x-text="'#' + tag"></span>
+                                  <span class="shell-accent-tag rounded-full px-2.5 py-1 text-[10px] font-semibold" x-text="'#' + tag"></span>
                                 </template>
                               </div>
                               <div class="flex items-center justify-between pt-2 border-t border-slate-50 text-[10px] text-slate-400">
@@ -3911,14 +3976,14 @@ public class UiDesignerAgent {
                       </div>
                     </div>
                     <aside class="space-y-4">
-                      <section data-aux-section="true" class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
+                      <section data-aux-section="true" class="shell-accent-panel rounded-[32px] border bg-white p-5 shadow-sm">
                         <div class="flex items-center justify-between">
                           <div><h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3><p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p></div>
-                          <span class="rounded-full bg-__ACCENT__/10 px-3 py-1 text-xs font-semibold text-__ACCENT__">Hot</span>
+                          <span class="shell-accent-tag rounded-full px-3 py-1 text-xs font-semibold">Hot</span>
                         </div>
                         <div class="mt-4 space-y-3">
                           <template x-for="topic in __HOT_TOPICS__" :key="topic">
-                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100" x-text="'#' + topic"></button>
+                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-white/80 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-white" x-text="'#' + topic"></button>
                           </template>
                         </div>
                       </section>
@@ -3929,6 +3994,7 @@ public class UiDesignerAgent {
                 .replace("__ACCENT__", accentColor);
 
         return html.replace("__ID__", route.id)
+                .replace("__SURFACE_BADGE__", discoverRoute ? (zh ? "发现更新" : "Discover updates") : (zh ? "内容推荐" : "Recommended"))
                 .replace("__SIGNAL_ONE__", zh ? profile.signalOneZh() : profile.signalOneEn())
                 .replace("__SIGNAL_TWO__", zh ? profile.signalTwoZh() : profile.signalTwoEn())
                 .replace("__SIGNAL_THREE__", zh ? profile.signalThreeZh() : profile.signalThreeEn())
@@ -4211,7 +4277,7 @@ public class UiDesignerAgent {
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
         int primaryCards = contract != null ? Math.max(contract.getMinPrimaryCards(), 4) : 4;
-        String description = escapeHtml(pageSpec != null && pageSpec.getDescription() != null ? pageSpec.getDescription() : manifest.getUserIntent());
+        String description = visibleSurfaceDescription(route, pageSpec, zh);
         String seededFeed = buildSeededFeedJson(zh, Math.max(primaryCards, 4), profile);
         String hotTopics = buildHotTopicsJson(zh, profile);
         String color = profile.vibeColor();
@@ -4248,7 +4314,7 @@ public class UiDesignerAgent {
                       </div>
                       <div class="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
                         <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
-                          <article @click="selectedItem = item; hash = '#detail'" class="cursor-pointer border-b border-slate-100 p-5 transition hover:bg-slate-50 last:border-b-0">
+                          <article @click="openDetail(item)" data-lingnow-action="open-detail" class="cursor-pointer border-b border-slate-100 p-5 transition hover:bg-slate-50 last:border-b-0">
                             <div class="flex gap-4">
                               <div class="min-w-0 flex-1">
                                 <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">

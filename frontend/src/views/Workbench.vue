@@ -209,6 +209,16 @@ const insightScreenBullets = computed(() => {
 const insightIntro = computed(() => experienceBrief.value?.introduction || '')
 const insightScreenPlanTitle = computed(() => experienceBrief.value?.screenPlanTitle || '')
 const insightFooterText = computed(() => experienceBrief.value?.nextStepNarrative || '')
+const insightVisualDirection = computed(() => {
+  const visual = experienceBrief.value?.visualDirection
+  if (!visual) return []
+  return [
+    {label: '整体气质', desc: visual.tone},
+    {label: '主色与层级', desc: visual.palette},
+    {label: '排版与组件', desc: [visual.typography, visual.surfaces].filter(Boolean).join(' ')},
+    {label: '按钮与交互', desc: visual.controls}
+  ].filter((item) => item.desc)
+})
 const logTrailItems = computed(() => {
   if (operationTrail.value.length) return operationTrail.value.slice(-3)
   if (recentLogs.value.length) return recentLogs.value.slice(-3).map((item) => item.msg)
@@ -298,9 +308,14 @@ const designStatusText = computed(() => {
   if (!result.value?.prototypeHtml) return ''
   if (result.value?.metaData?.design_ready === 'true') return locale.value === 'ZH' ? '精修完成' : 'Polished'
   if (String(result.value?.status || '') === 'QA') {
-    return locale.value === 'ZH' ? '审计未通过，显示可编辑草稿' : 'Audit needs fixes, editable draft shown'
+    return locale.value === 'ZH' ? '原型已生成，可继续调整' : 'Prototype ready for refinement'
   }
   return locale.value === 'ZH' ? '种子稿已显示，AI 正在后台精修' : 'Seed draft shown, AI is polishing in the background'
+})
+const designStatusClass = computed(() => {
+  if (isDesignRefining.value) return 'text-blue-300'
+  if (result.value?.metaData?.design_ready === 'true') return 'text-emerald-300'
+  return 'text-amber-200'
 })
 let projectRefreshTimer = null
 
@@ -988,6 +1003,17 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
                  class="max-h-[calc(100vh-180px)] space-y-5 overflow-auto px-5 py-5 no-scrollbar">
               <div class="text-sm leading-7 text-gray-100">{{ insightIntro }}</div>
 
+              <div v-if="insightVisualDirection.length" class="space-y-3 text-sm leading-7 text-gray-300">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">视觉风格</p>
+                <div class="space-y-3">
+                  <div v-for="item in insightVisualDirection" :key="item.label"
+                       class="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-4">
+                    <div class="text-[12px] font-semibold text-white/85">{{ item.label }}</div>
+                    <div class="mt-1 text-[13px] leading-7 text-gray-300">{{ item.desc }}</div>
+                  </div>
+                </div>
+              </div>
+
               <div v-if="insightScreenBullets.length" class="space-y-3 text-sm leading-7 text-gray-300">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">{{
                     insightScreenPlanTitle
@@ -1030,7 +1056,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
               <div v-if="designStatusText"
                    class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur">
                 <Loader2 v-if="isDesignRefining" class="h-3.5 w-3.5 animate-spin text-blue-400"/>
-                <span :class="isDesignRefining ? 'text-blue-300' : 'text-emerald-300'">{{ designStatusText }}</span>
+                <span :class="designStatusClass">{{ designStatusText }}</span>
               </div>
 
               <div class="workspace-panel relative min-h-[780px] overflow-hidden rounded-[36px]">
@@ -1143,7 +1169,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
               </div>
               <div v-if="!logTrailItems.length"
                    class="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-xs leading-6 text-gray-500">
-                暂无实际操作轨迹，完成生成或继续操作后会在这里出现。
+                等待新的操作记录。
               </div>
             </div>
           </div>
