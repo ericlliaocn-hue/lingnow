@@ -9,10 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Generation Service - Orchestrator for Multi-Agent Collaboration.
@@ -276,7 +273,16 @@ public class GenerationService {
     }
 
     public ProjectManifest getManifest(String sessionId) {
-        return manifestRegistry.get(sessionId);
+        ProjectManifest manifest = manifestRegistry.get(sessionId);
+        if (manifest == null) {
+            return null;
+        }
+        if (shouldRefreshBundle(manifest)) {
+            prototypeBundleCompiler.compile(manifest);
+            manifestRegistry.save(manifest);
+        }
+        repairScreenBulletsForDisplay(manifest);
+        return manifest;
     }
 
     public List<ProjectHistoryDto> getHistory() {
@@ -318,6 +324,72 @@ public class GenerationService {
 
         manifest.getMetaData().put("functional_audit_result", auditResult);
         manifest.getMetaData().put("design_ready", String.valueOf(auditOutcome.isPassed()));
+    }
+
+    private boolean shouldRefreshBundle(ProjectManifest manifest) {
+        if (manifest.getPrototypeBundle() == null) {
+            return true;
+        }
+        if (manifest.getPrototypeBundle().getCapabilityLayer() == null || manifest.getPrototypeBundle().getSurfaceIr() == null) {
+            return true;
+        }
+        if (manifest.getPrototypeBundle().getExperienceBrief() == null) {
+            return true;
+        }
+        List<PrototypeBundle.ScreenBullet> bullets = manifest.getPrototypeBundle().getExperienceBrief().getScreenBullets();
+        if (bullets == null || bullets.isEmpty()) {
+            return true;
+        }
+        return bullets.stream()
+                .map(PrototypeBundle.ScreenBullet::getDescription)
+                .filter(Objects::nonNull)
+                .allMatch(desc -> desc.contains("围绕“"));
+    }
+
+    private void repairScreenBulletsForDisplay(ProjectManifest manifest) {
+        if (manifest.getPrototypeBundle() == null
+                || manifest.getPrototypeBundle().getExperienceBrief() == null
+                || manifest.getPages() == null
+                || manifest.getPages().isEmpty()) {
+            return;
+        }
+        List<PrototypeBundle.ScreenBullet> bullets = new ArrayList<>();
+        for (ProjectManifest.PageSpec page : manifest.getPages().stream().limit(4).toList()) {
+            String route = page.getRoute() == null ? "" : page.getRoute().toLowerCase();
+            String description = page.getDescription() == null ? "" : page.getDescription();
+            String label;
+            if (description.contains("首页")) {
+                label = "首页（瀑布流）";
+            } else if (route.contains("discover") || description.contains("发现页")) {
+                label = "发现页";
+            } else if (route.contains("following") || description.contains("关注流")) {
+                label = "关注流页";
+            } else if (route.contains("publish") || description.contains("发布")) {
+                label = description.contains("笔记") ? "发布笔记页" : "发布页";
+            } else if (route.contains("profile") || route.contains("user") || description.contains("创作者")) {
+                label = "创作者主页";
+            } else if (route.contains("post") || route.contains("detail") || description.contains("详情")) {
+                label = "帖子详情页";
+            } else {
+                label = description;
+            }
+            String desc = description;
+            int splitIndex = description.indexOf('，');
+            if (splitIndex > 0 && splitIndex < description.length() - 1) {
+                desc = description.substring(splitIndex + 1).trim();
+            }
+            bullets.add(PrototypeBundle.ScreenBullet.builder()
+                    .id(route.replaceAll("[^a-z0-9]+", "-"))
+                    .label(label)
+                    .description(desc)
+                    .build());
+        }
+        manifest.getPrototypeBundle().getExperienceBrief().setScreenBullets(
+                bullets.stream().collect(java.util.stream.Collectors.collectingAndThen(
+                        java.util.stream.Collectors.toMap(PrototypeBundle.ScreenBullet::getLabel, bullet -> bullet, (left, right) -> left, java.util.LinkedHashMap::new),
+                        map -> new java.util.ArrayList<>(map.values())
+                ))
+        );
     }
 
     private void ensureDesignInputs(ProjectManifest manifest) {

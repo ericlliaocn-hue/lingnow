@@ -910,15 +910,19 @@ public class PrototypeBundleCompiler {
         if (!evidenceBullets.isEmpty() && !isWeakScreenBulletPlan(evidenceBullets)) {
             return dedupeBullets(evidenceBullets);
         }
-        List<PrototypeBundle.ScreenBullet> modeBullets = buildBulletsFromInteractionModes(domain);
-        if (modeBullets.size() >= 2) {
-            return modeBullets;
-        }
 
         List<PrototypeBundle.ScreenBullet> bullets = new ArrayList<>();
         List<ProjectManifest.PageSpec> pages = manifest.getPages() == null ? List.of() : manifest.getPages();
         for (ProjectManifest.PageSpec page : pages.stream().limit(4).toList()) {
             bullets.add(buildBulletFromPage(page, domain));
+        }
+        if (!bullets.isEmpty() && !isWeakScreenBulletPlan(bullets)) {
+            return dedupeBullets(bullets);
+        }
+
+        List<PrototypeBundle.ScreenBullet> modeBullets = buildBulletsFromInteractionModes(domain);
+        if (modeBullets.size() >= 2) {
+            return modeBullets;
         }
         if (bullets.isEmpty() || isWeakScreenBulletPlan(bullets)) {
             if (!evidenceBullets.isEmpty()) {
@@ -1224,14 +1228,18 @@ public class PrototypeBundleCompiler {
         String label;
         String desc;
 
-        if (containsAny(route, "home", "index") || description.contains("首页")) {
+        if (containsAny(route, "discover") || description.contains("发现页")) {
+            label = "发现页";
+        } else if (containsAny(route, "following") || description.contains("关注流")) {
+            label = "关注流页";
+        } else if (containsAny(route, "home", "index") || description.contains("首页")) {
             label = domain.interactionModes().contains("feed-first") ? "首页（瀑布流）" : "首页";
         } else if (containsAny(route, "publish", "post/new", "create") || description.contains("发布")) {
-            label = "发布页";
+            label = description.contains("笔记") ? "发布笔记页" : "发布页";
         } else if (containsAny(route, "search") || description.contains("搜索")) {
             label = "搜索页";
         } else if (containsAny(route, "user", "profile", "me") || description.contains("主页")) {
-            label = "用户个人主页";
+            label = description.contains("创作者") ? "创作者主页" : "用户个人主页";
         } else if (containsAny(route, "detail", ":id", ":postid", ":petid", ":slug") || description.contains("详情")) {
             label = description.contains("帖子") ? "帖子详情页" : "详情页";
         } else {
