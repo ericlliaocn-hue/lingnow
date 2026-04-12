@@ -79,13 +79,15 @@ public class PrototypeBundleCompiler {
         List<PrototypeBundle.ScreenPlan> screens = buildScreenPlans(manifest, domain, profile);
         String referenceSignal = extractReferenceSignal(manifest);
         List<PrototypeBundle.ScreenBullet> screenBullets = buildScreenBullets(manifest, domain, screens, referenceSignal);
+        PrototypeBundle.VisualDirection visualDirection = buildVisualDirection(manifest, domain, profile);
+        String styleSummary = buildStyleSummary(manifest, domain, profile);
         return PrototypeBundle.ExperienceBrief.builder()
                 .referenceSignal(referenceSignal)
                 .intentSummary(buildIntentSummary(manifest, domain))
                 .introduction(buildIntroductionNarrative(manifest, domain, profile, referenceSignal))
                 .screenPlanTitle(buildScreenPlanTitle(referenceSignal))
                 .screenBullets(screenBullets)
-                .nextStepNarrative(buildNextStepNarrative(referenceSignal, profile))
+                .nextStepNarrative(buildNextStepNarrative(referenceSignal, profile, styleSummary))
                 .interactionModel(profile.interactionModes().isEmpty() ? domain.interactionModel() : String.join(" + ", profile.interactionModes()))
                 .navigationStyle(resolveNavigationStyle(contract))
                 .contentRhythm(contract != null && contract.getLayoutRhythm() != null ? contract.getLayoutRhythm().name() : domain.layoutHint())
@@ -98,7 +100,7 @@ public class PrototypeBundleCompiler {
                 .rationale(buildRationale(domain, referenceSignal))
                 .confidenceNote(buildConfidenceNote(referenceSignal))
                 .screens(screens)
-                .visualDirection(buildVisualDirection(manifest, domain, profile))
+                .visualDirection(visualDirection)
                 .build();
     }
 
@@ -732,6 +734,37 @@ public class PrototypeBundleCompiler {
         return "细边框分层";
     }
 
+    private String humanizeTypographyDescriptor(String fontFamily, StructuralProfile profile) {
+        String family = safe(fontFamily).toLowerCase(Locale.ROOT);
+        if (profile.interactionModes().contains("feed-first")) {
+            return family.contains("serif") ? "偏编辑感的衬线排版" : "清晰的轻编辑排版";
+        }
+        if (profile.interactionModes().contains("document-workspace") || profile.interactionModes().contains("review")) {
+            return family.contains("serif") ? "克制的文档排版" : "清晰的文档排版";
+        }
+        if (profile.interactionModes().contains("dashboard") || profile.interactionModes().contains("pipeline")) {
+            return "高信号的结构化排版";
+        }
+        return family.contains("serif") ? "稳定的衬线排版" : "清晰的结构化排版";
+    }
+
+    private String humanizeImageryDescriptor(ProjectManifest.DesignContract contract, StructuralProfile profile) {
+        ProjectManifest.MediaWeight mediaWeight = contract != null ? contract.getMediaWeight() : null;
+        ProjectManifest.LayoutRhythm layoutRhythm = contract != null ? contract.getLayoutRhythm() : null;
+        if (profile.interactionModes().contains("feed-first")
+                || layoutRhythm == ProjectManifest.LayoutRhythm.WATERFALL
+                || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY) {
+            return "内容优先的图文层级";
+        }
+        if (profile.interactionModes().contains("scheduler")) {
+            return "可信的服务信息层级";
+        }
+        if (profile.interactionModes().contains("document-workspace") || mediaWeight == ProjectManifest.MediaWeight.TEXT_HEAVY) {
+            return "信息优先的文本层级";
+        }
+        return "平衡的图文层级";
+    }
+
     private boolean isCreateSurface(String route, String description) {
         String routeLower = safe(route).toLowerCase(Locale.ROOT);
         String descriptionLower = safe(description).toLowerCase(Locale.ROOT);
@@ -868,11 +901,21 @@ public class PrototypeBundleCompiler {
                 .build();
     }
 
-    private String buildNextStepNarrative(String referenceSignal, StructuralProfile profile) {
+    private String buildNextStepNarrative(String referenceSignal, StructuralProfile profile, String styleSummary) {
         if (referenceSignal != null && !referenceSignal.isBlank()) {
-            return "我将先为您创建一个符合“" + referenceSignal + "”风格的设计系统，然后开始设计这些页面。您看这样安排可以吗？";
+            return "我将先为您创建一个符合“" + referenceSignal + "”视觉风格（" + styleSummary + "）的设计系统，然后开始设计这些页面。您看这样安排可以吗？";
         }
-        return "我将先基于" + humanizeInteractionModes(profile.interactionModes(), "当前需求") + "整理设计系统，再开始生成这些页面。";
+        return "我将先基于" + humanizeInteractionModes(profile.interactionModes(), "当前需求")
+                + "整理设计系统，视觉上会采用" + styleSummary + "，再开始生成这些页面。";
+    }
+
+    private String buildStyleSummary(ProjectManifest manifest, DomainSignals domain, StructuralProfile profile) {
+        Map<String, String> meta = ensureMeta(manifest);
+        String primaryColor = humanizeColorToken(meta.getOrDefault("visual_primaryColor", domain.defaultPrimaryColor()));
+        String cardShape = humanizeCardShape(meta.getOrDefault("visual_cardClass", "bg-white shadow-sm rounded-2xl p-6"));
+        String fontTone = humanizeTypographyDescriptor(meta.getOrDefault("visual_fontFamily", "font-sans"), profile);
+        String imagery = humanizeImageryDescriptor(manifest.getDesignContract(), profile);
+        return primaryColor + "色调、" + cardShape + "、" + fontTone + "与" + imagery;
     }
 
     private String humanizeInteractionModes(List<String> interactionModes, String fallback) {

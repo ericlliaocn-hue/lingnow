@@ -209,8 +209,6 @@ const insightScreenBullets = computed(() => {
 const insightIntro = computed(() => experienceBrief.value?.introduction || '')
 const insightScreenPlanTitle = computed(() => experienceBrief.value?.screenPlanTitle || '')
 const insightFooterText = computed(() => experienceBrief.value?.nextStepNarrative || '')
-const insightWhyThisStructure = computed(() => experienceBrief.value?.whyThisStructure || experienceBrief.value?.rationale || '')
-const insightVisualDirection = computed(() => experienceBrief.value?.visualDirection || null)
 const logTrailItems = computed(() => {
   if (operationTrail.value.length) return operationTrail.value.slice(-3)
   if (recentLogs.value.length) return recentLogs.value.slice(-3).map((item) => item.msg)
@@ -1005,43 +1003,18 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
                 </ul>
               </div>
 
-              <div v-if="insightVisualDirection" class="space-y-3">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">视觉风格</p>
-                <div
-                    class="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-[13px] leading-6 text-gray-300">
-                  <p><span class="font-semibold text-white">气质：</span>{{ insightVisualDirection.tone }}</p>
-                  <p class="mt-2"><span class="font-semibold text-white">色彩：</span>{{
-                      insightVisualDirection.palette
-                    }}</p>
-                  <p class="mt-2"><span
-                      class="font-semibold text-white">排版：</span>{{ insightVisualDirection.typography }}</p>
-                  <p class="mt-2"><span class="font-semibold text-white">面板：</span>{{
-                      insightVisualDirection.surfaces
-                    }}</p>
-                  <p class="mt-2"><span class="font-semibold text-white">按键：</span>{{
-                      insightVisualDirection.controls
-                    }}</p>
-                  <p class="mt-2"><span class="font-semibold text-white">图文：</span>{{
-                      insightVisualDirection.imagery
-                    }}</p>
-                </div>
+              <div v-if="insightFooterText"
+                   class="rounded-[24px] border border-white/15 bg-white/[0.04] px-5 py-5 text-[14px] leading-8 text-gray-200">
+                {{ insightFooterText }}
               </div>
-
-              <div v-if="insightWhyThisStructure"
-                   class="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-[13px] leading-6 text-gray-300">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">结构原因</p>
-                <p class="mt-2">{{ insightWhyThisStructure }}</p>
-              </div>
-
-              <p class="text-sm leading-7 text-gray-300">{{ insightFooterText }}</p>
             </div>
             <div v-else-if="insightContentVisible" class="px-5 py-5">
               <div
                   class="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm leading-7 text-gray-400">
                 {{
                   loading && generationPhase === 'PLANNING'
-                      ? '正在分析需求，马上给出设计理解、页面编排、视觉风格和执行步骤。'
-                      : '输入需求后，这里会先展示设计理解、页面布局和视觉风格，再进入原型生成。'
+                      ? '正在分析需求，马上给出设计理解和风格说明。'
+                      : '输入需求后，这里会先展示设计理解和风格说明，再进入原型生成。'
                 }}
               </div>
             </div>
