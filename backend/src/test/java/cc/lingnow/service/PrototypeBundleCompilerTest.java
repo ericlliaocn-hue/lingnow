@@ -64,7 +64,12 @@ class PrototypeBundleCompilerTest {
         assertTrue(bundle.getProductIr().getInteractionModes().contains("workflow"));
         assertTrue(bundle.getExperienceBrief().getInteractionModel().contains("pipeline"));
         assertFalse(bundle.getExperienceBrief().getExecutionPlan().isEmpty());
+        assertFalse(bundle.getExperienceBrief().getWhyThisStructure().isBlank());
         assertFalse(bundle.getExperienceBrief().getRationale().isBlank());
+        assertNotNull(bundle.getExperienceBrief().getVisualDirection());
+        assertFalse(bundle.getExperienceBrief().getVisualDirection().getControls().isBlank());
+        assertTrue(bundle.getExperienceBrief().getScreens().stream().allMatch(screen -> !screen.getLayoutNarrative().isBlank()));
+        assertTrue(bundle.getExperienceBrief().getScreens().stream().allMatch(screen -> !screen.getPrimaryActions().isEmpty()));
         assertEquals(2, bundle.getMockGraph().getPrimaryRecordCount());
         assertFalse(bundle.getFlowGraph().getFlows().isEmpty());
         assertEquals("true", manifest.getMetaData().get("bundle_ready"));
@@ -115,6 +120,8 @@ class PrototypeBundleCompilerTest {
         assertTrue(bundle.getProductIr().getInteractionModes().contains("scheduler"));
         assertTrue(bundle.getProductIr().getInteractionModes().contains("case-management"));
         assertTrue(bundle.getExperienceBrief().getInteractionModel().contains("scheduler"));
+        assertTrue(bundle.getExperienceBrief().getVisualDirection().getImagery().contains("信任") || bundle.getExperienceBrief().getVisualDirection().getImagery().contains("时间"));
+        assertTrue(bundle.getExperienceBrief().getScreens().stream().anyMatch(screen -> screen.getPrimaryActions().contains("选择时段") || screen.getPrimaryActions().contains("确认结果")));
         assertTrue(bundle.getMockGraph().getCollections().stream().anyMatch(c -> "doctor".equals(c.getName())));
         assertTrue(bundle.getFlowGraph().getFlows().stream()
                 .flatMap(flow -> flow.getSteps().stream())
@@ -166,6 +173,8 @@ class PrototypeBundleCompilerTest {
         assertTrue(bundle.getProductIr().getInteractionModes().contains("case-management"));
         assertTrue(bundle.getProductIr().getInteractionModes().contains("document-workspace"));
         assertTrue(bundle.getExperienceBrief().getInteractionModel().contains("case-management"));
+        assertTrue(bundle.getExperienceBrief().getVisualDirection().getTone().contains("严谨") || bundle.getExperienceBrief().getVisualDirection().getTone().contains("文档"));
+        assertTrue(bundle.getExperienceBrief().getScreens().stream().anyMatch(screen -> screen.getActionLayout().contains("批注") || screen.getActionLayout().contains("状态")));
         assertTrue(bundle.getMockGraph().getCollections().stream().anyMatch(c -> "document".equals(c.getName())));
     }
 

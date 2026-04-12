@@ -199,12 +199,27 @@ const compactScreenBullet = (title) => {
 }
 const insightScreenBullets = computed(() => {
   const bullets = experienceBrief.value?.screenBullets
-  if (bullets?.length) return bullets
+  if (bullets?.length) {
+    return bullets.map((bullet) => ({
+      ...bullet,
+      desc: bullet.description || ''
+    }))
+  }
   return []
 })
 const insightIntro = computed(() => experienceBrief.value?.introduction || '')
 const insightScreenPlanTitle = computed(() => experienceBrief.value?.screenPlanTitle || '')
 const insightFooterText = computed(() => experienceBrief.value?.nextStepNarrative || '')
+const insightWhyThisStructure = computed(() => experienceBrief.value?.whyThisStructure || experienceBrief.value?.rationale || '')
+const insightVisualDirection = computed(() => experienceBrief.value?.visualDirection || null)
+const insightScreenCards = computed(() => experienceScreens.value.slice(0, 4))
+const screenRoleLabel = (role) => {
+  if (role === 'PRIMARY') return '核心页面'
+  if (role === 'OVERLAY') return '详情/浮层'
+  if (role === 'PERSONAL') return '个人视图'
+  if (role === 'UTILITY') return '辅助入口'
+  return role || '页面'
+}
 const logTrailItems = computed(() => {
   if (operationTrail.value.length) return operationTrail.value.slice(-3)
   if (recentLogs.value.length) return recentLogs.value.slice(-3).map((item) => item.msg)
@@ -964,7 +979,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
 
         <transition name="drawer">
           <div v-if="hasInsightPayload"
-               :class="[insightDrawerOpen ? 'w-[280px] min-h-[56px]' : 'w-[56px] h-[56px]']"
+               :class="[insightDrawerOpen ? 'w-[392px] min-h-[56px]' : 'w-[56px] h-[56px]']"
                class="absolute left-6 top-24 z-20 overflow-hidden rounded-[30px] border border-white/10 bg-[#18191b]/94 shadow-2xl shadow-black/60 backdrop-blur-3xl transition-all duration-300">
             <button
                 class="absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-2xl bg-white text-black transition-all hover:scale-[0.96]"
@@ -981,14 +996,16 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
               <button class="text-white/50 transition hover:text-white" @click="toggleInsightDrawer">⌄</button>
             </div>
             <div v-if="insightContentVisible && hasResolvedInsight"
-                 class="max-h-[520px] space-y-5 overflow-auto px-5 py-5 no-scrollbar">
-              <div class="text-sm leading-8 text-gray-100">{{ insightIntro }}</div>
+                 class="max-h-[calc(100vh-180px)] space-y-5 overflow-auto px-5 py-5 no-scrollbar">
+              <div class="text-sm leading-7 text-gray-100">{{ insightIntro }}</div>
 
-              <div v-if="insightScreenBullets.length" class="space-y-3 text-sm leading-8 text-gray-300">
-                <p class="font-medium">{{ insightScreenPlanTitle }}</p>
+              <div v-if="insightScreenBullets.length" class="space-y-3 text-sm leading-7 text-gray-300">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">{{
+                    insightScreenPlanTitle
+                  }}</p>
                 <ul class="space-y-3">
                   <li v-for="screen in insightScreenBullets" :key="screen.id" class="flex items-start gap-3">
-                    <span class="mt-[10px] h-1.5 w-1.5 rounded-full bg-white/70"></span>
+                    <span class="mt-[9px] h-1.5 w-1.5 rounded-full bg-white/70"></span>
                     <div>
                       <span class="font-semibold text-white/95">{{ screen.label }}</span>
                       <span v-if="screen.desc" class="text-gray-300">：{{ screen.desc }}</span>
@@ -997,12 +1014,100 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
                 </ul>
               </div>
 
-              <p class="text-sm leading-8 text-gray-300">{{ insightFooterText }}</p>
+              <div v-if="insightScreenCards.length" class="space-y-3">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">页面编排与关键操作</p>
+                <div
+                    v-for="screen in insightScreenCards"
+                    :key="screen.id"
+                    class="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="text-[14px] font-semibold text-white">{{ screen.title }}</p>
+                      <p class="mt-1 text-[11px] tracking-[0.16em] text-white/40">{{ screenRoleLabel(screen.role) }}</p>
+                    </div>
+                    <span
+                        class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                      {{ screen.layoutHint }}
+                    </span>
+                  </div>
+                  <div class="mt-3 space-y-2 text-[13px] leading-6 text-gray-300">
+                    <p>{{ screen.contentFocus }}</p>
+                    <p>{{ screen.layoutNarrative }}</p>
+                    <p class="text-white/80">{{ screen.actionLayout }}</p>
+                  </div>
+                  <div v-if="screen.keyModules?.length" class="mt-3 flex flex-wrap gap-2">
+                    <span
+                        v-for="module in screen.keyModules.slice(0, 5)"
+                        :key="`${screen.id}-${module}`"
+                        class="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] text-white/60">
+                      {{ module }}
+                    </span>
+                  </div>
+                  <div v-if="screen.primaryActions?.length" class="mt-3 flex flex-wrap gap-2">
+                    <span
+                        v-for="action in screen.primaryActions"
+                        :key="`${screen.id}-${action}`"
+                        class="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-black">
+                      {{ action }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="insightVisualDirection" class="space-y-3">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">视觉风格</p>
+                <div
+                    class="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 text-[13px] leading-6 text-gray-300">
+                  <p><span class="font-semibold text-white">气质：</span>{{ insightVisualDirection.tone }}</p>
+                  <p class="mt-2"><span class="font-semibold text-white">色彩：</span>{{
+                      insightVisualDirection.palette
+                    }}</p>
+                  <p class="mt-2"><span
+                      class="font-semibold text-white">排版：</span>{{ insightVisualDirection.typography }}</p>
+                  <p class="mt-2"><span class="font-semibold text-white">面板：</span>{{
+                      insightVisualDirection.surfaces
+                    }}</p>
+                  <p class="mt-2"><span class="font-semibold text-white">按键：</span>{{
+                      insightVisualDirection.controls
+                    }}</p>
+                  <p class="mt-2"><span class="font-semibold text-white">图文：</span>{{
+                      insightVisualDirection.imagery
+                    }}</p>
+                </div>
+              </div>
+
+              <div v-if="experienceExecutionPlan.length" class="space-y-3">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">执行步骤</p>
+                <div class="space-y-2">
+                  <div
+                      v-for="(step, idx) in experienceExecutionPlan"
+                      :key="step"
+                      class="flex items-start gap-3 rounded-[20px] border border-white/8 bg-black/20 px-4 py-3 text-[13px] leading-6 text-gray-300">
+                    <span
+                        class="mt-[2px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-black">
+                      {{ idx + 1 }}
+                    </span>
+                    <span>{{ step }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="insightWhyThisStructure"
+                   class="rounded-[22px] border border-white/8 bg-black/20 px-4 py-4 text-[13px] leading-6 text-gray-300">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">结构原因</p>
+                <p class="mt-2">{{ insightWhyThisStructure }}</p>
+              </div>
+
+              <p class="text-sm leading-7 text-gray-300">{{ insightFooterText }}</p>
             </div>
             <div v-else-if="insightContentVisible" class="px-5 py-5">
               <div
                   class="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm leading-7 text-gray-400">
-                正在分析需求，马上给出设计理解、页面计划和执行步骤。
+                {{
+                  loading && generationPhase === 'PLANNING'
+                      ? '正在分析需求，马上给出设计理解、页面编排、视觉风格和执行步骤。'
+                      : '输入需求后，这里会先展示设计理解、页面布局和视觉风格，再进入原型生成。'
+                }}
               </div>
             </div>
           </div>

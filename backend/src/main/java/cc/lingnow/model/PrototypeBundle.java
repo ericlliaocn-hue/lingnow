@@ -87,9 +87,11 @@ public class PrototypeBundle {
         private List<String> inferredTraits;
         private List<String> primaryLoopSteps;
         private List<String> executionPlan;
+        private String whyThisStructure;
         private String rationale;
         private String confidenceNote;
         private List<ScreenPlan> screens;
+        private VisualDirection visualDirection;
     }
 
     @Data
@@ -101,7 +103,11 @@ public class PrototypeBundle {
         private String title;
         private String role;
         private String layoutHint;
+        private String contentFocus;
+        private String layoutNarrative;
+        private String actionLayout;
         private List<String> keyModules;
+        private List<String> primaryActions;
     }
 
     @Data
@@ -112,6 +118,19 @@ public class PrototypeBundle {
         private String id;
         private String label;
         private String description;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VisualDirection {
+        private String tone;
+        private String palette;
+        private String typography;
+        private String surfaces;
+        private String controls;
+        private String imagery;
     }
 
     @Data

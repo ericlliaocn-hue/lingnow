@@ -76,7 +76,7 @@ public class PrototypeBundleCompiler {
         DomainSignals domain = detectDomainSignals(manifest);
         StructuralProfile profile = inferStructuralProfile(manifest, domain);
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
-        List<PrototypeBundle.ScreenPlan> screens = buildScreenPlans(manifest, domain);
+        List<PrototypeBundle.ScreenPlan> screens = buildScreenPlans(manifest, domain, profile);
         String referenceSignal = extractReferenceSignal(manifest);
         List<PrototypeBundle.ScreenBullet> screenBullets = buildScreenBullets(manifest, domain, screens, referenceSignal);
         return PrototypeBundle.ExperienceBrief.builder()
@@ -94,9 +94,11 @@ public class PrototypeBundleCompiler {
                 .inferredTraits(buildInferredTraits(domain, contract, referenceSignal, profile))
                 .primaryLoopSteps(resolvePrimaryLoopSteps(manifest, domain))
                 .executionPlan(buildExecutionPlan(domain, profile))
+                .whyThisStructure(buildWhyThisStructure(domain, profile))
                 .rationale(buildRationale(domain, referenceSignal))
                 .confidenceNote(buildConfidenceNote(referenceSignal))
                 .screens(screens)
+                .visualDirection(buildVisualDirection(manifest, domain, profile))
                 .build();
     }
 
@@ -224,16 +226,21 @@ public class PrototypeBundleCompiler {
         return actions;
     }
 
-    private List<PrototypeBundle.ScreenPlan> buildScreenPlans(ProjectManifest manifest, DomainSignals domain) {
+    private List<PrototypeBundle.ScreenPlan> buildScreenPlans(ProjectManifest manifest, DomainSignals domain, StructuralProfile profile) {
         List<PrototypeBundle.ScreenPlan> screens = new ArrayList<>();
         List<ProjectManifest.PageSpec> pages = manifest.getPages() == null ? List.of() : manifest.getPages();
         for (ProjectManifest.PageSpec page : pages.stream().limit(6).toList()) {
+            String route = safe(page.getRoute());
             screens.add(PrototypeBundle.ScreenPlan.builder()
-                    .id(resolveScreenId(page.getRoute()))
+                    .id(resolveScreenId(route))
                     .title(page.getDescription())
                     .role(page.getNavRole())
                     .layoutHint(inferLayoutHint(page, domain))
+                    .contentFocus(buildScreenContentFocus(page, domain))
+                    .layoutNarrative(buildScreenLayoutNarrative(page, domain, profile))
+                    .actionLayout(buildScreenActionLayout(page, domain, profile))
                     .keyModules(page.getComponents() == null ? List.of() : page.getComponents())
+                    .primaryActions(buildScreenPrimaryActions(page, domain, profile))
                     .build());
         }
         if (screens.isEmpty()) {
@@ -242,7 +249,11 @@ public class PrototypeBundleCompiler {
                     .title(domain.fallbackScreenTitle())
                     .role("PRIMARY")
                     .layoutHint(domain.layoutHint())
+                    .contentFocus(buildFallbackScreenContentFocus(domain))
+                    .layoutNarrative(buildFallbackLayoutNarrative(domain, profile))
+                    .actionLayout(buildFallbackActionLayout(domain, profile))
                     .keyModules(domain.defaultModules())
+                    .primaryActions(buildFallbackPrimaryActions(domain, profile))
                     .build());
         }
         return screens;
@@ -393,6 +404,340 @@ public class PrototypeBundleCompiler {
                 "随后铺设可信的图文 mock 数据与对象关系。",
                 "最后编译主流程交互，确保按钮、状态与反馈可运行。"
         );
+    }
+
+    private String buildWhyThisStructure(DomainSignals domain, StructuralProfile profile) {
+        return "系统先锁定“" + domain.primaryObject() + "”作为主对象，再把“"
+                + humanizeInteractionModes(profile.interactionModes(), domain.interactionModel())
+                + "”拆成可连续操作的页面组合。这样后续原型生成时，页面布局、mock 数据和按钮反馈都能围绕同一套主循环展开，而不是停留在行业模板层面。";
+    }
+
+    private PrototypeBundle.VisualDirection buildVisualDirection(ProjectManifest manifest, DomainSignals domain, StructuralProfile profile) {
+        Map<String, String> meta = ensureMeta(manifest);
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        String primaryColor = meta.getOrDefault("visual_primaryColor", domain.defaultPrimaryColor());
+        String accentColor = meta.getOrDefault("visual_accentColor", domain.defaultAccentColor());
+        String bgClass = meta.getOrDefault("visual_bgClass", "bg-slate-50");
+        String cardClass = meta.getOrDefault("visual_cardClass", "bg-white shadow-sm rounded-2xl p-6");
+        String fontFamily = meta.getOrDefault("visual_fontFamily", "font-sans");
+        String lineHeight = meta.getOrDefault("visual_lineHeight", "leading-normal");
+        String letterSpacing = meta.getOrDefault("visual_letterSpacing", "tracking-normal");
+        String shadowStrategy = meta.getOrDefault("visual_shadowStrategy", "shadow-sm");
+        String borderAccent = meta.getOrDefault("visual_borderAccent", "border-slate-200");
+
+        return PrototypeBundle.VisualDirection.builder()
+                .tone(buildToneNarrative(domain, profile))
+                .palette("以" + humanizeColorToken(primaryColor) + "作为主色、" + humanizeColorToken(accentColor)
+                        + "作为强调色，配合" + humanizeBackground(bgClass) + "建立首屏层级与状态识别。")
+                .typography("采用" + humanizeFontFamily(fontFamily) + "，正文保持" + humanizeLineHeight(lineHeight)
+                        + "与" + humanizeLetterSpacing(letterSpacing) + "，让" + humanizeDensity(contract) + "信息阅读依然稳定。")
+                .surfaces("面板以" + humanizeCardShape(cardClass) + "和" + humanizeShadow(shadowStrategy)
+                        + "为主，辅以" + humanizeBorder(borderAccent) + "，让内容层级清晰但不过度厚重。")
+                .controls(buildControlNarrative(domain, profile, primaryColor, accentColor))
+                .imagery(buildImageryNarrative(contract, domain, profile))
+                .build();
+    }
+
+    private String buildToneNarrative(DomainSignals domain, StructuralProfile profile) {
+        List<String> modes = profile.interactionModes();
+        if (modes.contains("feed-first")) {
+            return "整体气质偏内容优先和轻编辑感，强调发现、沉浸浏览与创作者表达。";
+        }
+        if (modes.contains("dashboard") || modes.contains("queue") || modes.contains("pipeline")) {
+            return "整体气质偏高信号和强结构，强调优先级、状态对比与处理效率。";
+        }
+        if (modes.contains("scheduler") || modes.contains("service-catalog")) {
+            return "整体气质偏干净可信和服务导向，重点突出确认路径与过程反馈。";
+        }
+        if (modes.contains("document-workspace") || modes.contains("review")) {
+            return "整体气质偏克制严谨，优先保证文档、证据与状态层级的可读性。";
+        }
+        return "整体气质保持" + domain.primaryObject() + "驱动的专业感，让核心对象、状态与下一步动作始终清楚。";
+    }
+
+    private String buildControlNarrative(DomainSignals domain, StructuralProfile profile, String primaryColor, String accentColor) {
+        List<String> modes = profile.interactionModes();
+        if (modes.contains("feed-first")) {
+            return "主按钮使用" + humanizeColorToken(primaryColor) + "承担发布或关键互动，次级操作保持轻边框；内容卡片本身就是进入详情的主要按钮。";
+        }
+        if (modes.contains("scheduler")) {
+            return "选择、确认、支付等关键动作按顺序靠近结果摘要排布，主按钮使用" + humanizeColorToken(primaryColor)
+                    + "突出确认，补充动作用" + humanizeColorToken(accentColor) + "做轻提醒。";
+        }
+        if (modes.contains("dashboard") || modes.contains("pipeline") || modes.contains("workflow")) {
+            return "批量处理、分配与推进状态保持主次分层，列表头部承担筛选/批量按钮，详情区承担确认类主按钮。";
+        }
+        return "主按钮负责推进当前主循环，次按钮承担返回、筛选或补充信息，确保每个页面都能一眼看出下一步操作。";
+    }
+
+    private String buildImageryNarrative(ProjectManifest.DesignContract contract, DomainSignals domain, StructuralProfile profile) {
+        ProjectManifest.MediaWeight mediaWeight = contract != null ? contract.getMediaWeight() : null;
+        ProjectManifest.LayoutRhythm layoutRhythm = contract != null ? contract.getLayoutRhythm() : null;
+        if (profile.interactionModes().contains("feed-first")
+                || layoutRhythm == ProjectManifest.LayoutRhythm.WATERFALL
+                || mediaWeight == ProjectManifest.MediaWeight.VISUAL_HEAVY) {
+            return "封面图和卡片比例需要明显拉开差异，让用户先扫到内容质量，再进入详情和互动。";
+        }
+        if (profile.interactionModes().contains("document-workspace") || mediaWeight == ProjectManifest.MediaWeight.TEXT_HEAVY) {
+            return "视觉素材退后，标题、摘要、标签和状态承担主要信息密度，避免文档型页面被大图打断。";
+        }
+        if (profile.interactionModes().contains("scheduler") || profile.interactionModes().contains("reservation")) {
+            return "图片主要承担信任建立，时间、价格、状态等结构化信息要与视觉素材并列展示。";
+        }
+        return "媒体与文本保持平衡，让主对象既有识别度，也不会盖过关键状态和操作入口。";
+    }
+
+    private String buildScreenContentFocus(ProjectManifest.PageSpec page, DomainSignals domain) {
+        String route = safe(page.getRoute()).toLowerCase(Locale.ROOT);
+        String description = safe(page.getDescription()).toLowerCase(Locale.ROOT);
+        if (containsAny(route + " " + description, "home", "index", "feed", "discover", "列表", "首页", "池")) {
+            return "聚焦" + domain.primaryObject() + "的首轮发现、筛选信号和进入详情的决策。";
+        }
+        if (containsAny(route + " " + description, "detail", "详情", ":id")) {
+            return "聚焦单个" + domain.primaryObject() + "的完整上下文、状态变化和下一步动作。";
+        }
+        if (isCreateSurface(route, description)) {
+            return "聚焦创建输入、素材/字段填写与提交前确认。";
+        }
+        if (containsAny(route + " " + description, "profile", "user", "me", "主页")) {
+            return "聚焦身份信息、内容归档和回到主循环的入口。";
+        }
+        if (containsAny(route + " " + description, "schedule", "slot", "order", "booking", "预约", "时段", "支付")) {
+            return "聚焦时间、状态确认和结果反馈，保证关键决策一步步收束。";
+        }
+        if (containsAny(route + " " + description, "document", "review", "evidence", "文书", "证据", "审核")) {
+            return "聚焦文档、批注、证据和审核状态的持续处理。";
+        }
+        return "聚焦" + splitSentence(page.getDescription())[0] + "的主要内容与关键动作。";
+    }
+
+    private String buildScreenLayoutNarrative(ProjectManifest.PageSpec page, DomainSignals domain, StructuralProfile profile) {
+        String route = safe(page.getRoute()).toLowerCase(Locale.ROOT);
+        String description = safe(page.getDescription()).toLowerCase(Locale.ROOT);
+        String source = route + " " + description;
+        List<String> modes = profile.interactionModes();
+
+        if (isCreateSurface(route, description)) {
+            return "使用单列或轻双列编辑区，内容输入按顺序展开，提交动作固定在尾部，减少来回跳动。";
+        }
+        if (containsAny(source, "profile", "user", "主页")) {
+            return "顶部先建立身份与可信度，下方再承接内容分组或作品流，让主页继续为主循环服务。";
+        }
+        if (containsAny(source, "detail", "详情", ":id")) {
+            if (modes.contains("detail-consumption")) {
+                return "首屏先给封面和正文，作者与互动数据贴近主内容，评论和相关推荐顺序下沉。";
+            }
+            if (modes.contains("document-workspace")) {
+                return "中间放正文或主详情，侧边并排状态、批注和相关对象，适合连续处理。";
+            }
+            return "主详情区承载上下文，右侧或底部固定状态轨和操作按钮，保证处理动作不脱离对象。";
+        }
+        if (modes.contains("document-workspace") || containsAny(source, "document", "review", "evidence", "文书", "证据", "审核")) {
+            return "使用文档列表、正文/预览和批注/状态栏的分区布局，让阅读和处理保持同屏连续。";
+        }
+        if (modes.contains("feed-first") || containsAny(source, "feed", "discover", "首页", "瀑布流")) {
+            return "主画布优先展示内容卡片，顶部只保留轻筛选与分类，辅助信息退到次层。";
+        }
+        if (modes.contains("dashboard") || modes.contains("queue") || modes.contains("pipeline") || containsAny(source, "dashboard", "池", "队列", "总览")) {
+            return "顶部是关键指标，中间是待处理列表或队列，侧边或抽屉承接详情与状态辅助信息。";
+        }
+        if (modes.contains("scheduler") || containsAny(source, "预约", "时段", "schedule", "slot")) {
+            return "把选择项、时间面板和确认摘要拆成顺序明确的三段式，让确认路径一眼可见。";
+        }
+        return "围绕“" + domain.primaryObject() + "”的主循环组织主区、详情和辅助区域，避免功能面板互相争抢。";
+    }
+
+    private String buildScreenActionLayout(ProjectManifest.PageSpec page, DomainSignals domain, StructuralProfile profile) {
+        String route = safe(page.getRoute()).toLowerCase(Locale.ROOT);
+        String description = safe(page.getDescription()).toLowerCase(Locale.ROOT);
+        String source = route + " " + description;
+        List<String> modes = profile.interactionModes();
+
+        if (isCreateSurface(route, description)) {
+            return "保存草稿、预览、提交保持清晰主次层级，主提交按钮固定，避免滚动后找不到。";
+        }
+        if (containsAny(source, "detail", "详情", ":id")) {
+            if (modes.contains("detail-consumption")) {
+                return "点赞、收藏、评论等连续动作围绕正文尾部或底栏排布，关闭/返回始终明确。";
+            }
+            return "推进状态、确认、补充记录放在同一组主次按钮里，点击后要立即反馈到当前详情。";
+        }
+        if (modes.contains("document-workspace") || containsAny(source, "document", "review", "evidence", "文书", "证据", "审核")) {
+            return "批注、审核、推进阶段等动作贴近文档内容和状态栏摆放，避免频繁切屏后丢失上下文。";
+        }
+        if (modes.contains("feed-first") || containsAny(source, "feed", "discover", "首页", "瀑布流")) {
+            return "主操作是卡片点击和分类切换，发布或新增入口保持常驻，但不能压过内容本身。";
+        }
+        if (modes.contains("dashboard") || modes.contains("pipeline") || modes.contains("workflow")) {
+            return "筛选和批量按钮贴近列表头部，单条处理动作进入详情后集中呈现，避免首屏过多按钮。";
+        }
+        if (modes.contains("scheduler") || containsAny(source, "预约", "时段", "schedule", "slot")) {
+            return "选择动作在中部内容区完成，确认与支付按钮固定在摘要区或底部，确保闭环明确。";
+        }
+        return "主按钮负责推进当前页面的下一步，次按钮承担筛选、返回或补充信息，避免所有动作挤在一起。";
+    }
+
+    private List<String> buildScreenPrimaryActions(ProjectManifest.PageSpec page, DomainSignals domain, StructuralProfile profile) {
+        LinkedHashSet<String> actions = new LinkedHashSet<>();
+        List<String> components = page.getComponents() == null ? List.of() : page.getComponents();
+        for (String component : components) {
+            String lower = safe(component).toLowerCase(Locale.ROOT);
+            if (containsAny(lower, "搜索", "筛选", "filter", "search", "category", "tab")) actions.add("搜索/筛选");
+            if (containsAny(lower, "详情", "detail", "入口", "card", "列表", "瀑布流")) actions.add("进入详情");
+            if (containsAny(lower, "批量", "batch")) actions.add("批量处理");
+            if (containsAny(lower, "负责人", "owner", "分配", "assign")) actions.add("分配负责人");
+            if (containsAny(lower, "风险", "阶段", "状态", "stage", "status", "progress")) actions.add("推进状态");
+            if (containsAny(lower, "评论", "互动", "收藏", "点赞", "like", "comment", "save")) actions.add("互动反馈");
+            if (containsAny(lower, "发布", "create", "composer", "新建")) actions.add("创建/发布");
+            if (containsAny(lower, "时段", "slot", "预约", "booking", "schedule")) actions.add("选择时段");
+            if (containsAny(lower, "支付", "payment", "确认", "confirm", "订单")) actions.add("确认结果");
+            if (containsAny(lower, "文档", "批注", "审核", "document", "review", "evidence")) actions.add("批注/审核");
+            if (containsAny(lower, "上传", "素材", "media", "image")) actions.add("上传素材");
+        }
+
+        String source = safe(page.getRoute()).toLowerCase(Locale.ROOT) + " " + safe(page.getDescription()).toLowerCase(Locale.ROOT);
+        if (actions.isEmpty()) {
+            if (isCreateSurface(page.getRoute(), page.getDescription())) {
+                actions.addAll(List.of("上传素材", "填写内容", "保存/提交"));
+            } else if (containsAny(source, "profile", "user", "主页")) {
+                actions.addAll(List.of("切换分组", "查看作品", "关注/返回主循环"));
+            } else if (containsAny(source, "detail", "详情", ":id")) {
+                if (profile.interactionModes().contains("detail-consumption")) {
+                    actions.addAll(List.of("浏览正文", "点赞/收藏", "评论/继续发现"));
+                } else {
+                    actions.addAll(List.of("查看详情", "推进状态", "补充记录"));
+                }
+            } else if (profile.interactionModes().contains("feed-first") || containsAny(source, "feed", "discover", "首页", "瀑布流")) {
+                actions.addAll(List.of("切换分类", "打开详情", "发起发布"));
+            } else if (profile.interactionModes().contains("dashboard") || profile.interactionModes().contains("pipeline")) {
+                actions.addAll(List.of("筛选对象", "批量处理", "进入详情"));
+            } else if (profile.interactionModes().contains("scheduler")) {
+                actions.addAll(List.of("选择项目", "选择时段", "确认预约"));
+            } else {
+                actions.addAll(buildFallbackPrimaryActions(domain, profile));
+            }
+        }
+
+        return actions.stream().limit(4).collect(Collectors.toList());
+    }
+
+    private String buildFallbackScreenContentFocus(DomainSignals domain) {
+        return "聚焦" + domain.primaryObject() + "的主要列表、状态和下一步动作。";
+    }
+
+    private String buildFallbackLayoutNarrative(DomainSignals domain, StructuralProfile profile) {
+        if (profile.interactionModes().contains("feed-first")) {
+            return "内容卡片作为主画布，辅助工具弱化，先保证浏览和进入详情的顺畅度。";
+        }
+        if (profile.interactionModes().contains("dashboard") || profile.interactionModes().contains("pipeline")) {
+            return "用概览、列表和详情三层关系组织界面，让处理动作始终贴着对象。";
+        }
+        return "围绕主对象的浏览、详情和处理关系组织页面骨架，保证后续原型可继续扩展。";
+    }
+
+    private String buildFallbackActionLayout(DomainSignals domain, StructuralProfile profile) {
+        if (profile.interactionModes().contains("feed-first")) {
+            return "卡片点击承担主要入口，轻量操作分散在分类和常驻发布入口里。";
+        }
+        if (profile.interactionModes().contains("scheduler")) {
+            return "选择动作先发生，确认动作后收束，避免多个关键按钮同屏抢权重。";
+        }
+        return "主按钮推进主循环，次按钮辅助筛选和回退，保持清晰的操作层级。";
+    }
+
+    private List<String> buildFallbackPrimaryActions(DomainSignals domain, StructuralProfile profile) {
+        if (profile.interactionModes().contains("feed-first")) {
+            return List.of("切换分类", "打开详情", "发起发布");
+        }
+        if (profile.interactionModes().contains("pipeline")) {
+            return List.of("筛选对象", "进入详情", "推进状态");
+        }
+        if (profile.interactionModes().contains("scheduler")) {
+            return List.of("选择项目", "选择时段", "确认结果");
+        }
+        if (profile.interactionModes().contains("document-workspace")) {
+            return List.of("查看文档", "批注/审核", "推进阶段");
+        }
+        return List.of("查看列表", "打开详情", "推进下一步");
+    }
+
+    private String humanizeColorToken(String token) {
+        String lower = safe(token).toLowerCase(Locale.ROOT);
+        if (lower.startsWith("rose") || lower.startsWith("pink")) return "暖红粉";
+        if (lower.startsWith("red")) return "强调红";
+        if (lower.startsWith("amber") || lower.startsWith("yellow")) return "琥珀黄";
+        if (lower.startsWith("orange")) return "橙色";
+        if (lower.startsWith("emerald") || lower.startsWith("green")) return "绿色";
+        if (lower.startsWith("teal")) return "青绿色";
+        if (lower.startsWith("sky") || lower.startsWith("blue") || lower.startsWith("indigo")) return "蓝色";
+        if (lower.startsWith("violet") || lower.startsWith("purple")) return "紫色";
+        if (lower.startsWith("slate") || lower.startsWith("gray") || lower.startsWith("zinc")) return "石墨灰";
+        return token;
+    }
+
+    private String humanizeBackground(String bgClass) {
+        String lower = safe(bgClass).toLowerCase(Locale.ROOT);
+        if (lower.contains("slate-950") || lower.contains("black")) return "深色背景";
+        if (lower.contains("white") || lower.contains("slate-50") || lower.contains("gray-50")) return "浅色留白背景";
+        return "柔和背景";
+    }
+
+    private String humanizeFontFamily(String fontFamily) {
+        return safe(fontFamily).toLowerCase(Locale.ROOT).contains("serif") ? "衬线标题体系" : "无衬线标题体系";
+    }
+
+    private String humanizeLineHeight(String lineHeight) {
+        String lower = safe(lineHeight).toLowerCase(Locale.ROOT);
+        if (lower.contains("snug") || lower.contains("tight")) return "更紧凑的行距";
+        if (lower.contains("relaxed") || lower.contains("loose")) return "更舒展的行距";
+        return "中性的行距";
+    }
+
+    private String humanizeLetterSpacing(String letterSpacing) {
+        String lower = safe(letterSpacing).toLowerCase(Locale.ROOT);
+        if (lower.contains("tight")) return "偏紧的字距";
+        if (lower.contains("wide")) return "偏宽的字距";
+        return "自然字距";
+    }
+
+    private String humanizeDensity(ProjectManifest.DesignContract contract) {
+        if (contract == null || contract.getContentDensity() == null) {
+            return "当前";
+        }
+        return switch (contract.getContentDensity()) {
+            case HIGH -> "高密度";
+            case LOW -> "低密度";
+            default -> "中密度";
+        };
+    }
+
+    private String humanizeCardShape(String cardClass) {
+        String lower = safe(cardClass).toLowerCase(Locale.ROOT);
+        if (lower.contains("rounded-3xl")) return "大圆角卡片";
+        if (lower.contains("rounded-2xl")) return "柔和圆角卡片";
+        if (lower.contains("rounded-xl")) return "中等圆角卡片";
+        return "标准卡片";
+    }
+
+    private String humanizeShadow(String shadowStrategy) {
+        String lower = safe(shadowStrategy).toLowerCase(Locale.ROOT);
+        if (lower.contains("shadow-xl")) return "更明显的阴影层次";
+        if (lower.contains("shadow-none")) return "弱阴影";
+        return "轻阴影层次";
+    }
+
+    private String humanizeBorder(String borderAccent) {
+        String lower = safe(borderAccent).toLowerCase(Locale.ROOT);
+        if (lower.contains("transparent")) return "弱边界处理";
+        return "细边框分层";
+    }
+
+    private boolean isCreateSurface(String route, String description) {
+        String routeLower = safe(route).toLowerCase(Locale.ROOT);
+        String descriptionLower = safe(description).toLowerCase(Locale.ROOT);
+        return containsAny(routeLower, "publish", "create", "/new", "-new")
+                || routeLower.endsWith("new")
+                || containsAny(descriptionLower, "发布", "新建");
     }
 
     private String buildIntroductionNarrative(ProjectManifest manifest, DomainSignals domain, StructuralProfile profile, String referenceSignal) {
