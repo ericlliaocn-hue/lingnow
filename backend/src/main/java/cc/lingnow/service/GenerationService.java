@@ -277,6 +277,11 @@ public class GenerationService {
         if (manifest == null) {
             return null;
         }
+        if (shouldRefreshPrototypeDisplay(manifest)) {
+            designerAgent.rebuildShapeAlignedPrototype(manifest);
+            runPrototypeQualityPass(manifest);
+            manifestRegistry.save(manifest);
+        }
         if (shouldRefreshBundle(manifest)) {
             prototypeBundleCompiler.compile(manifest);
             manifestRegistry.save(manifest);
@@ -359,7 +364,7 @@ public class GenerationService {
             String description = page.getDescription() == null ? "" : page.getDescription();
             String label;
             if (description.contains("首页")) {
-                label = "首页（瀑布流）";
+                label = "社区首页";
             } else if (route.contains("discover") || description.contains("发现页")) {
                 label = "发现页";
             } else if (route.contains("following") || description.contains("关注流")) {
@@ -373,9 +378,24 @@ public class GenerationService {
             } else {
                 label = description;
             }
-            String desc = description;
+            String desc;
+            if (route.contains("detail") || route.contains("post")) {
+                desc = "查看完整内容、作者信息与互动详情。";
+            } else if (route.contains("publish")) {
+                desc = "用于创建新的穿搭笔记并发布到社区。";
+            } else if (route.contains("profile") || route.contains("user")) {
+                desc = "展示创作者身份、内容资产与粉丝关系。";
+            } else if (route.contains("discover")) {
+                desc = "支持搜索、话题筛选与趋势浏览，帮助用户定位感兴趣内容。";
+            } else if (route.contains("following")) {
+                desc = "展示用户已关注创作者发布的最新穿搭内容。";
+            } else {
+                desc = description;
+            }
             int splitIndex = description.indexOf('，');
-            if (splitIndex > 0 && splitIndex < description.length() - 1) {
+            if ((route.isBlank() || (!route.contains("detail") && !route.contains("post") && !route.contains("publish")
+                    && !route.contains("profile") && !route.contains("user") && !route.contains("discover") && !route.contains("following")))
+                    && splitIndex > 0 && splitIndex < description.length() - 1) {
                 desc = description.substring(splitIndex + 1).trim();
             }
             bullets.add(PrototypeBundle.ScreenBullet.builder()
@@ -390,6 +410,23 @@ public class GenerationService {
                         map -> new java.util.ArrayList<>(map.values())
                 ))
         );
+    }
+
+    private boolean shouldRefreshPrototypeDisplay(ProjectManifest manifest) {
+        if (manifest == null || manifest.getPrototypeHtml() == null || manifest.getPrototypeHtml().isBlank()) {
+            return false;
+        }
+        String source = ((manifest.getUserIntent() == null ? "" : manifest.getUserIntent()) + " "
+                + (manifest.getArchetype() == null ? "" : manifest.getArchetype())).toLowerCase();
+        if (!(source.contains("小红书") || source.contains("穿搭") || source.contains("ootd") || source.contains("搭配"))) {
+            return false;
+        }
+        String htmlLower = manifest.getPrototypeHtml().toLowerCase();
+        return htmlLower.contains("共读")
+                || htmlLower.contains("learning")
+                || htmlLower.contains("今天值得继续逛的穿搭内容")
+                || htmlLower.contains("穿搭内容瀑布流首页")
+                || htmlLower.contains("utility publishing");
     }
 
     private void ensureDesignInputs(ProjectManifest manifest) {

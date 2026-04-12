@@ -642,7 +642,26 @@ public class UiDesignerAgent {
     }
 
     private String primaryRouteLabel(ProjectManifest.PageSpec page) {
+        String route = safe(page.getRoute()).toLowerCase(Locale.ROOT);
         String description = safe(page.getDescription()).trim();
+        if (route.contains("home")) {
+            return "社区首页";
+        }
+        if (route.contains("discover")) {
+            return "发现页";
+        }
+        if (route.contains("following")) {
+            return "关注流页";
+        }
+        if (route.contains("profile") || route.contains("user")) {
+            return "创作者主页";
+        }
+        if (route.contains("publish")) {
+            return "发布笔记页";
+        }
+        if (route.contains("post") || route.contains("detail")) {
+            return "帖子详情页";
+        }
         if (description.isBlank()) {
             return safe(page.getRoute()).replace("/", "");
         }
@@ -960,6 +979,11 @@ public class UiDesignerAgent {
         if (isContentFirst(manifest) && pageSpec != null && "UTILITY".equalsIgnoreCase(pageSpec.getNavRole())) {
             return buildContentPublishFallbackComponent(manifest, route, pageSpec);
         }
+        if (manifest.getDesignContract() != null && isContentFirst(manifest) && pageSpec != null && pageSpec.getRoute() != null
+                && pageSpec.getRoute().toLowerCase(Locale.ROOT).contains("discover")) {
+            ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
+            return buildContentDiscoverFallbackComponent(manifest, route, pageSpec, profile);
+        }
         if (manifest.getDesignContract() != null && isContentFirst(manifest) && isContentFirstRoute(route)) {
             ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
             if (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL) {
@@ -968,6 +992,98 @@ public class UiDesignerAgent {
             return buildStructuredFeedFallbackComponent(manifest, route, pageSpec, profile);
         }
         return buildGenericFallbackComponent(manifest, route, pageSpec);
+    }
+
+    private String buildContentDiscoverFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec, ShapeSurfaceProfile profile) {
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        String hotTopics = buildHotTopicsJson(zh, profile);
+        String color = profile.vibeColor();
+        String accentColor = color.replace("-500", "").replace("-400", "");
+        String seededFeed = buildSeededFeedJson(zh, 6, profile);
+
+        String html = """
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="flex items-end justify-between gap-4">
+                      <div>
+                        <h2 class="text-2xl font-black text-slate-900">__TITLE__</h2>
+                        <p class="mt-2 text-sm leading-7 text-slate-500">__DESC__</p>
+                      </div>
+                      <div class="flex flex-wrap gap-3 text-sm">
+                        <button @click="activeSignal = 'hot'" class="rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700">__HOT__</button>
+                        <button @click="activeSignal = 'saved'" class="rounded-full border border-slate-200 bg-white px-4 py-2 font-semibold text-slate-700">__SAVED__</button>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+                    <aside class="space-y-4">
+                      <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-900">__TOPIC_TITLE__</h3>
+                        <p class="mt-2 text-xs leading-6 text-slate-500">__TOPIC_DESC__</p>
+                        <div class="mt-4 space-y-3">
+                          <template x-for="topic in __HOT_TOPICS__" :key="topic">
+                            <button @click="searchQuery = topic; activeSignal = 'hot'" class="w-full rounded-2xl bg-slate-50 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-100" x-text="'#' + topic"></button>
+                          </template>
+                        </div>
+                      </section>
+                      <section class="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-900">__CREATOR_TITLE__</h3>
+                        <div class="mt-4 space-y-3">
+                          <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">@ootd.daily · __CREATOR_A__</div>
+                          <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">@studio.lane · __CREATOR_B__</div>
+                          <div class="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">@fit.notes · __CREATOR_C__</div>
+                        </div>
+                      </section>
+                    </aside>
+                    <section class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+                      <div class="mb-5 flex items-end justify-between gap-4">
+                        <div>
+                          <h3 class="text-2xl font-black text-slate-900">__TREND_TITLE__</h3>
+                          <p class="mt-1 text-sm text-slate-500">__TREND_DESC__</p>
+                        </div>
+                      </div>
+                      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, 6)' :key="(item.id || item.title || index) + '-' + index">
+                          <article @click="selectedItem = item; hash = '#detail'" class="group cursor-pointer overflow-hidden rounded-[28px] border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:bg-white hover:shadow-lg">
+                            <div class="aspect-[4/5] overflow-hidden bg-slate-100">
+                              <img :src="item.cover" class="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                            </div>
+                            <div class="space-y-3 p-4">
+                              <div class="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                                <span x-text="item.author"></span>
+                                <span x-text="item.time"></span>
+                              </div>
+                              <h4 class="line-clamp-2 text-base font-black text-slate-900" x-text="item.title"></h4>
+                              <div class="flex flex-wrap gap-2">
+                                <template x-for="tag in item.tags.slice(0, 2)" :key="tag">
+                                  <span class="rounded-full bg-__ACCENT__/5 px-2.5 py-1 text-[10px] font-semibold text-__ACCENT__" x-text="'#' + tag"></span>
+                                </template>
+                              </div>
+                            </div>
+                          </article>
+                        </template>
+                      </div>
+                    </section>
+                  </section>
+                </div>
+                """
+                .replace("__ACCENT__", accentColor);
+
+        return html.replace("__ID__", route.id)
+                .replace("__TITLE__", zh ? "发现页" : "Discover")
+                .replace("__DESC__", zh ? "按风格、场景、品牌和热度聚合内容，帮助用户探索新的穿搭方向。" : "Browse style directions by occasion, brand, and momentum.")
+                .replace("__HOT__", zh ? "热榜" : "Trending")
+                .replace("__SAVED__", zh ? "高收藏" : "Most saved")
+                .replace("__TOPIC_TITLE__", zh ? "穿搭专题" : "Style topics")
+                .replace("__TOPIC_DESC__", zh ? "从热榜、专题和趋势里快速进入感兴趣的穿搭方向。" : "Jump into style directions through trends and topics.")
+                .replace("__HOT_TOPICS__", hotTopics)
+                .replace("__CREATOR_TITLE__", zh ? "推荐创作者" : "Featured creators")
+                .replace("__CREATOR_A__", zh ? "通勤和小个子穿搭" : "Workwear and petite looks")
+                .replace("__CREATOR_B__", zh ? "周末约会与旅行搭配" : "Weekend and travel styling")
+                .replace("__CREATOR_C__", zh ? "身材参考与单品拆解" : "Fit notes and styling breakdowns")
+                .replace("__TREND_TITLE__", zh ? "趋势内容" : "Trending content")
+                .replace("__TREND_DESC__", zh ? "围绕热度、收藏和近期讨论，继续发现值得点开的穿搭笔记。" : "Keep exploring looks driven by trend, saves, and recent discussion.")
+                .replace("__SEEDED_FEED__", seededFeed);
     }
 
     private String buildContentProfileFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
@@ -3735,45 +3851,28 @@ public class UiDesignerAgent {
         String hotTopics = buildHotTopicsJson(zh, profile);
         String color = profile.vibeColor();
         String accentColor = color.replace("-500", "").replace("-400", "");
+        boolean discoverRoute = pageSpec != null && pageSpec.getRoute() != null && pageSpec.getRoute().toLowerCase(Locale.ROOT).contains("discover");
+
+        String recommendTitle = discoverRoute ? (zh ? "发现内容" : "Discover looks") : (zh ? "推荐内容" : "Recommended looks");
+        String recommendSubtitle = discoverRoute
+                ? (zh ? "按风格、场景、品牌和热度聚合当前值得继续浏览的穿搭内容。" : "Browse looks by style, occasion, brand, and momentum.")
+                : (zh ? "围绕 OOTD、单品拆解、场景穿搭和身材参考持续更新内容流。" : "Continuously updated around OOTD, pieces, occasions, and fit references.");
+        String hotTopicTitle = discoverRoute ? (zh ? "发现专题" : "Discover topics") : (zh ? "穿搭话题" : "Style topics");
+        String hotTopicHint = discoverRoute
+                ? (zh ? "从热榜、专题和趋势里快速进入感兴趣的穿搭方向。" : "Jump into style directions through trends, topics, and editorial picks.")
+                : (zh ? "当前最值得继续逛和收藏的穿搭方向。" : "The style directions worth browsing and saving now.");
 
         String html = """
-                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
-                  <!-- AI Hydration Indicator -->
-                  <div class="pointer-events-none mb-6 flex items-center justify-between">
-                    <div class="flex items-center gap-2 px-3 py-1.5 bg-__ACCENT__/90 backdrop-blur shadow-lg shadow-__ACCENT__/20 border border-__ACCENT__/30 rounded-full">
-                      <span class="flex h-2 w-2 relative">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                      </span>
-                      <span class="text-[10px] font-black text-white uppercase tracking-widest">AI Polishing in Progress</span>
-                    </div>
-                  </div>
-                  <section class="rounded-[32px] border border-slate-200 bg-white/95 p-6 shadow-sm">
-                    <div class="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                      <div class="space-y-3">
-                        <div class="flex flex-wrap items-center gap-3">
-                          <span class="inline-flex items-center rounded-full bg-__ACCENT__/10 px-3 py-1 text-xs font-semibold text-__ACCENT__">__BADGE__</span>
-                          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">__SURFACE_LABEL__</span>
-                        </div>
-                        <h1 class="max-w-3xl text-3xl font-black tracking-tight text-slate-900">__HERO_TITLE__</h1>
-                        <p class="max-w-3xl text-sm leading-7 text-slate-600">__HERO_DESCRIPTION__</p>
-                        <div class="flex flex-wrap gap-2">
-                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">__PILL_ONE__</span>
-                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">__PILL_TWO__</span>
-                          <span class="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">__PILL_THREE__</span>
-                        </div>
-                      </div>
-                      <div class="flex flex-wrap gap-3 text-sm">
-                        <button @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'" :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
-                        <button @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'" :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
-                        <button @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'" :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
-                      </div>
-                    </div>
-                  </section>
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6">
                   <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
                     <div class="space-y-4">
                       <div class="flex items-end justify-between gap-4">
                         <div><h2 class="text-2xl font-black text-slate-900">__RECOMMEND_TITLE__</h2><p class="mt-1 text-sm text-slate-500">__RECOMMEND_SUBTITLE__</p></div>
+                        <div class="flex flex-wrap gap-3 text-sm">
+                          <button @click="activeSignal = activeSignal === 'saved' ? 'all' : 'saved'" :class="activeSignal === 'saved' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_ONE__</button>
+                          <button @click="activeSignal = activeSignal === 'hot' ? 'all' : 'hot'" :class="activeSignal === 'hot' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_TWO__</button>
+                          <button @click="activeSignal = activeSignal === 'media' ? 'all' : 'media'" :class="activeSignal === 'media' ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' : 'bg-white text-slate-700'" class="rounded-full px-4 py-2 font-semibold shadow-sm ring-1 ring-slate-200 transition-all">__SIGNAL_THREE__</button>
+                        </div>
                       </div>
                       <div class="lingnow-waterfall columns-1 gap-5 md:columns-2 2xl:columns-3">
                         <template x-for='(item, index) in getFilteredFeed(__SEEDED_FEED__).slice(0, __PRIMARY_CARDS__)' :key="(item.id || item.title || index) + '-' + index">
@@ -3830,18 +3929,11 @@ public class UiDesignerAgent {
                 .replace("__ACCENT__", accentColor);
 
         return html.replace("__ID__", route.id)
-                .replace("__BADGE__", zh ? "当前社区首页" : "Current community home")
-                .replace("__SURFACE_LABEL__", zh ? profile.surfaceLabelZh() : profile.surfaceLabelEn())
-                .replace("__HERO_TITLE__", zh ? profile.heroTitleZh() : profile.heroTitleEn())
-                .replace("__HERO_DESCRIPTION__", zh ? profile.heroDescriptionZh() : profile.heroDescriptionEn())
-                .replace("__PILL_ONE__", zh ? "先看真实内容" : "Browse real content first")
-                .replace("__PILL_TWO__", zh ? "轻筛选，轻互动" : "Light filtering, light interaction")
-                .replace("__PILL_THREE__", zh ? "打开详情继续转化" : "Open detail for deeper action")
                 .replace("__SIGNAL_ONE__", zh ? profile.signalOneZh() : profile.signalOneEn())
                 .replace("__SIGNAL_TWO__", zh ? profile.signalTwoZh() : profile.signalTwoEn())
                 .replace("__SIGNAL_THREE__", zh ? profile.signalThreeZh() : profile.signalThreeEn())
-                .replace("__RECOMMEND_TITLE__", zh ? profile.recommendTitleZh() : profile.recommendTitleEn())
-                .replace("__RECOMMEND_SUBTITLE__", zh ? profile.recommendSubtitleZh() : profile.recommendSubtitleEn())
+                .replace("__RECOMMEND_TITLE__", recommendTitle)
+                .replace("__RECOMMEND_SUBTITLE__", recommendSubtitle)
                 .replace("__PRIMARY_CARDS__", Integer.toString(primaryCards))
                 .replace("__AUTHOR_FALLBACK__", zh ? profile.authorFallbackZh() : profile.authorFallbackEn())
                 .replace("__LOCATION_FALLBACK__", zh ? profile.locationFallbackZh() : profile.locationFallbackEn())
@@ -3854,8 +3946,8 @@ public class UiDesignerAgent {
                 .replace("__COVER_POOL__", coverPool)
                 .replace("__AVATAR_POOL__", avatarPool)
                 .replace("__SEEDED_FEED__", seededFeed)
-                .replace("__HOT_TOPIC_TITLE__", zh ? profile.hotTopicTitleZh() : profile.hotTopicTitleEn())
-                .replace("__HOT_TOPIC_HINT__", zh ? profile.hotTopicHintZh() : profile.hotTopicHintEn())
+                .replace("__HOT_TOPIC_TITLE__", hotTopicTitle)
+                .replace("__HOT_TOPIC_HINT__", hotTopicHint)
                 .replace("__HOT_TOPICS__", hotTopics);
     }
 

@@ -247,6 +247,7 @@ public class ProductArchitectAgent {
         if (gaps == null || gaps.isEmpty()) {
             return;
         }
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
         if (manifest.getPages() == null) {
             manifest.setPages(new ArrayList<>());
         }
@@ -257,10 +258,12 @@ public class ProductArchitectAgent {
         if (gaps.contains("Missing detail overlay page.")) {
             manifest.getPages().add(ProjectManifest.PageSpec.builder()
                     .route("/detail")
-                    .description("Universal detail overlay for immersive viewing and interaction continuity.")
+                    .description(zh ? "帖子详情页，展示完整内容与互动组件，是内容消费的深度入口。" : "Universal detail overlay for immersive viewing and interaction continuity.")
                     .navType("LEAF_DETAIL")
                     .navRole("OVERLAY")
-                    .components(List.of("Hero Media", "Content Body", "Interaction Bar", "Comments", "Related Items"))
+                    .components(zh
+                            ? List.of("内容主体区", "作者信息卡", "点赞收藏操作栏", "评论列表", "相关推荐", "分享入口")
+                            : List.of("Hero Media", "Content Body", "Interaction Bar", "Comments", "Related Items"))
                     .build());
         }
 
@@ -285,10 +288,12 @@ public class ProductArchitectAgent {
         if (gaps.contains("Content/social product is missing a utility publish action.")) {
             manifest.getPages().add(ProjectManifest.PageSpec.builder()
                     .route("/publish")
-                    .description("Utility publishing entry for creating posts or articles without occupying primary navigation.")
+                    .description(zh ? "发布笔记页面，支持创建新的穿搭内容并提交到社区分发。" : "Utility publishing entry for creating posts or articles without occupying primary navigation.")
                     .navType("CONTEXT_WIDGET")
                     .navRole("UTILITY")
-                    .components(List.of("Title Input", "Content Editor", "Media Upload", "Tag Picker", "Publish CTA"))
+                    .components(zh
+                            ? List.of("图片上传区", "图片排序拖拽区", "标题输入框", "正文编辑区", "话题标签选择器", "发布按钮与草稿保存")
+                            : List.of("Title Input", "Content Editor", "Media Upload", "Tag Picker", "Publish CTA"))
                     .build());
         }
 

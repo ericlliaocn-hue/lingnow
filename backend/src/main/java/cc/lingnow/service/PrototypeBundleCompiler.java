@@ -1182,7 +1182,7 @@ public class PrototypeBundleCompiler {
         List<String> modes = domain.interactionModes();
 
         if (modes.contains("feed-first")) {
-            bullets.add(bullet("home", "首页（瀑布流）", "展示各种精选帖子。"));
+            bullets.add(bullet("home", "社区首页", "展示推荐流、关注流与内容发现。"));
         } else if (modes.contains("dashboard")) {
             bullets.add(bullet("dashboard", "总览看板", "集中展示关键指标、风险信号与待处理事项。"));
         } else if (modes.contains("pipeline")) {
@@ -1233,7 +1233,7 @@ public class PrototypeBundleCompiler {
         } else if (containsAny(route, "following") || description.contains("关注流")) {
             label = "关注流页";
         } else if (containsAny(route, "home", "index") || description.contains("首页")) {
-            label = domain.interactionModes().contains("feed-first") ? "首页（瀑布流）" : "首页";
+            label = domain.interactionModes().contains("feed-first") ? "社区首页" : "首页";
         } else if (containsAny(route, "publish", "post/new", "create") || description.contains("发布")) {
             label = description.contains("笔记") ? "发布笔记页" : "发布页";
         } else if (containsAny(route, "search") || description.contains("搜索")) {
