@@ -3460,7 +3460,7 @@ public class UiDesignerAgent {
             for (Route route : contentRoutes) {
                 String label = escapeHtml(route.name == null || route.name.isBlank() ? route.id : route.name);
                 nav.append(String.format(
-                        "<button @click=\"hash='#%s'\" :class=\"hash==='#%s'?'shell-pill-active':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
+                        "<button @click=\"go('#%s')\" :class=\"hash==='#%s'?'shell-pill-active':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
                         route.id,
                         route.id,
                         label
@@ -3479,7 +3479,7 @@ public class UiDesignerAgent {
             String normalizedCategory = escapeHtml(category);
             String activeValue = ("推荐".equals(category) || "For you".equals(category)) ? "" : normalizedCategory;
             nav.append(String.format(
-                    "<button @click=\"activeCategory='%s'; hash='#%s'\" :class=\"((!activeCategory && '%s'==='') || activeCategory === '%s')?'shell-pill-active':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
+                    "<button @click=\"activeCategory='%s'; go('#%s')\" :class=\"((!activeCategory && '%s'==='') || activeCategory === '%s')?'shell-pill-active':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
                     activeValue,
                     homeRouteId,
                     activeValue,

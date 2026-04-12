@@ -31,6 +31,8 @@ public class PrototypeBundleCompiler {
         PrototypeBundle bundle = PrototypeBundle.builder()
                 .version("bundle-v0.1")
                 .productIr(buildProductIr(manifest))
+                .capabilityLayer(buildCapabilityLayer(manifest))
+                .surfaceIr(buildSurfaceIr(manifest))
                 .experienceBrief(buildExperienceBrief(manifest))
                 .designSeed(buildDesignSeed(manifest))
                 .mockGraph(buildMockGraph(manifest))
@@ -42,6 +44,7 @@ public class PrototypeBundleCompiler {
         ensureMeta(manifest).put("bundle_primary_object", safe(bundle.getProductIr() != null ? bundle.getProductIr().getPrimaryObject() : null));
         ensureMeta(manifest).put("bundle_interaction_model", safe(bundle.getExperienceBrief() != null ? bundle.getExperienceBrief().getInteractionModel() : null));
         ensureMeta(manifest).put("bundle_primary_loop", safe(bundle.getProductIr() != null ? bundle.getProductIr().getPrimaryLoop() : null));
+        ensureMeta(manifest).put("bundle_shell_mode", safe(bundle.getSurfaceIr() != null ? bundle.getSurfaceIr().getShellMode() : null));
         return bundle;
     }
 
@@ -75,6 +78,7 @@ public class PrototypeBundleCompiler {
     private PrototypeBundle.ExperienceBrief buildExperienceBrief(ProjectManifest manifest) {
         DomainSignals domain = detectDomainSignals(manifest);
         StructuralProfile profile = inferStructuralProfile(manifest, domain);
+        PrototypeBundle.SurfaceIR surfaceIr = buildSurfaceIr(manifest);
         ProjectManifest.DesignContract contract = manifest.getDesignContract();
         List<PrototypeBundle.ScreenPlan> screens = buildScreenPlans(manifest, domain, profile);
         String referenceSignal = extractReferenceSignal(manifest);
@@ -89,7 +93,7 @@ public class PrototypeBundleCompiler {
                 .screenBullets(screenBullets)
                 .nextStepNarrative(buildNextStepNarrative(referenceSignal, profile, styleSummary))
                 .interactionModel(profile.interactionModes().isEmpty() ? domain.interactionModel() : String.join(" + ", profile.interactionModes()))
-                .navigationStyle(resolveNavigationStyle(contract))
+                .navigationStyle(surfaceIr != null && surfaceIr.getNavigationPattern() != null ? surfaceIr.getNavigationPattern() : resolveNavigationStyle(contract))
                 .contentRhythm(contract != null && contract.getLayoutRhythm() != null ? contract.getLayoutRhythm().name() : domain.layoutHint())
                 .density(contract != null && contract.getContentDensity() != null ? contract.getContentDensity().name() : "MEDIUM")
                 .mediaEmphasis(contract != null && contract.getMediaWeight() != null ? contract.getMediaWeight().name() : "MIXED")
@@ -117,6 +121,72 @@ public class PrototypeBundleCompiler {
                 .letterSpacing(meta.getOrDefault("visual_letterSpacing", "tracking-normal"))
                 .radiusStyle(resolveRadiusStyle(meta.get("visual_cardClass")))
                 .toneReasoning(meta.getOrDefault("visual_reasoning", domain.toneReasoning()))
+                .build();
+    }
+
+    private PrototypeBundle.CapabilityLayer buildCapabilityLayer(ProjectManifest manifest) {
+        DomainSignals domain = detectDomainSignals(manifest);
+        LinkedHashSet<String> accountCapabilities = new LinkedHashSet<>(List.of("identity", "auth-state"));
+        LinkedHashSet<String> engagementCapabilities = new LinkedHashSet<>();
+        LinkedHashSet<String> publishingCapabilities = new LinkedHashSet<>();
+        LinkedHashSet<String> navigationCapabilities = new LinkedHashSet<>();
+        LinkedHashSet<String> stateCapabilities = new LinkedHashSet<>(List.of("toast-feedback"));
+
+        for (String mode : domain.interactionModes()) {
+            switch (safe(mode).toLowerCase(Locale.ROOT)) {
+                case "feed-first", "detail-consumption", "creator-profile" -> {
+                    engagementCapabilities.addAll(List.of("like", "save", "comment", "follow", "detail-overlay"));
+                    navigationCapabilities.addAll(List.of("feed-navigation", "search", "return-to-feed"));
+                }
+                case "composer" -> publishingCapabilities.addAll(List.of("draft", "publish", "media-upload"));
+                case "pipeline", "workflow", "assignment" -> {
+                    navigationCapabilities.addAll(List.of("queue-navigation", "detail-handoff"));
+                    stateCapabilities.addAll(List.of("owner-update", "stage-update"));
+                }
+                case "scheduler", "reservation" -> {
+                    navigationCapabilities.add("schedule-navigation");
+                    stateCapabilities.addAll(List.of("slot-selection", "confirmation-state"));
+                }
+                case "review", "document-workspace" -> {
+                    stateCapabilities.addAll(List.of("review-state", "approval-state"));
+                    navigationCapabilities.add("document-navigation");
+                }
+                default -> {
+                }
+            }
+        }
+
+        if (accountCapabilities.contains("identity")) {
+            accountCapabilities.add("profile-entry");
+        }
+
+        return PrototypeBundle.CapabilityLayer.builder()
+                .accountCapabilities(new ArrayList<>(accountCapabilities))
+                .engagementCapabilities(new ArrayList<>(engagementCapabilities))
+                .publishingCapabilities(new ArrayList<>(publishingCapabilities))
+                .navigationCapabilities(new ArrayList<>(navigationCapabilities))
+                .stateCapabilities(new ArrayList<>(stateCapabilities))
+                .build();
+    }
+
+    private PrototypeBundle.SurfaceIR buildSurfaceIr(ProjectManifest manifest) {
+        DomainSignals domain = detectDomainSignals(manifest);
+        StructuralProfile profile = inferStructuralProfile(manifest, domain);
+        ProjectManifest.DesignContract contract = manifest.getDesignContract();
+        String shellMode = resolveShellMode(profile, domain);
+        String navigationPattern = resolveSurfaceNavigationPattern(contract, profile);
+        String contentPattern = resolveContentPattern(profile, domain);
+        String layoutStrategy = contract != null && contract.getLayoutRhythm() != null
+                ? contract.getLayoutRhythm().name()
+                : domain.layoutHint();
+
+        return PrototypeBundle.SurfaceIR.builder()
+                .primarySurface(resolvePrimarySurface(manifest, profile))
+                .shellMode(shellMode)
+                .navigationPattern(navigationPattern)
+                .interactionDensity(resolveInteractionDensity(contract, profile))
+                .contentPattern(contentPattern)
+                .layoutStrategy(layoutStrategy)
                 .build();
     }
 
@@ -365,6 +435,52 @@ public class PrototypeBundleCompiler {
             case "PERSISTENT_TOP_DYNAMIC_SIDEBAR" -> "top nav + dynamic sidebar";
             default -> "sidebar primary nav";
         };
+    }
+
+    private String resolveShellMode(StructuralProfile profile, DomainSignals domain) {
+        List<String> modes = profile.interactionModes();
+        if (modes.contains("feed-first")) return "content-feed";
+        if (modes.contains("pipeline") || modes.contains("queue")) return "workflow-workspace";
+        if (modes.contains("scheduler")) return "booking-flow";
+        if (modes.contains("document-workspace") || modes.contains("review")) return "document-review";
+        if (modes.contains("listing")) return "listing-commerce";
+        if (modes.contains("workspace")) return "workspace";
+        return domain.layoutHint();
+    }
+
+    private String resolvePrimarySurface(ProjectManifest manifest, StructuralProfile profile) {
+        String source = safe(manifest.getUserIntent()).toLowerCase(Locale.ROOT);
+        if (containsAny(source, "app", "手机", "移动端", "ios", "android", "小程序", "竖屏")) return "mobile-web";
+        if (containsAny(source, "pad", "平板", "巡检", "门店", "现场")) return "tablet-web";
+        if (profile.interactionModes().contains("feed-first")) return "content-web";
+        return "desktop-web";
+    }
+
+    private String resolveSurfaceNavigationPattern(ProjectManifest.DesignContract contract, StructuralProfile profile) {
+        if (contract != null && contract.getNavigationMode() != null) {
+            return contract.getNavigationMode().name();
+        }
+        if (profile.interactionModes().contains("feed-first")) return "TOP_CHANNEL";
+        if (profile.interactionModes().contains("scheduler")) return "STEP_FLOW";
+        if (profile.interactionModes().contains("pipeline") || profile.interactionModes().contains("workspace"))
+            return "SIDEBAR";
+        return "HYBRID";
+    }
+
+    private String resolveInteractionDensity(ProjectManifest.DesignContract contract, StructuralProfile profile) {
+        if (contract != null && contract.getContentDensity() != null) {
+            return contract.getContentDensity().name();
+        }
+        return profile.primaryMode().equals("CONSUME") ? "MEDIUM" : "HIGH";
+    }
+
+    private String resolveContentPattern(StructuralProfile profile, DomainSignals domain) {
+        if (profile.interactionModes().contains("feed-first")) return "media-feed";
+        if (profile.interactionModes().contains("listing")) return "listing-flow";
+        if (profile.interactionModes().contains("document-workspace")) return "document-workspace";
+        if (profile.interactionModes().contains("pipeline") || profile.interactionModes().contains("workflow"))
+            return "workflow-queue";
+        return domain.interactionModel();
     }
 
     private String buildIntentSummary(ProjectManifest manifest, DomainSignals domain) {

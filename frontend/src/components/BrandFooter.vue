@@ -67,7 +67,7 @@
     </div>
 
     <div
-        class="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 text-[9px] text-gray-700 uppercase tracking-[0.5em] font-bold">
+        class="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 text-center text-[9px] text-gray-700 uppercase tracking-[0.5em] font-bold">
       LINGNOW FACTORY_MATRIX © 2026. AUTH_SIG_B0X1
     </div>
   </footer>

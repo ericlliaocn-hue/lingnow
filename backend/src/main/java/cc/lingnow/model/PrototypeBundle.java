@@ -19,6 +19,8 @@ public class PrototypeBundle {
 
     private String version;
     private ProductIR productIr;
+    private CapabilityLayer capabilityLayer;
+    private SurfaceIR surfaceIr;
     private ExperienceBrief experienceBrief;
     private DesignSeed designSeed;
     private MockGraph mockGraph;
@@ -66,6 +68,31 @@ public class PrototypeBundle {
         private String name;
         private String targetEntity;
         private String intent;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CapabilityLayer {
+        private List<String> accountCapabilities;
+        private List<String> engagementCapabilities;
+        private List<String> publishingCapabilities;
+        private List<String> navigationCapabilities;
+        private List<String> stateCapabilities;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SurfaceIR {
+        private String primarySurface;
+        private String shellMode;
+        private String navigationPattern;
+        private String interactionDensity;
+        private String contentPattern;
+        private String layoutStrategy;
     }
 
     @Data

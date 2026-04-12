@@ -6,7 +6,6 @@
 
       <div
           class="relative w-full max-w-7xl bg-white/[0.01] backdrop-blur-3xl rounded-[3rem] border border-white/40 shadow-[0_0_100px_rgba(255,255,255,0.05)] p-8 md:p-16 flex flex-col items-center">
-        Expected TargetContent Not Found: It's okay, finding another context.
         <!-- Close Button -->
         <button
             class="absolute top-8 right-8 w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all text-xl"

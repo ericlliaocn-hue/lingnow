@@ -81,7 +81,7 @@
           class="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-cyan-500/10 blur-[120px] pointer-events-none rounded-full"></div>
 
       <div
-          class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 text-[10px] font-bold tracking-widest text-cyan-400 uppercase mb-8">
+          class="inline-flex items-center gap-2 px-1 py-1 text-[10px] font-bold tracking-widest text-cyan-400 uppercase mb-8">
         <span class="relative flex h-2 w-2">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
