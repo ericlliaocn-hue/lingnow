@@ -151,7 +151,6 @@ const sandpackFiles = computed(() => {
 const experienceBrief = computed(() => result.value?.prototypeBundle?.experienceBrief || null)
 const experienceScreens = computed(() => experienceBrief.value?.screens || [])
 const experienceTraits = computed(() => experienceBrief.value?.inferredTraits || [])
-const experienceExecutionPlan = computed(() => experienceBrief.value?.executionPlan || [])
 const projectTitle = computed(() => result.value?.overview || result.value?.title || (result.value?.userIntent ? '当前项目' : '新建项目'))
 const projectModeLabel = computed(() => result.value?.id ? 'Active Project' : 'Idea Workspace')
 const visibleFeatures = computed(() => (result.value?.features || []).slice(0, 6))
@@ -212,14 +211,6 @@ const insightScreenPlanTitle = computed(() => experienceBrief.value?.screenPlanT
 const insightFooterText = computed(() => experienceBrief.value?.nextStepNarrative || '')
 const insightWhyThisStructure = computed(() => experienceBrief.value?.whyThisStructure || experienceBrief.value?.rationale || '')
 const insightVisualDirection = computed(() => experienceBrief.value?.visualDirection || null)
-const insightScreenCards = computed(() => experienceScreens.value.slice(0, 4))
-const screenRoleLabel = (role) => {
-  if (role === 'PRIMARY') return '核心页面'
-  if (role === 'OVERLAY') return '详情/浮层'
-  if (role === 'PERSONAL') return '个人视图'
-  if (role === 'UTILITY') return '辅助入口'
-  return role || '页面'
-}
 const logTrailItems = computed(() => {
   if (operationTrail.value.length) return operationTrail.value.slice(-3)
   if (recentLogs.value.length) return recentLogs.value.slice(-3).map((item) => item.msg)
@@ -1014,46 +1005,6 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
                 </ul>
               </div>
 
-              <div v-if="insightScreenCards.length" class="space-y-3">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">页面编排与关键操作</p>
-                <div
-                    v-for="screen in insightScreenCards"
-                    :key="screen.id"
-                    class="rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
-                  <div class="flex items-start justify-between gap-3">
-                    <div>
-                      <p class="text-[14px] font-semibold text-white">{{ screen.title }}</p>
-                      <p class="mt-1 text-[11px] tracking-[0.16em] text-white/40">{{ screenRoleLabel(screen.role) }}</p>
-                    </div>
-                    <span
-                        class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                      {{ screen.layoutHint }}
-                    </span>
-                  </div>
-                  <div class="mt-3 space-y-2 text-[13px] leading-6 text-gray-300">
-                    <p>{{ screen.contentFocus }}</p>
-                    <p>{{ screen.layoutNarrative }}</p>
-                    <p class="text-white/80">{{ screen.actionLayout }}</p>
-                  </div>
-                  <div v-if="screen.keyModules?.length" class="mt-3 flex flex-wrap gap-2">
-                    <span
-                        v-for="module in screen.keyModules.slice(0, 5)"
-                        :key="`${screen.id}-${module}`"
-                        class="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] text-white/60">
-                      {{ module }}
-                    </span>
-                  </div>
-                  <div v-if="screen.primaryActions?.length" class="mt-3 flex flex-wrap gap-2">
-                    <span
-                        v-for="action in screen.primaryActions"
-                        :key="`${screen.id}-${action}`"
-                        class="rounded-full bg-white px-2.5 py-1 text-[11px] font-medium text-black">
-                      {{ action }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
               <div v-if="insightVisualDirection" class="space-y-3">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">视觉风格</p>
                 <div
@@ -1073,22 +1024,6 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
                   <p class="mt-2"><span class="font-semibold text-white">图文：</span>{{
                       insightVisualDirection.imagery
                     }}</p>
-                </div>
-              </div>
-
-              <div v-if="experienceExecutionPlan.length" class="space-y-3">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/45">执行步骤</p>
-                <div class="space-y-2">
-                  <div
-                      v-for="(step, idx) in experienceExecutionPlan"
-                      :key="step"
-                      class="flex items-start gap-3 rounded-[20px] border border-white/8 bg-black/20 px-4 py-3 text-[13px] leading-6 text-gray-300">
-                    <span
-                        class="mt-[2px] inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-black">
-                      {{ idx + 1 }}
-                    </span>
-                    <span>{{ step }}</span>
-                  </div>
                 </div>
               </div>
 
