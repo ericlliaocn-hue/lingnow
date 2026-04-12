@@ -48,9 +48,29 @@
           </div>
         </div>
 
-        <router-link class="text-sm font-medium hover:text-cyan-400 transition-colors text-gray-400" to="/login">
-          {{ t('nav.login') }}
-        </router-link>
+        <template v-if="isAuthenticated">
+          <button
+              class="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs font-black uppercase tracking-widest text-cyan-300 transition-all hover:border-cyan-400/40 hover:bg-cyan-500/15"
+              @click="router.push('/workbench')">
+            {{ t('nav.workspace') }}
+          </button>
+          <div class="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+            <span class="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Online</span>
+            <span class="text-sm font-bold text-white">{{ user?.username || 'User' }}</span>
+            <button
+                class="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-gray-400 transition-all hover:border-red-400/30 hover:text-red-300"
+                @click="handleHomeLogout">
+              {{ t('nav.logout') }}
+            </button>
+          </div>
+        </template>
+        <a
+            v-else
+            :href="authEntryHref"
+            class="relative z-10 cursor-pointer text-sm font-medium text-gray-400 transition-colors hover:text-cyan-400"
+            @click.prevent="goToAuthEntry">
+          {{ authEntryLabel }}
+        </a>
       </div>
     </nav>
 
@@ -99,7 +119,7 @@
             <textarea
                 v-model="prompt"
                 :placeholder="t('hero.placeholder')"
-                class="w-full bg-transparent border-none focus:ring-0 text-xl md:text-2xl text-white placeholder-gray-600 resize-none h-32 leading-tight"
+                class="h-32 w-full resize-none border-0 bg-transparent text-xl leading-tight text-white outline-none ring-0 placeholder:text-gray-600 focus:border-0 focus:outline-none focus:ring-0 md:text-2xl"
             ></textarea>
           </div>
           <div class="flex justify-between items-center px-4 pb-4">
@@ -142,8 +162,9 @@
 </template>
 
 <script setup>
-import {onMounted, onUnmounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref} from 'vue'
 import {useRouter} from 'vue-router'
+import axios from 'axios'
 import {store} from '../store'
 import BrandFooter from '../components/BrandFooter.vue'
 
@@ -151,6 +172,7 @@ const router = useRouter()
 const prompt = ref('')
 const scrolled = ref(false)
 const currentLang = ref(localStorage.getItem('lang') || 'cn')
+const user = ref(null)
 
 const setLang = (lang) => {
   currentLang.value = lang
@@ -165,6 +187,8 @@ const i18n = {
       pricing: 'Pricing',
       showcase: 'Showcase',
       login: 'Log in',
+      workspace: 'Workbench',
+      logout: 'Log out',
       getStarted: 'Get Started',
       docs: 'Docs',
       updates: 'Updates'
@@ -218,6 +242,8 @@ const i18n = {
       pricing: '定价',
       showcase: '案例',
       login: '登录',
+      workspace: '工作台',
+      logout: '退出登录',
       getStarted: '即刻开始',
       docs: '文档',
       updates: '动态'
@@ -272,6 +298,18 @@ const t = (path) => {
   return res || path
 }
 
+const syncUser = () => {
+  try {
+    user.value = JSON.parse(localStorage.getItem('user') || 'null')
+  } catch (e) {
+    user.value = null
+  }
+}
+
+const isAuthenticated = computed(() => !!user.value?.token)
+const authEntryHref = computed(() => isAuthenticated.value ? '/workbench' : '/login')
+const authEntryLabel = computed(() => isAuthenticated.value ? t('nav.workspace') : t('nav.login'))
+
 
 
 const startGeneration = () => {
@@ -279,15 +317,53 @@ const startGeneration = () => {
 
   // Show Loading Animation for Demo
   store.isLoading = true
+  sessionStorage.setItem('lingnow_seed_prompt', prompt.value.trim())
+  sessionStorage.setItem('lingnow_seed_trail', JSON.stringify([
+    '输入需求',
+    prompt.value.trim()
+  ]))
 
-  setTimeout(() => {
-    store.isLoading = false
-    // Navigate to workbench
+  if (!isAuthenticated.value) {
+    setTimeout(() => {
+      store.isLoading = false
+      router.push({
+        path: '/workbench',
+        query: {p: prompt.value}
+      })
+    }, 1200)
+    return
+  }
+
+  const userToken = user.value?.token
+  const sessionId = `session-${Date.now()}`
+  axios.post('/api/generate/plan', {
+    prompt: prompt.value,
+    sessionId,
+    lang: currentLang.value === 'cn' ? 'ZH' : 'EN'
+  }, {
+    headers: userToken ? {satoken: userToken} : {}
+  }).then(() => {
+    router.push(`/project/${sessionId}`)
+  }).catch((err) => {
+    console.error('Home plan generation failed, falling back to workbench route', err)
     router.push({
       path: '/workbench',
       query: {p: prompt.value}
     })
-  }, 2000)
+  }).finally(() => {
+    store.isLoading = false
+  })
+}
+
+const goToAuthEntry = () => {
+  syncUser()
+  router.push(isAuthenticated.value ? '/workbench' : '/login')
+}
+
+const handleHomeLogout = () => {
+  localStorage.removeItem('user')
+  syncUser()
+  router.push('/')
 }
 
 const handleScroll = () => {
@@ -295,11 +371,14 @@ const handleScroll = () => {
 }
 
 onMounted(() => {
+  syncUser()
   window.addEventListener('scroll', handleScroll)
+  window.addEventListener('storage', syncUser)
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('storage', syncUser)
 })
 
 

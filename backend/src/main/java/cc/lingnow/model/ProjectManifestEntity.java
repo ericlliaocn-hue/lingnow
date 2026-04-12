@@ -72,6 +72,9 @@ public class ProjectManifestEntity {
     @Column(columnDefinition = "LONGTEXT")
     private String mockData; // Captured JSON mock data
 
+    @Column(columnDefinition = "LONGTEXT")
+    private String prototypeBundleJson; // Structured intermediate artifact
+
     @Column(columnDefinition = "TEXT")
     private String dependenciesJson;
 

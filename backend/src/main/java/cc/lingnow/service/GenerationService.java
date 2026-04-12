@@ -4,6 +4,7 @@ import cc.lingnow.dto.GenerateRequest;
 import cc.lingnow.dto.GenerateResponse;
 import cc.lingnow.dto.ProjectHistoryDto;
 import cc.lingnow.model.ProjectManifest;
+import cc.lingnow.model.PrototypeBundle;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ public class GenerationService {
     private final ManifestContractValidator manifestContractValidator;
     private final DataEngineerAgent dataEngineerAgent;
     private final VisualDNAAgent visualDNAAgent;
+    private final PrototypeBundleCompiler prototypeBundleCompiler;
     private final UiDesignerAgent designerAgent;
     private final FunctionalAuditorAgent functionalAuditorAgent;
     private final AutoRepairAgent autoRepairAgent;
@@ -54,9 +56,13 @@ public class GenerationService {
 
         architectAgent.analyze(manifest);
         manifestContractValidator.normalize(manifest);
+        PrototypeBundle initialBundle = prototypeBundleCompiler.compile(manifest);
         manifest.getMetaData().put("design_ready", "false");
         manifest.getMetaData().put("data_ready", "false");
         manifest.getMetaData().put("visual_ready", "false");
+        if (initialBundle != null) {
+            manifest.getMetaData().put("bundle_ready", "true");
+        }
         
         manifestRegistry.save(manifest);
         
@@ -332,6 +338,8 @@ public class GenerationService {
             visualDNAAgent.synthesize(manifest);
             manifest.getMetaData().put("visual_ready", "true");
         }
+
+        prototypeBundleCompiler.compile(manifest);
     }
 
     private boolean shouldRebuildFromShape(ProjectManifest manifest, FunctionalAuditorAgent.AuditOutcome auditOutcome) {

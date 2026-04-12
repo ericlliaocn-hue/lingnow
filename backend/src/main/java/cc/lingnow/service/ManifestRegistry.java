@@ -96,6 +96,7 @@ public class ManifestRegistry {
                 .taskFlowsJson(JsonUtils.toJson(m.getTaskFlows()))
                 .designContractJson(JsonUtils.toJson(m.getDesignContract()))
                 .mockData(m.getMockData())
+                .prototypeBundleJson(JsonUtils.toJson(m.getPrototypeBundle()))
                 .uxStrategyJson(JsonUtils.toJson(m.getUxStrategy()))
                 .archetype(m.getArchetype())
                 .owner(username) 
@@ -129,6 +130,8 @@ public class ManifestRegistry {
                 .designContract(JsonUtils.fromJson(e.getDesignContractJson(), new TypeReference<>() {
                 }))
                 .mockData(e.getMockData())
+                .prototypeBundle(JsonUtils.fromJson(e.getPrototypeBundleJson(), new TypeReference<>() {
+                }))
                 .uxStrategy(JsonUtils.fromJson(e.getUxStrategyJson(), new TypeReference<>() {
                 }))
                 .archetype(e.getArchetype())

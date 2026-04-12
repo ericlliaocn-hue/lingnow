@@ -30,6 +30,7 @@ public class ProjectManifest {
     private List<TaskFlow> taskFlows;
     private DesignContract designContract;
     private String mockData;       // Simulated JSON data
+    private PrototypeBundle prototypeBundle; // Structured intermediate compiler artifact
     private Map<String, String> techStack;
     
     // DESIGNING phase products

@@ -1,24 +1,32 @@
 <script setup>
-import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
 import axios from 'axios'
 import {
+  ArrowUpRight,
   Box,
   Globe,
+  Hand,
   History,
+  Image,
   Layers,
   Layout,
   Loader2,
-  LogOut,
   Monitor,
+  MousePointer2,
+  Palette,
   PanelRight,
+  Play,
+  Pointer,
   Send,
+  Share2,
   Smartphone,
   Sparkles,
+  SquareDashedMousePointer,
+  Star,
   Tablet,
   Terminal,
-  X,
-  Zap
+  X
 } from 'lucide-vue-next'
 import {Sandpack} from 'sandpack-vue3'
 
@@ -140,6 +148,69 @@ const sandpackFiles = computed(() => {
   return files
 })
 
+const experienceBrief = computed(() => result.value?.prototypeBundle?.experienceBrief || null)
+const experienceScreens = computed(() => experienceBrief.value?.screens || [])
+const experienceTraits = computed(() => experienceBrief.value?.inferredTraits || [])
+const experienceExecutionPlan = computed(() => experienceBrief.value?.executionPlan || [])
+const projectTitle = computed(() => result.value?.overview || result.value?.title || (result.value?.userIntent ? '当前项目' : '新建项目'))
+const projectModeLabel = computed(() => result.value?.id ? 'Active Project' : 'Idea Workspace')
+const visibleFeatures = computed(() => (result.value?.features || []).slice(0, 6))
+const loopPreview = computed(() => (experienceBrief.value?.primaryLoopSteps || []).slice(0, 4))
+const showPlanCta = computed(() => !isDesignStarted.value && result.value?.status === 'PLANNING')
+const latestSnapshots = computed(() => [...snapshots.value].reverse().slice(0, 4))
+const recentLogs = computed(() => runtimeLogs.value.slice(-4).reverse())
+const workbenchPlaceholder = computed(() => locale.value === 'ZH'
+    ? '描述产品目标、参考对象、核心页面或关键流程...'
+    : 'Describe the product goal, references, key screens, or core flow...')
+const projectLabel = computed(() => {
+  const source = (
+      experienceBrief.value?.referenceSignal
+      || result.value?.overview
+      || result.value?.title
+      || result.value?.userIntent?.split(/[，。,.]/)[0]
+      || prompt.value.split(/[，。,.]/)[0]
+      || ''
+  ).trim()
+  if (!source) return '新建项目'
+  return source.length > 12 ? `${source.slice(0, 12)}…` : source
+})
+const showCanvasControls = computed(() => isWorkbenchMode.value && (activeTab.value === 'design' || activeTab.value === 'preview'))
+const commandActionLabel = computed(() => {
+  if (showPlanCta.value) return '确认理解'
+  if (result.value?.id) return '继续生成'
+  return i18n.value.action
+})
+const logExpanded = ref(false)
+const insightDrawerOpen = ref(true)
+const insightContentVisible = ref(true)
+const operationTrail = ref([])
+const seedPlanTriggered = ref(false)
+let insightDrawerTimer = null
+const hasInsightPayload = computed(() => activeTab.value === 'plan')
+const hasResolvedInsight = computed(() => !!experienceBrief.value)
+const insightHeaderLabel = computed(() => experienceBrief.value?.referenceSignal || projectLabel.value)
+const compactScreenBullet = (title) => {
+  const text = String(title || '').trim()
+  if (!text) return {label: '', desc: ''}
+  const parts = text.split(/[，,:：]/)
+  const label = parts[0]?.trim() || text
+  const desc = text.slice(label.length).replace(/^[，,:：\s]+/, '').trim()
+  return {label, desc}
+}
+const insightScreenBullets = computed(() => {
+  const bullets = experienceBrief.value?.screenBullets
+  if (bullets?.length) return bullets
+  return []
+})
+const insightIntro = computed(() => experienceBrief.value?.introduction || '')
+const insightScreenPlanTitle = computed(() => experienceBrief.value?.screenPlanTitle || '')
+const insightFooterText = computed(() => experienceBrief.value?.nextStepNarrative || '')
+const logTrailItems = computed(() => {
+  if (operationTrail.value.length) return operationTrail.value.slice(-3)
+  if (recentLogs.value.length) return recentLogs.value.slice(-3).map((item) => item.msg)
+  return []
+})
+
 const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
 const isAuthenticated = computed(() => !!user.value?.token)
 
@@ -240,6 +311,62 @@ const formatDate = (timestamp) => {
   })
 }
 
+const pushOperationTrail = (label) => {
+  const text = String(label || '').trim()
+  if (!text) return
+  if (operationTrail.value[operationTrail.value.length - 1] === text) return
+  operationTrail.value = [...operationTrail.value, text].slice(-10)
+}
+
+const loadSeedTrail = () => {
+  try {
+    const raw = sessionStorage.getItem('lingnow_seed_trail')
+    if (!raw || operationTrail.value.length) return
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length) {
+      operationTrail.value = parsed.map((item) => String(item || '').trim()).filter(Boolean).slice(-10)
+      if (operationTrail.value.length) {
+        logExpanded.value = true
+      }
+    }
+  } catch (e) {
+    // ignore malformed seed trail
+  }
+}
+
+const toggleInsightDrawer = () => {
+  if (insightDrawerTimer) {
+    clearTimeout(insightDrawerTimer)
+    insightDrawerTimer = null
+  }
+
+  if (insightDrawerOpen.value) {
+    insightContentVisible.value = false
+    insightDrawerTimer = setTimeout(() => {
+      insightDrawerOpen.value = false
+      insightDrawerTimer = null
+    }, 140)
+    return
+  }
+
+  insightDrawerOpen.value = true
+  insightDrawerTimer = setTimeout(() => {
+    insightContentVisible.value = true
+    insightDrawerTimer = null
+  }, 220)
+}
+
+const maybeTriggerSeedPlan = async () => {
+  const seedPrompt = typeof route.query.p === 'string' ? route.query.p.trim() : ''
+  if (!seedPrompt || seedPlanTriggered.value || result.value || route.params.id || loading.value) {
+    return
+  }
+  seedPlanTriggered.value = true
+  prompt.value = seedPrompt
+  await nextTick()
+  await handleGenerate()
+}
+
 // Hybrid Map State
 const renderFailed = ref(false)
 const treeData = ref(null)
@@ -331,7 +458,9 @@ const responseInterceptorId = axios.interceptors.response.use(
 const handleLogout = () => {
   user.value = null
   localStorage.removeItem('user')
-  enterLoginState('请重新登录继续使用 LingNow')
+  isHistoryOpen.value = false
+  result.value = null
+  router.push('/')
 }
 
 watch(isDebugMode, (newVal) => {
@@ -361,8 +490,15 @@ onMounted(async () => {
     return
   }
 
+  if (typeof route.query.p === 'string' && route.query.p.trim() && !prompt.value.trim()) {
+    prompt.value = route.query.p.trim()
+  }
+  loadSeedTrail()
+
   if (route.params.id) {
     loadProject(route.params.id)
+  } else {
+    await maybeTriggerSeedPlan()
   }
   fetchHistory() // Ensure history is loaded on mount
   window.addEventListener('message', (event) => {
@@ -390,6 +526,14 @@ onMounted(async () => {
       if (runtimeLogs.value.length > 50) runtimeLogs.value.shift()
     }
   })
+})
+
+watch(() => route.query.p, (newPrompt) => {
+  if (typeof newPrompt === 'string' && newPrompt.trim() && !result.value) {
+    prompt.value = newPrompt.trim()
+    loadSeedTrail()
+    maybeTriggerSeedPlan()
+  }
 })
 
 onUnmounted(() => {
@@ -467,7 +611,6 @@ const handleGenerate = async () => {
 
   const sessionId = result.value ? currentSessionId.value : `session-${Date.now()}`
   currentSessionId.value = sessionId
-
   try {
     const planRes = await axios.post('/api/generate/plan', {
       prompt: prompt.value,
@@ -476,8 +619,14 @@ const handleGenerate = async () => {
     })
 
     result.value = normalizeWorkbenchResult(planRes.data)
+    pushOperationTrail('完成需求理解')
+    if (result.value?.prototypeBundle?.experienceBrief?.referenceSignal) {
+      pushOperationTrail(result.value.prototypeBundle.experienceBrief.referenceSignal)
+    }
     activeTab.value = 'plan' // Switch to Plan tab to show the mindmap
     isDesignStarted.value = false
+    insightDrawerOpen.value = true
+    insightContentVisible.value = true
     
     if (route.params.id !== sessionId) {
       router.push(`/project/${sessionId}`)
@@ -506,8 +655,11 @@ const handleStartDesign = async () => {
       mindMap: activeMindMap
     })
     result.value = normalizeWorkbenchResult(designRes.data)
+    pushOperationTrail('确认理解，开始生成原型')
     isDesignStarted.value = true
     activeTab.value = 'design'
+    insightDrawerOpen.value = false
+    insightContentVisible.value = false
     fetchHistory()
   } catch (err) {
     if (isAuthError(err)) return
@@ -553,8 +705,11 @@ const handleRollback = async (version) => {
       version: version
     })
     result.value = normalizeWorkbenchResult(res.data)
+    pushOperationTrail(`回滚到 ${formatVersionLabel(version)}`)
     isDesignStarted.value = !!result.value?.prototypeHtml
     activeTab.value = 'design'
+    insightDrawerOpen.value = false
+    insightContentVisible.value = false
   } catch (err) {
     if (isAuthError(err)) return
     alert('Rollback failed')
@@ -570,6 +725,7 @@ const handleConfirm = async () => {
       sessionId: currentSessionId.value
     })
     result.value = normalizeWorkbenchResult(response.data)
+    pushOperationTrail('进入源码与交付')
     isDesignStarted.value = true
     activeTab.value = 'preview'
   } catch (err) {
@@ -691,7 +847,9 @@ const resetProject = () => {
   generationPhase.value = 'idle'
   activeTab.value = 'plan'
   isDesignStarted.value = false
-  if (route.path !== '/') router.push('/')
+  insightDrawerOpen.value = false
+  seedPlanTriggered.value = false
+  if (route.path !== '/workbench') router.push('/workbench')
 }
 
 watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([tab, id, map]) => {
@@ -708,371 +866,333 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
 </script>
 
 <template>
-  <div class="h-screen min-h-screen flex flex-col bg-black text-gray-300 select-none overflow-hidden">
-    <nav
-        class="h-16 flex items-center justify-between px-8 border-b border-white/5 bg-black/40 backdrop-blur-3xl z-40 shrink-0">
-      <div class="flex items-center gap-6">
-        <div class="flex items-center gap-3 cursor-pointer group" @click="resetProject">
-          <div
-              class="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-blue-500/20 transition-all">
-            <Zap class="w-6 h-6 text-white fill-current"/>
-          </div>
-          <h1 class="text-xl font-black text-white tracking-tighter uppercase italic">LingNow</h1>
-        </div>
+  <div class="relative h-screen min-h-screen overflow-hidden bg-[#0f1012] text-gray-200">
+    <div class="workspace-grid pointer-events-none absolute inset-0"></div>
+    <div class="relative h-full overflow-hidden">
+      <div
+          class="pointer-events-none absolute left-1/2 top-24 h-[320px] w-[720px] -translate-x-1/2 rounded-full bg-cyan-500/8 blur-[120px]"></div>
+      <div
+          class="pointer-events-none absolute bottom-[-120px] right-[-80px] h-[360px] w-[360px] rounded-full bg-violet-600/10 blur-[120px]"></div>
 
-        <div v-if="isWorkbenchMode" class="flex bg-white/5 p-1 rounded-xl border border-white/5 ml-4">
+      <main class="relative h-full overflow-hidden">
+        <div class="absolute left-6 top-6 z-30 flex max-w-[360px] items-center gap-4">
           <button
-              v-for="t in [{id: 'plan', icon: Layers, label: '功能架构'},{id: 'design', icon: Layout, label: '核心原型'},{id: 'code', icon: Terminal, label: i18n.tab_source},{id: 'preview', icon: Box, label: i18n.tab_sandbox}]"
-              :key="t.id"
-              :class="[activeTab === t.id ? 'bg-white/10 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300']"
-              class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all"
-              @click="activeTab = t.id"
-          >
-            <component :is="t.icon" class="w-3.5 h-3.5"/>
-            {{ t.label }}
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/5 text-gray-200 shadow-2xl shadow-black/40 backdrop-blur-2xl transition-all hover:border-white/20 hover:bg-white/10"
+              @click="resetProject">
+            <PanelRight class="h-4 w-4"/>
           </button>
+          <h1 class="truncate text-[14px] font-semibold tracking-tight text-white/92">{{ projectLabel }}</h1>
         </div>
-      </div>
 
-      <div class="flex items-center gap-4">
-        <button
-            class="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 transition-all group"
-            @click="isHistoryOpen = !isHistoryOpen; if(isHistoryOpen) fetchHistory()">
-          <History class="w-4 h-4 group-hover:text-blue-400"/>
-          <span class="text-[10px] font-black uppercase tracking-widest">{{ i18n.history }}</span>
-        </button>
-        <button
-            class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5 hover:border-white/20 transition-all"
-            @click="toggleLang">
-          <Globe class="w-3.5 h-3.5 text-gray-500"/>
-          <span class="text-[10px] font-black">{{ i18n.switch_lang }}</span>
-        </button>
-        <div v-if="user" class="flex items-center gap-3 px-4 py-1.5 rounded-xl bg-white/5 border border-white/5">
-          <span class="text-xs font-bold text-gray-200">{{ user.username }}</span>
-          <button class="text-gray-600 hover:text-white transition-colors ml-2" @click="handleLogout">
-            <LogOut class="w-4 h-4"/>
-          </button>
-        </div>
-      </div>
-    </nav>
-
-    <div class="flex-1 min-h-0 flex overflow-hidden relative">
-      <main
-          :class="[isWorkbenchMode ? (isSidebarOpen ? 'w-[75%]' : 'w-full') : 'w-full flex items-center justify-center']"
-          class="relative flex-1 min-h-0 flex flex-col bg-[#111] overflow-hidden">
-        <div v-if="!isWorkbenchMode && !loading" class="max-w-2xl w-full px-6 text-center">
-          <h2 class="text-5xl font-black mb-4 tracking-tighter text-white uppercase italic">{{ i18n.welcome }}</h2>
-          <p class="text-gray-500 text-lg mb-12">{{ i18n.subtitle }}</p>
-          <div class="relative group max-w-xl mx-auto">
-            <textarea v-model="prompt" :placeholder="i18n.placeholder"
-                      class="w-full h-40 bg-white/5 border border-white/10 rounded-3xl p-6 text-lg text-white outline-none focus:ring-4 focus:ring-blue-500/20 transition-all"></textarea>
-            <button :disabled="!prompt.trim() || loading"
-                    class="absolute bottom-4 right-4 bg-blue-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2"
-                    @click="handleGenerate">
-              <Send class="w-5 h-5"/>
-              <span>{{ i18n.action }}</span>
+        <div v-if="isWorkbenchMode" class="absolute left-1/2 top-6 z-30 hidden -translate-x-1/2 xl:block">
+          <div class="flex items-center gap-1 rounded-full border border-white/10 bg-black/40 p-1 backdrop-blur-2xl">
+            <button
+                v-for="t in [{id: 'plan', icon: Layers, label: '设计理解'},{id: 'design', icon: Layout, label: '原型画布'},{id: 'code', icon: Terminal, label: i18n.tab_source},{id: 'preview', icon: Box, label: i18n.tab_sandbox}]"
+                :key="t.id"
+                :class="[activeTab === t.id ? 'bg-white text-black shadow-xl' : 'text-gray-400 hover:text-white']"
+                class="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black transition-all"
+                @click="activeTab = t.id"
+            >
+              <component :is="t.icon" class="h-3.5 w-3.5"/>
+              {{ t.label }}
             </button>
           </div>
         </div>
 
-        <div v-if="isWorkbenchMode"
-             class="h-12 bg-black/40 border-b border-white/5 flex items-center justify-center gap-4 shrink-0 px-4">
-          <div class="flex items-center bg-white/5 rounded-lg p-1 border border-white/5">
+        <div class="absolute right-6 top-6 z-30 flex items-center gap-3">
+          <button
+              class="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-gray-200 shadow-2xl shadow-black/40 backdrop-blur-2xl transition-all hover:border-white/20 hover:bg-white/10">
+            <Play class="h-5 w-5"/>
+          </button>
+          <button
+              class="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-gray-100 shadow-2xl shadow-black/40 backdrop-blur-2xl transition-all hover:border-white/20 hover:bg-white/10">
+            <ArrowUpRight class="h-5 w-5"/>
+            <span class="text-sm font-black">导出</span>
+          </button>
+          <button
+              class="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-gray-100 shadow-2xl shadow-black/40 backdrop-blur-2xl transition-all hover:border-white/20 hover:bg-white/10">
+            <Share2 class="h-5 w-5"/>
+            <span class="text-sm font-black">共享</span>
+          </button>
+          <div v-if="user"
+               class="flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur-2xl">
             <button
-                v-for="d in [{id:'desktop',icon:Monitor,label:'WEB视窗'},{id:'tablet',icon:Tablet,label:'平板视窗'},{id:'mobile',icon:Smartphone,label:'手机视窗'}]"
+                class="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-[11px] font-black text-gray-200 transition-all hover:border-white/20 hover:bg-white/10"
+                @click="toggleLang">
+              <Globe class="h-4 w-4 text-gray-500"/>
+              {{ locale }}
+            </button>
+            <button
+                class="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-[11px] font-black uppercase tracking-widest text-gray-200 transition-all hover:border-blue-400/30 hover:bg-white/10"
+                @click="isHistoryOpen = !isHistoryOpen; if(isHistoryOpen) fetchHistory()">
+              <History class="h-4 w-4"/>
+            </button>
+            <button
+                v-if="isWorkbenchMode && !isSidebarOpen"
+                class="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-2 text-[11px] font-black uppercase tracking-widest text-gray-200 transition-all hover:border-white/20 hover:bg-white/10"
+                @click="isSidebarOpen = true">
+              <PanelRight class="h-4 w-4"/>
+            </button>
+            <div
+                class="flex h-12 w-12 items-center justify-center rounded-full bg-sky-200/90 text-[16px] font-black text-slate-800">
+              {{ user.username?.slice(0, 1)?.toUpperCase() || 'U' }}
+            </div>
+          </div>
+        </div>
+
+        <div v-if="isWorkbenchMode && (activeTab === 'design' || activeTab === 'preview')"
+             class="absolute left-1/2 top-20 z-20 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-2xl">
+          <div class="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1">
+            <button
+                v-for="d in [{id:'desktop',icon:Monitor,label:'WEB'},{id:'tablet',icon:Tablet,label:'PAD'},{id:'mobile',icon:Smartphone,label:'MOBILE'}]"
                 :key="d.id"
                 :class="[deviceType === d.id ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300']"
-                class="p-1.5 rounded-md transition-all flex items-center gap-2"
+                class="flex items-center gap-2 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-all"
                 @click="deviceType = d.id">
-              <component :is="d.icon" class="w-4 h-4"/>
-              <span class="text-[9px] font-bold uppercase">{{ d.label }}</span>
+              <component :is="d.icon" class="h-3.5 w-3.5"/>
+              {{ d.label }}
             </button>
           </div>
           <button
-              :class="[isDebugMode ? 'bg-purple-600 text-white shadow-lg border-purple-500' : 'text-gray-500 border-white/10 hover:border-white/20']"
-              class="px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-tighter transition-all flex items-center gap-2"
+              :class="[isDebugMode ? 'border-purple-400/40 bg-purple-500/15 text-purple-200' : 'border-white/10 bg-white/5 text-gray-300 hover:border-white/20']"
+              class="flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-all"
               @click="isDebugMode = !isDebugMode">
-            <Sparkles class="w-3.5 h-3.5"/>
+            <Sparkles class="h-3.5 w-3.5"/>
             {{ isDebugMode ? '关闭透视' : '开启透视' }}
           </button>
         </div>
 
-        <div v-show="isWorkbenchMode"
-             class="flex-1 min-h-0 relative overflow-hidden flex justify-center bg-[#0d0d0d] no-scrollbar">
-          <transition name="fade">
-            <div v-show="activeTab === 'design'"
-                 class="absolute inset-0 transition-all duration-500 ease-in-out bg-[#0d0d0d]">
+        <transition name="drawer">
+          <div v-if="hasInsightPayload"
+               :class="[insightDrawerOpen ? 'w-[280px] min-h-[56px]' : 'w-[56px] h-[56px]']"
+               class="absolute left-6 top-24 z-20 overflow-hidden rounded-[30px] border border-white/10 bg-[#18191b]/94 shadow-2xl shadow-black/60 backdrop-blur-3xl transition-all duration-300">
+            <button
+                class="absolute left-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-2xl bg-white text-black transition-all hover:scale-[0.96]"
+                @click="toggleInsightDrawer">
+              <div class="flex items-center gap-1">
+                <span class="h-1.5 w-1.5 rounded-full bg-black"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-black"></span>
+                <span class="h-1.5 w-1.5 rounded-full bg-black"></span>
+              </div>
+            </button>
+            <div v-if="insightContentVisible"
+                 class="ml-12 flex items-center justify-between border-b border-white/5 px-5 py-4">
+              <span class="text-[12px] font-medium text-gray-400">{{ insightHeaderLabel }}</span>
+              <button class="text-white/50 transition hover:text-white" @click="toggleInsightDrawer">⌄</button>
+            </div>
+            <div v-if="insightContentVisible && hasResolvedInsight"
+                 class="max-h-[520px] space-y-5 overflow-auto px-5 py-5 no-scrollbar">
+              <div class="text-sm leading-8 text-gray-100">{{ insightIntro }}</div>
+
+              <div v-if="insightScreenBullets.length" class="space-y-3 text-sm leading-8 text-gray-300">
+                <p class="font-medium">{{ insightScreenPlanTitle }}</p>
+                <ul class="space-y-3">
+                  <li v-for="screen in insightScreenBullets" :key="screen.id" class="flex items-start gap-3">
+                    <span class="mt-[10px] h-1.5 w-1.5 rounded-full bg-white/70"></span>
+                    <div>
+                      <span class="font-semibold text-white/95">{{ screen.label }}</span>
+                      <span v-if="screen.desc" class="text-gray-300">：{{ screen.desc }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <p class="text-sm leading-8 text-gray-300">{{ insightFooterText }}</p>
+            </div>
+            <div v-else-if="insightContentVisible" class="px-5 py-5">
+              <div
+                  class="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-sm leading-7 text-gray-400">
+                正在分析需求，马上给出设计理解、页面计划和执行步骤。
+              </div>
+            </div>
+          </div>
+        </transition>
+
+        <div class="h-full overflow-auto px-6 pb-44 pt-24 no-scrollbar">
+          <div class="relative mx-auto min-h-full max-w-[1600px]">
+            <div v-if="activeTab === 'plan'" class="relative min-h-[840px]">
+            </div>
+
+            <section v-else-if="activeTab === 'design'" class="space-y-8">
               <div v-if="designStatusText"
-                   class="pointer-events-none absolute left-4 top-4 z-30 flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur">
+                   class="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/60 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white shadow-2xl backdrop-blur">
                 <Loader2 v-if="isDesignRefining" class="h-3.5 w-3.5 animate-spin text-blue-400"/>
                 <span :class="isDesignRefining ? 'text-blue-300' : 'text-emerald-300'">{{ designStatusText }}</span>
               </div>
-              <div :class="[deviceType === 'desktop' ? 'p-0' : 'p-12']"
-                   class="absolute inset-0 flex justify-center items-stretch overflow-auto no-scrollbar">
+
+              <div class="workspace-panel relative min-h-[780px] overflow-hidden rounded-[36px]">
+                <div :class="[deviceType === 'desktop' ? 'p-0' : 'p-10']"
+                     class="absolute inset-0 flex items-center justify-center overflow-auto no-scrollbar">
+                  <div
+                      :class="[deviceType === 'desktop' ? 'h-full w-full rounded-none border-0' : (deviceType === 'tablet' ? 'h-[95%] w-[820px] rounded-[2.75rem] border-[12px] border-[#1a1a1a]' : 'h-[90%] w-[390px] rounded-[2.75rem] border-[12px] border-[#1a1a1a]')]"
+                      class="relative overflow-hidden bg-white shadow-[0_50px_120px_rgba(0,0,0,0.6)] transition-all duration-700">
+                    <iframe :srcdoc="injectInspectScript(result?.prototypeHtml, isDebugMode)"
+                            class="absolute inset-0 z-10 h-full w-full border-none bg-white"
+                            frameborder="0"></iframe>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section v-else-if="activeTab === 'code'" class="workspace-panel rounded-[32px] p-10">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-[10px] font-black uppercase tracking-[0.25em] text-gray-500">Source Inventory</p>
+                  <h3 class="mt-2 text-2xl font-black text-white">源码资产清单</h3>
+                </div>
+              </div>
+              <div class="mt-8 grid gap-4">
+                <div v-for="(content, path) in result?.files" :key="path"
+                     class="flex items-center justify-between rounded-2xl border border-white/5 bg-black/20 p-4">
+                  <div class="flex items-center gap-3">
+                    <Terminal class="h-4 w-4 text-gray-500"/>
+                    <span class="text-sm font-mono text-gray-200">{{ path }}</span>
+                  </div>
+                  <span
+                      class="rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-gray-500">
+                    {{ content.length }} bytes
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section v-else class="workspace-panel overflow-hidden rounded-[36px] p-0">
+              <Sandpack
+                  :files="sandpackFiles"
+                  :options="{ editorHeight: 'calc(100vh - 220px)', externalResources: ['https://cdn.tailwindcss.com'] }"
+                  class="h-full"
+                  template="vue3"
+                  theme="dark"/>
+            </section>
+          </div>
+        </div>
+
+        <div class="absolute bottom-8 left-1/2 z-20 w-[min(680px,calc(100%-2rem))] -translate-x-1/2">
+          <div
+              class="rounded-[28px] border border-white/10 bg-black/55 px-5 py-4 shadow-2xl shadow-black/50 backdrop-blur-3xl">
+            <div class="flex items-start gap-3">
+              <textarea
+                  v-model="prompt"
+                  :placeholder="workbenchPlaceholder"
+                  class="h-20 min-h-[80px] flex-1 resize-none bg-transparent text-[15px] leading-7 text-white outline-none placeholder:text-gray-600"></textarea>
+              <button
+                  :disabled="loading || (!showPlanCta && !prompt.trim())"
+                  class="mt-1 inline-flex shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 text-sm font-black text-white transition-all hover:shadow-[0_0_24px_rgba(34,211,238,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
+                  @click="showPlanCta ? handleStartDesign() : handleGenerate()">
+                <Send class="h-4 w-4"/>
+                {{ commandActionLabel }}
+              </button>
+            </div>
+            <div class="mt-4 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <button
+                    class="rounded-xl border border-white/10 bg-white/5 p-2.5 text-gray-400 transition-all hover:border-white/20 hover:text-white"
+                    title="Upload Reference">
+                  <Terminal class="h-4 w-4"/>
+                </button>
+                <button
+                    class="rounded-xl border border-white/10 bg-white/5 p-2.5 text-gray-400 transition-all hover:border-white/20 hover:text-white"
+                    title="Voice Command">
+                  <Sparkles class="h-4 w-4"/>
+                </button>
+              </div>
+              <span class="text-[11px] text-gray-500">
+                {{ result?.id ? '沿用当前项目上下文' : '输入后直接开始规划' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+            class="absolute bottom-8 left-6 z-20 w-[320px] rounded-[28px] border border-white/10 bg-black/45 px-6 py-5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+          <button class="flex w-full items-center justify-between text-left" @click="logExpanded = !logExpanded">
+            <div class="flex items-center gap-3 text-white">
+              <Send class="h-4 w-4 text-white/85"/>
+              <span class="text-[14px] font-bold tracking-tight">智能体日志</span>
+            </div>
+            <span :class="logExpanded ? 'rotate-180' : ''"
+                  class="text-[14px] text-white/70 transition-transform">⌄</span>
+          </button>
+        </div>
+
+        <transition name="fade">
+          <div v-if="logExpanded"
+               class="absolute bottom-28 left-6 z-30 w-[320px] overflow-hidden rounded-[26px] border border-white/10 bg-[#161719]/94 shadow-2xl shadow-black/60 backdrop-blur-3xl">
+            <div class="space-y-2 px-4 py-4">
+              <div v-for="(item, idx) in logTrailItems" :key="item"
+                   :class="[idx === logTrailItems.length - 1 ? 'border-white/20 bg-white/10' : 'border-transparent bg-transparent']"
+                   class="flex items-center gap-3 rounded-full border px-4 py-3 text-white/95 transition-all">
                 <div
-                    :class="[deviceType === 'desktop' ? 'absolute inset-0 w-full h-full border-none shadow-none rounded-none' : (deviceType === 'tablet' ? 'w-[768px] h-[95%] rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden' : 'w-[375px] h-[90%] rounded-[3rem] border-[12px] border-[#1a1a1a] overflow-hidden')]"
-                    class="transition-all duration-700 relative origin-top shadow-[0_50px_120px_rgba(0,0,0,0.6)] flex justify-center shrink-0">
-                  <iframe :srcdoc="injectInspectScript(result?.prototypeHtml, isDebugMode)"
-                          class="absolute inset-0 w-full h-full border-none z-10 bg-white" frameborder="0"></iframe>
+                    class="flex h-5 w-5 items-center justify-center rounded-full border border-white/70 text-[11px] font-black">
+                  ✓
                 </div>
+                <span class="text-[13px] font-medium tracking-tight">{{ item }}</span>
+              </div>
+              <div v-if="!logTrailItems.length"
+                   class="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-xs leading-6 text-gray-500">
+                暂无实际操作轨迹，完成生成或继续操作后会在这里出现。
               </div>
             </div>
-          </transition>
-          <transition name="fade">
-            <div v-show="activeTab === 'plan'"
-                 class="h-full w-full overflow-auto p-12 bg-[#0d0d0d] flex flex-col items-center">
-              <div class="max-w-5xl w-full space-y-8">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <h2 class="text-3xl font-black text-white italic tracking-tighter uppercase">Architectural
-                      Blueprint</h2>
-                    <p class="text-gray-500 text-sm mt-1">AI 规划的功能逻辑脑图与交互架构</p>
-                  </div>
-                </div>
-                <div
-                    class="bg-white/5 border border-white/10 rounded-3xl p-12 overflow-x-auto min-h-[500px] flex items-center relative no-scrollbar">
-                  <!-- Horizontal Blueprint Tree (Native Vue) -->
-                  <div v-if="treeData" class="flex items-center py-8 animate-in slide-in-from-left duration-700">
-                    <div class="tree-root flex items-center">
-                      <!-- Root Node (Left) -->
-                      <div
-                          class="group relative px-8 py-4 bg-blue-600 text-white rounded-2xl font-black text-base shadow-2xl shadow-blue-500/20 border border-blue-400/50 shrink-0">
-                        <input v-model="treeData.name" class="bg-transparent border-none outline-none text-center min-w-[120px]"
-                               @blur="syncTreeToMindMap"/>
-                        <button class="absolute -bottom-10 left-1/2 -translate-x-1/2 p-2 bg-blue-500/20 text-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-blue-500 hover:text-white"
-                                @click="addChild(treeData)">
-                          <span class="text-xl leading-none">+</span>
-                        </button>
-                      </div>
+          </div>
+        </transition>
 
-                      <!-- Branches (Expanding to Right) -->
-                      <div class="tree-branches flex flex-col gap-16 ml-24 relative">
-                        <!-- Main Horizontal Connector from Root to Branch List -->
-                        <div class="absolute -left-20 top-1/2 w-20 h-px bg-blue-500/30"></div>
-                        <!-- Vertical Grouping Line -->
-                        <div v-if="treeData.children.length > 1"
-                             class="absolute -left-20 top-0 bottom-0 w-px bg-blue-500/20 my-4"></div>
-
-                        <div v-for="(child, idx) in treeData.children" :key="child.id"
-                             class="tree-node-group relative flex items-start gap-12">
-                          <!-- Horizontal Connector from Vertical Line to Branch -->
-                          <div class="absolute -left-20 top-6 w-20 h-px bg-blue-500/30"></div>
-
-                          <!-- Module Node (Middle) -->
-                          <div
-                              class="group relative px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-white font-bold text-sm hover:border-blue-500/50 transition-all shrink-0">
-                            <input v-model="child.name" class="bg-transparent border-none outline-none text-left min-w-[100px]"
-                                   @blur="syncTreeToMindMap"/>
-                            <div
-                                class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                              <button class="p-1.5 bg-blue-500/20 text-blue-500 rounded-md hover:bg-blue-500 hover:text-white"
-                                      @click="addChild(child)">
-                                <span class="text-xs">+</span></button>
-                              <button class="p-1.5 bg-red-500/20 text-red-500 rounded-md hover:bg-red-500 hover:text-white"
-                                      @click="removeChild(treeData, idx)">
-                                <span class="text-xs">×</span></button>
-                            </div>
-                          </div>
-
-                          <!-- Leaf Features (Right) -->
-                          <div v-if="child.children && child.children.length > 0"
-                               class="flex flex-col gap-4 py-1 relative">
-                            <!-- Vertical Feature Connectors -->
-                            <div v-if="child.children.length > 1"
-                                 class="absolute -left-6 top-5 bottom-5 w-px bg-white/5"></div>
-                            <div v-for="(sub, sIdx) in child.children" :key="sub.id"
-                                 class="group relative px-4 py-2 bg-white/5 border border-white/5 rounded-lg text-gray-400 text-xs hover:border-blue-500/30 transition-all flex items-center">
-                              <div class="absolute -left-6 top-1/2 -translate-y-1/2 w-6 h-px bg-white/5"></div>
-                              <input v-model="sub.name" class="bg-transparent border-none outline-none text-left min-w-[80px]"
-                                     @blur="syncTreeToMindMap"/>
-                              <div
-                                  class="absolute -right-16 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                                <button class="p-1.5 bg-blue-500/20 text-blue-500 rounded-md hover:bg-blue-500 hover:text-white"
-                                        @click="addChild(sub)">
-                                  <span class="text-xs">+</span></button>
-                                <button class="p-1 text-red-500 hover:text-red-400" @click="removeChild(child, sIdx)">
-                                  ×
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pb-24">
-                  <div v-for="f in result?.features" :key="f.name"
-                       class="p-6 bg-white/5 border border-white/5 rounded-2xl hover:border-blue-500/30 transition-all">
-                    <span class="text-[9px] font-black text-blue-500 uppercase tracking-widest">{{ f.priority }} PRIORITY</span>
-                    <h4 class="text-white font-bold mt-1">{{ f.name }}</h4>
-                    <p class="text-gray-500 text-xs mt-2 leading-relaxed">{{ f.description }}</p>
-                  </div>
-                </div>
-
-                <!-- Serial Flow Confirmation -->
-                <div v-if="!isDesignStarted && result?.status === 'PLANNING'"
-                     class="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-                  <button class="flex items-center gap-3 px-10 py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-full font-black text-xl shadow-[0_20px_50px_rgba(37,99,235,0.4)] transition-all"
-                          @click="handleStartDesign">
-                    <Sparkles class="w-6 h-6"/>
-                    确定脑图，开始生成视觉原型
-                  </button>
-                </div>
-              </div>
-            </div>
-          </transition>
-
-          <transition name="fade">
-            <div v-show="activeTab === 'code'" class="h-full w-full overflow-auto p-12 bg-[#0d0d0d]">
-              <div class="max-w-4xl mx-auto space-y-6">
-                <h2 class="text-xl font-black text-white italic tracking-tighter uppercase">Source Inventory</h2>
-                <div class="grid grid-cols-1 gap-4">
-                  <div v-for="(content, path) in result?.files" :key="path"
-                       class="p-4 bg-white/5 border border-white/5 rounded-xl flex items-center justify-between group">
-                    <div class="flex items-center gap-3">
-                      <Terminal class="w-4 h-4 text-gray-500"/>
-                      <span class="text-sm font-mono text-gray-300">{{ path }}</span>
-                    </div>
-                    <span class="text-[10px] text-gray-600 uppercase font-black">{{ content.length }} bytes</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </transition>
-
-          <transition name="fade">
-            <div v-show="activeTab === 'preview'" class="h-full w-full">
-              <Sandpack :files="sandpackFiles"
-                        :options="{ editorHeight: '100%', externalResources: ['https://cdn.tailwindcss.com'] }"
-                        class="h-full" template="vue3"
-                        theme="dark"/>
-            </div>
-          </transition>
+        <div class="absolute right-6 top-1/2 z-20 -translate-y-1/2">
+          <div
+              class="flex w-16 flex-col items-center gap-6 rounded-[36px] border border-white/10 bg-black/45 px-3 py-6 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+            <button class="text-white/90 transition hover:text-white">
+              <MousePointer2 class="h-6 w-6"/>
+            </button>
+            <button class="text-white/80 transition hover:text-white">
+              <SquareDashedMousePointer class="h-6 w-6"/>
+            </button>
+            <button class="rounded-full bg-white p-3 text-slate-900 shadow-lg">
+              <Pointer class="h-6 w-6"/>
+            </button>
+            <button class="text-white/80 transition hover:text-white">
+              <Hand class="h-6 w-6"/>
+            </button>
+            <button class="text-white/80 transition hover:text-white">
+              <Image class="h-6 w-6"/>
+            </button>
+            <div class="h-px w-8 bg-white/15"></div>
+            <button class="text-white/80 transition hover:text-white">
+              <Palette class="h-6 w-6"/>
+            </button>
+            <button class="text-white/80 transition hover:text-white">
+              <Star class="h-6 w-6"/>
+            </button>
+          </div>
         </div>
 
         <div v-if="loading"
-             class="absolute inset-0 bg-black/60 backdrop-blur-md z-max flex flex-col items-center justify-center gap-6">
-          <Loader2 class="w-16 h-16 text-blue-500 animate-spin"/>
-          <h3 class="text-xl font-bold tracking-widest text-white uppercase">{{ generationPhase }} IN PROGRESS...</h3>
+             class="absolute inset-0 z-max flex flex-col items-center justify-center gap-6 bg-black/65 backdrop-blur-md">
+          <Loader2 class="h-16 w-16 animate-spin text-blue-500"/>
+          <h3 class="text-xl font-bold uppercase tracking-widest text-white">{{ generationPhase }} IN PROGRESS...</h3>
+          <p class="text-sm text-gray-400">{{ i18n.loading_subtitle }}</p>
         </div>
       </main>
 
-      <aside v-if="isWorkbenchMode && isSidebarOpen"
-             class="w-[25%] border-l border-white/5 bg-black/40 backdrop-blur-3xl flex flex-col">
-        <div class="p-6 border-b border-white/5 bg-white/5 flex justify-between items-center"><span
-            class="text-[10px] font-black text-gray-500 uppercase tracking-widest">任务指挥部</span>
-          <button @click="isSidebarOpen = false">
-            <PanelRight class="w-4 h-4"/>
-          </button>
-        </div>
-        <div class="flex-1 p-6 overflow-auto space-y-8 no-scrollbar">
-          <!-- Current Version Info -->
-          <div class="flex items-center justify-between">
-            <span class="text-[10px] font-black text-blue-500 uppercase tracking-widest">Version Alpha</span>
-            <span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px] font-bold">v{{
-                currentVersion
-              }}</span>
-          </div>
-
-          <div v-if="result" class="bg-white/5 rounded-2xl p-4 border border-white/5">
-            <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest">当前目标</span>
-            <p class="text-xs text-gray-300 mt-1 leading-relaxed">{{ result.userIntent }}</p>
-          </div>
-
-          <!-- Inspector Toolbox -->
-          <div v-if="isDebugMode && selectedNode"
-               class="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div class="flex items-center justify-between border-b border-white/5 pb-2">
-              <span
-                  class="text-[10px] font-black text-purple-400 uppercase tracking-widest italic">Inspector Toolbox</span>
-              <span class="text-[10px] text-gray-600 font-mono">&lt;{{ selectedNode.tagName }}&gt;</span>
-            </div>
-
-            <div class="space-y-4">
-              <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-gray-500 uppercase">InnerText</label>
-                <textarea v-model="selectedNode.text" class="w-full bg-black border border-white/10 rounded-lg p-3 text-xs text-white focus:border-purple-500 transition-all no-scrollbar h-20"
-                          @input="updateNodeLive"></textarea>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                  <label class="text-[10px] font-bold text-gray-500 uppercase">Text Color</label>
-                  <input v-model="selectedNode.color" class="w-full bg-black border border-white/10 rounded-lg p-2 text-[10px] text-white font-mono" type="text"
-                         @input="updateNodeLive"/>
-                </div>
-                <div class="space-y-1.5">
-                  <label class="text-[10px] font-bold text-gray-500 uppercase">Background</label>
-                  <input v-model="selectedNode.backgroundColor" class="w-full bg-black border border-white/10 rounded-lg p-2 text-[10px] text-white font-mono" type="text"
-                         @input="updateNodeLive"/>
-                </div>
-              </div>
-
-              <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-gray-500 uppercase">Padding (CSS)</label>
-                <input v-model="selectedNode.padding" class="w-full bg-black border border-white/10 rounded-lg p-2 text-[10px] text-white font-mono" type="text"
-                       @input="updateNodeLive"/>
-              </div>
-
-              <button class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-                      @click="handleSaveSnapshot">
-                <Send class="w-3.5 h-3.5"/>
-                保存修改并迭代版本
-              </button>
-            </div>
-          </div>
-
-          <!-- History / Snapshots -->
-          <div v-if="snapshots.length > 0" class="space-y-4">
-            <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">存档历史 (Rollback)</span>
-            <div class="space-y-2">
-              <div v-for="s in [...snapshots].reverse()" :key="s.version"
-                   class="p-3 bg-white/5 border border-white/5 rounded-xl cursor-pointer hover:border-blue-500/40 transition-all flex items-center justify-between group"
-                   @click="handleRollback(s.version)">
-                <div class="flex flex-col">
-                  <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-black text-white group-hover:text-blue-400">v{{
-                        formatVersionLabel(s.version)
-                      }}</span>
-                    <span class="text-[8px] text-gray-600 font-mono">{{ formatDate(s.timestamp) }}</span>
-                  </div>
-                  <span class="text-[9px] text-gray-500 line-clamp-1">{{ s.summary || 'Snapshot' }}</span>
-                </div>
-                <History class="w-3.5 h-3.5 text-gray-700 group-hover:text-blue-500"/>
-              </div>
-            </div>
-          </div>
-
-          <button v-if="canStartCoding"
-                  class="w-full py-4 bg-white text-black font-black rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl"
-                  @click="handleConfirm">
-            立即编码交付
-          </button>
-        </div>
-      </aside>
-
       <transition name="drawer">
         <div v-if="isHistoryOpen"
-             class="absolute inset-y-0 right-0 z-[60] w-96 bg-[#0a0a0a]/90 backdrop-blur-3xl border-l border-white/10 shadow-[-20px_0_60px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden">
-          <div class="p-8 border-b border-white/5 flex items-center justify-between"><h2
-              class="text-xl font-black text-white italic tracking-tighter">项目档案库</h2>
+             class="absolute inset-y-0 right-0 z-[60] w-96 border-l border-white/10 bg-[#0a0a0a]/92 backdrop-blur-3xl shadow-[-20px_0_60px_rgba(0,0,0,0.8)]">
+          <div class="flex items-center justify-between border-b border-white/5 p-8">
+            <h2 class="text-xl font-black italic tracking-tighter text-white">项目档案库</h2>
             <button @click="isHistoryOpen = false">
-              <X class="w-5 h-5"/>
+              <X class="h-5 w-5"/>
             </button>
           </div>
-          <div class="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
+          <div class="space-y-3 overflow-y-auto p-4 no-scrollbar">
             <div v-for="proj in history" :key="proj.id"
-                 class="group p-5 bg-white/5 border border-white/5 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/30 transition-all relative overflow-hidden"
+                 class="group cursor-pointer rounded-2xl border border-white/5 bg-white/5 p-5 transition-all hover:border-blue-500/30 hover:bg-white/10"
                  @click="loadProject(proj.id)">
-              <div class="flex justify-between items-start mb-2">
-                <p class="text-xs text-white font-bold line-clamp-1 leading-relaxed flex-1">{{ proj.userIntent }}</p>
-                <span class="text-[8px] px-1.5 py-0.5 bg-blue-500/10 text-blue-500 rounded font-black">{{
+              <div class="mb-2 flex items-start justify-between">
+                <p class="flex-1 text-xs font-bold leading-relaxed text-white line-clamp-1">{{ proj.userIntent }}</p>
+                <span class="rounded bg-blue-500/10 px-1.5 py-0.5 text-[8px] font-black text-blue-500">{{
                     formatVersionLabel(proj.version)
                   }}</span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-[9px] text-gray-600 uppercase tracking-widest font-bold">{{ proj.status }}</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest text-gray-600">{{ proj.status }}</span>
                 <span class="text-[8px] text-gray-500">最后编辑: {{ formatDate(proj.lastModified) }}</span>
               </div>
             </div>
@@ -1124,6 +1244,20 @@ html, body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.workspace-grid {
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.14) 1px, transparent 1px),
+  linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0));
+  background-size: 18px 18px, 100% 100%;
+  opacity: 0.28;
+}
+
+.workspace-panel {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
 }
 
 /* Tree Styling (Horizontal) */

@@ -9,9 +9,13 @@ import {store} from '../store';
 
       <!-- Animated Logo Container -->
       <div class="relative w-32 h-32 flex items-center justify-center">
-        <!-- Main Logo Icon (Purely Transparent) -->
-        <div class="relative z-10 w-20 h-20 animate-spin-slow">
-          <img alt="Loading" class="w-full h-full object-contain" src="/logo-icon.png"/>
+        <div
+            class="relative z-10 flex h-24 w-24 items-center justify-center rounded-[28px] border border-white/10 bg-white/5 shadow-2xl shadow-cyan-500/10 backdrop-blur-xl">
+          <svg class="h-14 w-auto logo-heartbeat text-white fill-current" viewBox="0 0 100 100">
+            <rect height="50" rx="6" width="80" x="10" y="25"/>
+            <path d="M25 35 V65 H38 V35 L55 65 V35 H68 V65" fill="none" stroke="black" stroke-linecap="square"
+                  stroke-width="8"/>
+          </svg>
         </div>
       </div>
 
