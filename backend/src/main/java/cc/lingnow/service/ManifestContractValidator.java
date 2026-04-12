@@ -302,21 +302,6 @@ public class ManifestContractValidator {
                     "Q&A products should foreground questions, answer credibility, and verification-oriented reading flow.");
         }
 
-        if (discussionForum) {
-            return new ShapeProfile(true,
-                    ProjectManifest.PrimaryGoal.DISCUSS,
-                    ProjectManifest.ContentUnit.THREAD,
-                    ProjectManifest.ConsumptionMode.DISCUSS_FIRST,
-                    ProjectManifest.MediaWeight.MIXED,
-                    ProjectManifest.LayoutRhythm.THREAD,
-                    ProjectManifest.ContentDensity.HIGH,
-                    List.of(ProjectManifest.SignalPriority.DISCUSSION, ProjectManifest.SignalPriority.RECENCY),
-                    ProjectManifest.NavigationMode.SUBFORUM,
-                    ProjectManifest.MainLoop.POST_REPLY,
-                    ProjectManifest.UiTone.FORUM,
-                    "Forum-style communities prioritize thread lists, reply activity, and visible board navigation.");
-        }
-
         if (realtimeSocial) {
             return new ShapeProfile(true,
                     ProjectManifest.PrimaryGoal.DISCOVER,
@@ -332,21 +317,6 @@ public class ManifestContractValidator {
                     "Realtime social feeds need fast-scan cards, trend signals, and dense interaction controls.");
         }
 
-        if (editorialNews) {
-            return new ShapeProfile(false,
-                    ProjectManifest.PrimaryGoal.READ,
-                    ProjectManifest.ContentUnit.NEWS_STORY,
-                    ProjectManifest.ConsumptionMode.READ_FIRST,
-                    ProjectManifest.MediaWeight.MIXED,
-                    ProjectManifest.LayoutRhythm.EDITORIAL,
-                    ProjectManifest.ContentDensity.MEDIUM,
-                    List.of(ProjectManifest.SignalPriority.RECENCY, ProjectManifest.SignalPriority.EDITORIAL),
-                    ProjectManifest.NavigationMode.CHANNEL,
-                    ProjectManifest.MainLoop.READ_SAVE,
-                    ProjectManifest.UiTone.EDITORIAL,
-                    "Editorial information products need channelized reading flow, headlines, and recency-driven hierarchy.");
-        }
-
         if (visualDiscovery) {
             return new ShapeProfile(true,
                     ProjectManifest.PrimaryGoal.DISCOVER,
@@ -360,6 +330,36 @@ public class ManifestContractValidator {
                     ProjectManifest.MainLoop.SCROLL_DISCOVER,
                     ProjectManifest.UiTone.LIVELY,
                     "Visual discovery products benefit from image-led cards, save/heat signals, and waterfall browsing rhythm.");
+        }
+
+        if (discussionForum) {
+            return new ShapeProfile(true,
+                    ProjectManifest.PrimaryGoal.DISCUSS,
+                    ProjectManifest.ContentUnit.THREAD,
+                    ProjectManifest.ConsumptionMode.DISCUSS_FIRST,
+                    ProjectManifest.MediaWeight.MIXED,
+                    ProjectManifest.LayoutRhythm.THREAD,
+                    ProjectManifest.ContentDensity.HIGH,
+                    List.of(ProjectManifest.SignalPriority.DISCUSSION, ProjectManifest.SignalPriority.RECENCY),
+                    ProjectManifest.NavigationMode.SUBFORUM,
+                    ProjectManifest.MainLoop.POST_REPLY,
+                    ProjectManifest.UiTone.FORUM,
+                    "Forum-style communities prioritize thread lists, reply activity, and visible board navigation.");
+        }
+
+        if (editorialNews) {
+            return new ShapeProfile(false,
+                    ProjectManifest.PrimaryGoal.READ,
+                    ProjectManifest.ContentUnit.NEWS_STORY,
+                    ProjectManifest.ConsumptionMode.READ_FIRST,
+                    ProjectManifest.MediaWeight.MIXED,
+                    ProjectManifest.LayoutRhythm.EDITORIAL,
+                    ProjectManifest.ContentDensity.MEDIUM,
+                    List.of(ProjectManifest.SignalPriority.RECENCY, ProjectManifest.SignalPriority.EDITORIAL),
+                    ProjectManifest.NavigationMode.CHANNEL,
+                    ProjectManifest.MainLoop.READ_SAVE,
+                    ProjectManifest.UiTone.EDITORIAL,
+                    "Editorial information products need channelized reading flow, headlines, and recency-driven hierarchy.");
         }
 
         if (likelyCommunity) {

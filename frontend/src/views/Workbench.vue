@@ -1082,12 +1082,12 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
 
         <div class="absolute bottom-8 left-1/2 z-20 w-[min(680px,calc(100%-2rem))] -translate-x-1/2">
           <div
-              class="rounded-[28px] border border-white/10 bg-black/55 px-5 py-4 shadow-2xl shadow-black/50 backdrop-blur-3xl">
+              class="rounded-[28px] border border-white/14 bg-[#15171d]/90 px-5 py-4 shadow-2xl shadow-black/60 backdrop-blur-3xl">
             <div class="flex items-start gap-3">
               <textarea
                   v-model="prompt"
                   :placeholder="workbenchPlaceholder"
-                  class="h-20 min-h-[80px] flex-1 resize-none bg-transparent text-[15px] leading-7 text-white outline-none placeholder:text-gray-600"></textarea>
+                  class="h-20 min-h-[80px] flex-1 resize-none bg-transparent text-[15px] leading-7 text-white outline-none placeholder:text-white/32"></textarea>
               <button
                   :disabled="loading || (!showPlanCta && !prompt.trim())"
                   class="mt-1 inline-flex shrink-0 items-center gap-2 rounded-2xl bg-gradient-to-r from-cyan-500 to-violet-600 px-5 py-3 text-sm font-black text-white transition-all hover:shadow-[0_0_24px_rgba(34,211,238,0.35)] disabled:cursor-not-allowed disabled:opacity-50"
@@ -1117,7 +1117,7 @@ watch([activeTab, () => result.value?.id, () => result.value?.mindMap], async ([
         </div>
 
         <div
-            class="absolute bottom-8 left-6 z-20 w-[320px] rounded-[28px] border border-white/10 bg-black/45 px-6 py-5 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+            class="absolute bottom-8 left-6 z-20 w-[320px] rounded-[28px] border border-white/14 bg-[#15171d]/90 px-6 py-5 shadow-2xl shadow-black/60 backdrop-blur-2xl">
           <button class="flex w-full items-center justify-between text-left" @click="logExpanded = !logExpanded">
             <div class="flex items-center gap-3 text-white">
               <Send class="h-4 w-4 text-white/85"/>

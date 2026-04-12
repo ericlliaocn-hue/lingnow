@@ -203,8 +203,9 @@ public class UiDesignerAgent {
                 .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
                 .replace("{{LOGO_AREA}}", buildShellLogo(manifest))
                 .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, primaryRoutes, contentFirst))
+                .replace("{{PUBLISH_ACTION}}", buildContentPublishAction(manifest, routes))
                 .replace("{{UTILITY_BUTTONS}}", "")
-                .replace("{{PERSONAL_LINKS}}", "");
+                .replace("{{PERSONAL_LINKS}}", buildDeterministicPersonalLinks(manifest, routes));
 
         // Add Default Hash Init to prevent blank screen
         if (!primaryRoutes.isEmpty()) {
@@ -270,10 +271,12 @@ public class UiDesignerAgent {
             );
             case CONTENT -> new ShellCopy(
                     zh ? "发现你感兴趣的话题..." : "Discover topics you care about...",
-                    zh ? "发布" : "Post",
-                    zh ? "发布新内容" : "Create a new post",
-                    zh ? "写点什么分享你的灵感..." : "Share a thought, note, or inspiration...",
-                    zh ? "立即发布" : "Post now",
+                    isFashionIntent(manifest) ? (zh ? "发布笔记" : "Post look") : (zh ? "发布" : "Post"),
+                    isFashionIntent(manifest) ? (zh ? "发布穿搭笔记" : "Create a style post") : (zh ? "发布新内容" : "Create a new post"),
+                    isFashionIntent(manifest)
+                            ? (zh ? "写下今天的穿搭灵感、单品、尺码和搭配场景..." : "Share today's outfit, pieces, sizing, and styling context...")
+                            : (zh ? "写点什么分享你的灵感..." : "Share a thought, note, or inspiration..."),
+                    isFashionIntent(manifest) ? (zh ? "发布笔记" : "Publish look") : (zh ? "立即发布" : "Post now"),
                     "post"
             );
             case PIPELINE -> new ShellCopy(
@@ -450,6 +453,11 @@ public class UiDesignerAgent {
                 + (manifest.getOverview() == null ? "" : manifest.getOverview())).toLowerCase(Locale.ROOT);
     }
 
+    private boolean isFashionIntent(ProjectManifest manifest) {
+        String source = buildIntentSource(manifest);
+        return containsAny(source, "小红书", "穿搭", "ootd", "搭配", "lookbook", "种草", "时尚", "单品");
+    }
+
     private String buildShellThemeCss(ShellTheme shellTheme) {
         return """
                 :root {
@@ -581,6 +589,23 @@ public class UiDesignerAgent {
     }
 
     private List<Route> extractRoutes(ProjectManifest manifest) {
+        if (manifest != null && isContentFirst(manifest) && manifest.getPages() != null && !manifest.getPages().isEmpty()) {
+            List<Route> routesFromPages = new ArrayList<>();
+            int index = 1;
+            for (ProjectManifest.PageSpec page : manifest.getPages()) {
+                String role = page.getNavRole() == null ? "PRIMARY" : page.getNavRole();
+                if (!List.of("PRIMARY", "UTILITY", "PERSONAL").contains(role)) {
+                    continue;
+                }
+                String name = primaryRouteLabel(page);
+                String navType = page.getNavType() != null ? page.getNavType() : "NAV_ANCHOR";
+                routesFromPages.add(new Route("pg" + index++, name, navType));
+            }
+            if (!routesFromPages.isEmpty()) {
+                return routesFromPages;
+            }
+        }
+
         String mindMap = manifest.getMindMap();
         if (mindMap == null || mindMap.trim().isEmpty()) {
             log.warn("[Designer] Mindmap is empty. Attempting to fall back to page titles.");
@@ -614,6 +639,15 @@ public class UiDesignerAgent {
             routes.add(new Route(id, name, navType));
         }
         return routes;
+    }
+
+    private String primaryRouteLabel(ProjectManifest.PageSpec page) {
+        String description = safe(page.getDescription()).trim();
+        if (description.isBlank()) {
+            return safe(page.getRoute()).replace("/", "");
+        }
+        String[] parts = description.split("[，。:：]", 2);
+        return sanitizeRouteName(parts[0].trim());
     }
 
     private String sanitizeRouteName(String name) {
@@ -692,6 +726,7 @@ public class UiDesignerAgent {
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
                     .replace("{{LOGO_AREA}}", buildShellLogo(manifest))
                     .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, routes, true))
+                    .replace("{{PUBLISH_ACTION}}", buildContentPublishAction(manifest, routes))
                     .replace("{{UTILITY_BUTTONS}}", buildDeterministicUtilityButtons(manifest, routes))
                     .replace("{{PERSONAL_LINKS}}", buildDeterministicPersonalLinks(manifest, routes));
         }
@@ -763,6 +798,7 @@ public class UiDesignerAgent {
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow App")
                     .replace("{{LOGO_AREA}}", logoHtml)
                     .replace("{{SIDEBAR_NAV}}", sidebarHtml)
+                    .replace("{{PUBLISH_ACTION}}", buildContentPublishAction(manifest, routes))
                     .replace("{{UTILITY_BUTTONS}}", buildDeterministicUtilityButtons(manifest, routes))
                     .replace("{{PERSONAL_LINKS}}", buildDeterministicPersonalLinks(manifest, routes));
 
@@ -775,6 +811,7 @@ public class UiDesignerAgent {
                     .replace("{{TITLE}}", manifest.getOverview() != null ? manifest.getOverview() : "LingNow")
                     .replace("{{LOGO_AREA}}", buildShellLogo(manifest))
                     .replace("{{SIDEBAR_NAV}}", buildFallbackPrimaryNav(manifest, routes, contentFirst))
+                    .replace("{{PUBLISH_ACTION}}", buildContentPublishAction(manifest, routes))
                     .replace("{{UTILITY_BUTTONS}}", buildDeterministicUtilityButtons(manifest, routes))
                     .replace("{{PERSONAL_LINKS}}", buildDeterministicPersonalLinks(manifest, routes));
         }
@@ -917,6 +954,12 @@ public class UiDesignerAgent {
         if (isPhotographyIntent(manifest.getUserIntent() != null ? manifest.getUserIntent().toLowerCase(Locale.ROOT) : "")) {
             return buildPhotographyFallbackComponent(manifest, route, pageSpec);
         }
+        if (isContentFirst(manifest) && pageSpec != null && "PERSONAL".equalsIgnoreCase(pageSpec.getNavRole())) {
+            return buildContentProfileFallbackComponent(manifest, route, pageSpec);
+        }
+        if (isContentFirst(manifest) && pageSpec != null && "UTILITY".equalsIgnoreCase(pageSpec.getNavRole())) {
+            return buildContentPublishFallbackComponent(manifest, route, pageSpec);
+        }
         if (manifest.getDesignContract() != null && isContentFirst(manifest) && isContentFirstRoute(route)) {
             ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
             if (profile.layoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL) {
@@ -925,6 +968,122 @@ public class UiDesignerAgent {
             return buildStructuredFeedFallbackComponent(manifest, route, pageSpec, profile);
         }
         return buildGenericFallbackComponent(manifest, route, pageSpec);
+    }
+
+    private String buildContentProfileFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        return """
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-10 space-y-6">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
+                    <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                      <div class="flex items-center gap-4">
+                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256" class="h-20 w-20 rounded-full object-cover"/>
+                        <div>
+                          <div class="text-2xl font-black text-slate-900">__TITLE__</div>
+                          <div class="mt-2 text-sm text-slate-500">__DESC__</div>
+                          <div class="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
+                            <span class="rounded-full bg-slate-100 px-3 py-1">168cm / 52kg</span>
+                            <span class="rounded-full bg-slate-100 px-3 py-1">__TAG_A__</span>
+                            <span class="rounded-full bg-slate-100 px-3 py-1">__TAG_B__</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex flex-wrap gap-3">
+                        <button class="shell-primary-button rounded-full px-5 py-3 text-sm font-black text-white">__FOLLOW__</button>
+                        <button class="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">__MESSAGE__</button>
+                      </div>
+                    </div>
+                  </section>
+                  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <div class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+                      <h2 class="text-2xl font-black text-slate-900">__WORKS__</h2>
+                      <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <template x-for="item in [
+                          {title:'通勤西装 + 直筒裤', cover:'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200'},
+                          {title:'针织开衫 + 半裙', cover:'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200'},
+                          {title:'风衣旅行穿搭', cover:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200'}
+                        ]" :key="item.title">
+                          <article class="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
+                            <img :src="item.cover" class="aspect-[4/5] w-full object-cover"/>
+                            <div class="p-4 text-sm font-semibold text-slate-800" x-text="item.title"></div>
+                          </article>
+                        </template>
+                      </div>
+                    </div>
+                    <aside class="space-y-4">
+                      <section class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="text-sm font-black text-slate-900">__STATS__</div>
+                        <div class="mt-4 grid grid-cols-3 gap-3 text-center">
+                          <div class="rounded-2xl bg-slate-50 p-3"><div class="text-lg font-black text-slate-900">12.8k</div><div class="mt-1 text-[11px] text-slate-500">__FOLLOWERS__</div></div>
+                          <div class="rounded-2xl bg-slate-50 p-3"><div class="text-lg font-black text-slate-900">846</div><div class="mt-1 text-[11px] text-slate-500">__FOLLOWS__</div></div>
+                          <div class="rounded-2xl bg-slate-50 p-3"><div class="text-lg font-black text-slate-900">92</div><div class="mt-1 text-[11px] text-slate-500">__NOTES__</div></div>
+                        </div>
+                      </section>
+                    </aside>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", route.id)
+                .replace("__TITLE__", escapeHtml(route.name))
+                .replace("__DESC__", escapeHtml(pageSpec.getDescription()))
+                .replace("__TAG_A__", zh ? "通勤穿搭" : "Workwear")
+                .replace("__TAG_B__", zh ? "小个子" : "Petite")
+                .replace("__FOLLOW__", zh ? "关注作者" : "Follow")
+                .replace("__MESSAGE__", zh ? "发消息" : "Message")
+                .replace("__WORKS__", zh ? "作品集" : "Looks")
+                .replace("__STATS__", zh ? "账号数据" : "Stats")
+                .replace("__FOLLOWERS__", zh ? "粉丝" : "Followers")
+                .replace("__FOLLOWS__", zh ? "关注" : "Following")
+                .replace("__NOTES__", zh ? "笔记" : "Posts");
+    }
+
+    private String buildContentPublishFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
+        boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
+        return """
+                <div x-show="hash === '#__ID__'" class="animate-fade-in pb-10 space-y-6">
+                  <section class="rounded-[32px] border border-slate-200 bg-white p-7 shadow-sm">
+                    <h1 class="text-3xl font-black text-slate-900">__TITLE__</h1>
+                    <p class="mt-3 text-sm leading-7 text-slate-500">__DESC__</p>
+                  </section>
+                  <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                    <div class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+                      <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">__UPLOAD__</div>
+                      <input class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__TITLE_PLACEHOLDER__"/>
+                      <textarea class="h-40 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__BODY_PLACEHOLDER__"></textarea>
+                      <div class="grid gap-4 md:grid-cols-2">
+                        <input class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__TAG_PLACEHOLDER__"/>
+                        <input class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__SCENE_PLACEHOLDER__"/>
+                      </div>
+                      <div class="flex gap-3">
+                        <button class="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">__DRAFT__</button>
+                        <button class="shell-primary-button rounded-full px-5 py-3 text-sm font-black text-white">__SUBMIT__</button>
+                      </div>
+                    </div>
+                    <aside class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
+                      <div class="text-sm font-black text-slate-900">__CHECKLIST__</div>
+                      <div class="mt-4 space-y-3 text-sm text-slate-600">
+                        <div class="rounded-2xl bg-slate-50 p-4">1. __CHECK_A__</div>
+                        <div class="rounded-2xl bg-slate-50 p-4">2. __CHECK_B__</div>
+                        <div class="rounded-2xl bg-slate-50 p-4">3. __CHECK_C__</div>
+                      </div>
+                    </aside>
+                  </section>
+                </div>
+                """
+                .replace("__ID__", route.id)
+                .replace("__TITLE__", escapeHtml(route.name))
+                .replace("__DESC__", escapeHtml(pageSpec.getDescription()))
+                .replace("__UPLOAD__", zh ? "上传图片 / 视频并选择封面" : "Upload media and pick a cover")
+                .replace("__TITLE_PLACEHOLDER__", zh ? "写一个让人想点开的标题..." : "Write a title...")
+                .replace("__BODY_PLACEHOLDER__", zh ? "记录今天的穿搭灵感、单品信息和搭配场景..." : "Describe the look, pieces, and context...")
+                .replace("__TAG_PLACEHOLDER__", zh ? "话题 / 品牌 / 单品" : "Tags / brand / item")
+                .replace("__SCENE_PLACEHOLDER__", zh ? "场景 / 尺码 / 身材参考" : "Scene / size / fit note")
+                .replace("__DRAFT__", zh ? "保存草稿" : "Save draft")
+                .replace("__SUBMIT__", zh ? "发布笔记" : "Publish")
+                .replace("__CHECKLIST__", zh ? "发布前检查" : "Checklist")
+                .replace("__CHECK_A__", zh ? "封面和标题是否清楚" : "Cover and title ready")
+                .replace("__CHECK_B__", zh ? "是否补充单品与场景信息" : "Piece and scene details added")
+                .replace("__CHECK_C__", zh ? "是否添加标签与品牌" : "Tags and brands added");
     }
 
     private String buildGenericFallbackComponent(ProjectManifest manifest, Route route, ProjectManifest.PageSpec pageSpec) {
@@ -2301,6 +2460,9 @@ public class UiDesignerAgent {
         if (isPhotographySurface(profile)) {
             return buildPhotographySeededFeedJson(zh, count);
         }
+        if (isFashionSurface(profile)) {
+            return buildFashionSeededFeedJson(zh, count);
+        }
         if (isPetSurface(profile)) {
             return buildPetSeededFeedJson(zh, count);
         }
@@ -2711,6 +2873,12 @@ public class UiDesignerAgent {
                 "摄影", "photography", "photographer");
     }
 
+    private boolean isFashionSurface(ShapeSurfaceProfile profile) {
+        return profile != null && containsAny(
+                (profile.surfaceLabelZh() + " " + profile.surfaceLabelEn() + " " + profile.categoryFallbackZh()).toLowerCase(Locale.ROOT),
+                "穿搭", "时尚", "look", "outfit", "ootd");
+    }
+
     private boolean isStudySurface(ShapeSurfaceProfile profile) {
         return profile != null && containsAny(
                 (profile.surfaceLabelZh() + " " + profile.surfaceLabelEn() + " " + profile.categoryFallbackZh()).toLowerCase(Locale.ROOT),
@@ -3094,6 +3262,113 @@ public class UiDesignerAgent {
         }
     }
 
+    private String buildFashionSeededFeedJson(boolean zh, int count) {
+        List<Map<String, Object>> cards = new ArrayList<>();
+        cards.add(seedCard(
+                "id", "fashion-1",
+                "title", zh ? "158 小个子通勤穿搭：西装短外套 + 直筒裤真的很显高" : "A petite workwear look that actually elongates the frame",
+                "author", zh ? "小鹿今日穿什么" : "Lulu OOTD",
+                "avatar", "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=256",
+                "description", zh ? "今天这套把比例重点放在短外套和高腰裤，通勤稳妥又不会太板正。" : "Cropped blazer plus high-waist trousers keeps the commute look sharp without feeling stiff.",
+                "cover", "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200",
+                "location", zh ? "上海 · 通勤穿搭" : "Shanghai · Workwear",
+                "time", zh ? "12分钟前" : "12m ago",
+                "category", zh ? "通勤" : "Workwear",
+                "mediaType", zh ? "图文" : "Photo",
+                "likes", "2.4w",
+                "comments", "982",
+                "collects", "4.1k",
+                "tags", List.of(zh ? "小个子" : "Petite", zh ? "通勤穿搭" : "Workwear", zh ? "显高" : "Elongating")
+        ));
+        cards.add(seedCard(
+                "id", "fashion-2",
+                "title", zh ? "周末约会穿搭：针织开衫 + 缎面半裙，温柔但不无聊" : "A soft date-night look with knitwear and a satin skirt",
+                "author", zh ? "周末衣橱计划" : "Weekend Closet",
+                "avatar", "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=256",
+                "description", zh ? "这套比较适合春天约会，颜色低饱和但镜头里很有层次。" : "Muted tones, better texture, and enough shape to feel dressed without overdoing it.",
+                "cover", "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200",
+                "location", zh ? "杭州 · 周末穿搭" : "Hangzhou · Weekend",
+                "time", zh ? "36分钟前" : "36m ago",
+                "category", zh ? "约会" : "Date night",
+                "mediaType", zh ? "视频" : "Video",
+                "likes", "1.9w",
+                "comments", "764",
+                "collects", "3.2k",
+                "tags", List.of(zh ? "约会穿搭" : "Date look", zh ? "半裙" : "Skirt", zh ? "温柔感" : "Soft tone")
+        ));
+        cards.add(seedCard(
+                "id", "fashion-3",
+                "title", zh ? "旅行穿搭清单：一件风衣搞定机场、拍照和夜晚降温" : "One trench coat that covers airport, photo spots, and cooler nights",
+                "author", zh ? "旅行也要会搭配" : "Travel Fits",
+                "avatar", "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=256",
+                "description", zh ? "旅行箱里留一件能叠穿的外套，真的能省很多搭配成本。" : "One layerable trench solves airport comfort, city photos, and late-night temperature drops.",
+                "cover", "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200",
+                "location", zh ? "北京 · 旅行穿搭" : "Beijing · Travel",
+                "time", zh ? "1小时前" : "1h ago",
+                "category", zh ? "旅行" : "Travel",
+                "mediaType", zh ? "图文" : "Photo",
+                "likes", "1.6w",
+                "comments", "618",
+                "collects", "2.8k",
+                "tags", List.of(zh ? "旅行穿搭" : "Travel look", zh ? "风衣" : "Trench", zh ? "叠穿" : "Layering")
+        ));
+        cards.add(seedCard(
+                "id", "fashion-4",
+                "title", zh ? "梨形身材怎么挑牛仔裤？这 3 条版型上身差别很大" : "Three denim fits that sit very differently on a pear-shaped frame",
+                "author", zh ? "梨形穿搭实验室" : "Fit Notes",
+                "avatar", "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?q=80&w=256",
+                "description", zh ? "把直筒、微喇和阔腿放在一起看，版型差别会比想象里更明显。" : "Seeing straight, flare, and wide-leg side by side makes the silhouette difference obvious.",
+                "cover", "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200",
+                "location", zh ? "成都 · 身材参考" : "Chengdu · Body type",
+                "time", zh ? "2小时前" : "2h ago",
+                "category", zh ? "身材参考" : "Fit guide",
+                "mediaType", zh ? "图文" : "Photo",
+                "likes", "2.1w",
+                "comments", "1.1k",
+                "collects", "4.8k",
+                "tags", List.of(zh ? "梨形身材" : "Pear shape", zh ? "牛仔裤" : "Denim", zh ? "版型" : "Fit")
+        ));
+        cards.add(seedCard(
+                "id", "fashion-5",
+                "title", zh ? "早八穿搭救急：白衬衫不无聊的 4 种搭配法" : "Four ways to make a white shirt feel less boring at 8AM",
+                "author", zh ? "上班族衣橱" : "Office Fits",
+                "avatar", "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=256",
+                "description", zh ? "加马甲、叠背心、换腰带，白衬衫真的不只有一种穿法。" : "A vest, an inner tank, or a new belt can completely change the same white shirt.",
+                "cover", "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?q=80&w=1200",
+                "location", zh ? "深圳 · 早八通勤" : "Shenzhen · 8AM",
+                "time", zh ? "3小时前" : "3h ago",
+                "category", zh ? "基础款" : "Basics",
+                "mediaType", zh ? "图文" : "Photo",
+                "likes", "1.3w",
+                "comments", "432",
+                "collects", "2.1k",
+                "tags", List.of(zh ? "白衬衫" : "White shirt", zh ? "早八" : "8AM", zh ? "通勤" : "Commute")
+        ));
+        cards.add(seedCard(
+                "id", "fashion-6",
+                "title", zh ? "本周高收藏单品：一条深蓝西裤为什么能搭出 5 套风格" : "Why one navy trouser keeps showing up in saved looks this week",
+                "author", zh ? "单品研究所" : "Piece Lab",
+                "avatar", "https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?q=80&w=256",
+                "description", zh ? "同一条西裤换上鞋、外套和包，风格从通勤到休闲切得很自然。" : "Changing the shoes, layer, and bag turns the same trouser from workwear to casual without effort.",
+                "cover", "https://images.unsplash.com/photo-1506629905607-d9c75e4a2d53?q=80&w=1200",
+                "location", zh ? "广州 · 单品拆解" : "Guangzhou · Styling",
+                "time", zh ? "5小时前" : "5h ago",
+                "category", zh ? "单品拆解" : "Styling",
+                "mediaType", zh ? "图文" : "Photo",
+                "likes", "1.7w",
+                "comments", "520",
+                "collects", "3.7k",
+                "tags", List.of(zh ? "西裤" : "Trousers", zh ? "单品拆解" : "Styling", zh ? "高收藏" : "Most saved")
+        ));
+
+        try {
+            return objectMapper.writeValueAsString(cards.subList(0, Math.min(cards.size(), Math.max(count, 4))));
+        } catch (Exception e) {
+            log.warn("[Designer] Failed to serialize fashion feed cards", e);
+            return "[]";
+        }
+    }
+
     private String buildKnowledgeSeededFeedJson(boolean zh, int count) {
         List<Map<String, Object>> cards = new ArrayList<>();
         cards.add(seedCard(
@@ -3179,8 +3454,22 @@ public class UiDesignerAgent {
     private String buildFallbackCategoryNav(ProjectManifest manifest, List<Route> routes) {
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
         ShapeSurfaceProfile profile = buildShapeSurfaceProfile(manifest);
-        String homeRouteId = routes.stream()
-                .filter(this::isContentFirstRoute)
+        List<Route> contentRoutes = routes.stream().filter(this::isContentFirstRoute).toList();
+        if (contentRoutes.size() >= 2) {
+            StringBuilder nav = new StringBuilder();
+            for (Route route : contentRoutes) {
+                String label = escapeHtml(route.name == null || route.name.isBlank() ? route.id : route.name);
+                nav.append(String.format(
+                        "<button @click=\"hash='#%s'\" :class=\"hash==='#%s'?'shell-pill-active':'bg-white text-slate-600'\" class=\"inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold transition-all hover:border-slate-300\">%s</button>\n",
+                        route.id,
+                        route.id,
+                        label
+                ));
+            }
+            return nav.toString();
+        }
+
+        String homeRouteId = contentRoutes.stream()
                 .map(route -> route.id)
                 .findFirst()
                 .orElse(routes.isEmpty() ? "pg1" : routes.get(0).id);
@@ -3240,6 +3529,10 @@ public class UiDesignerAgent {
             index += token.length();
         }
         return count;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private String escapeHtml(String value) {
@@ -3404,15 +3697,27 @@ public class UiDesignerAgent {
                     shellUtilityButton(zh ? "开始任务" : "Start task", "handleLooseAction('" + (zh ? "开始任务" : "Start task") + "', '" + primaryTarget + "')", "utility-start-task"),
                     shellUtilityButton(zh ? "查看进度" : "View progress", "handleLooseAction('" + (zh ? "查看进度" : "View progress") + "', '" + secondaryTarget + "')", "utility-view-progress"));
         }
+        if (containsAny(source, "小红书", "穿搭", "ootd", "搭配", "种草", "时尚")) {
+            return "";
+        }
         return shellUtilityButton(zh ? "新建记录" : "New item", "openComposer('generic', '" + primaryTarget + "')", "utility-create-item");
     }
 
     private String buildDeterministicPersonalLinks(ProjectManifest manifest, List<Route> routes) {
         boolean zh = manifest.getMetaData() == null || !"EN".equalsIgnoreCase(manifest.getMetaData().getOrDefault("lang", "ZH"));
-        String primaryTarget = "#" + firstPrimaryRouteId(routes);
+        String profileTarget = routeIdByKeywords(routes, null, "profile", "user", "主页", "个人");
+        String primaryTarget = profileTarget == null || profileTarget.isBlank() ? "#" + firstPrimaryRouteId(routes) : profileTarget;
         return String.join("\n",
                 "<button @click=\"handleLooseAction('" + (zh ? "个人中心" : "Profile") + "', '" + primaryTarget + "')\" class=\"flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50\">" + (zh ? "个人中心" : "Profile") + "</button>",
                 "<button @click=\"showToast('" + (zh ? "通知设置已打开" : "Notifications opened") + "')\" class=\"flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50\">" + (zh ? "通知设置" : "Notifications") + "</button>");
+    }
+
+    private String buildContentPublishAction(ProjectManifest manifest, List<Route> routes) {
+        String publishTarget = routeIdByKeywords(routes, null, "publish", "发布");
+        if (publishTarget != null && !publishTarget.isBlank()) {
+            return "viewer ? go('" + publishTarget + "') : (authMode = 'login', authOpen = true)";
+        }
+        return "viewer ? openComposer('post', hash) : (authMode = 'login', authOpen = true)";
     }
 
     private String shellUtilityButton(String label, String clickExpr, String actionName) {
@@ -3434,7 +3739,7 @@ public class UiDesignerAgent {
         String html = """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
                   <!-- AI Hydration Indicator -->
-                  <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center justify-between">
+                  <div class="pointer-events-none mb-6 flex items-center justify-between">
                     <div class="flex items-center gap-2 px-3 py-1.5 bg-__ACCENT__/90 backdrop-blur shadow-lg shadow-__ACCENT__/20 border border-__ACCENT__/30 rounded-full">
                       <span class="flex h-2 w-2 relative">
                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
@@ -3506,7 +3811,7 @@ public class UiDesignerAgent {
                         </template>
                       </div>
                     </div>
-                    <aside class="space-y-4 xl:sticky xl:top-24">
+                    <aside class="space-y-4">
                       <section data-aux-section="true" class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
                         <div class="flex items-center justify-between">
                           <div><h3 class="text-lg font-black text-slate-900">__HOT_TOPIC_TITLE__</h3><p class="mt-1 text-xs text-slate-500">__HOT_TOPIC_HINT__</p></div>
@@ -3651,7 +3956,35 @@ public class UiDesignerAgent {
             );
         }
 
-        if (containsAny(intent, "共读", "精读", "读书", "阅读", "笔记", "划线", "学习进度", "book club", "reading", "note")) {
+        if (forceWaterfall && containsAny(intent, "穿搭", "搭配", "ootd", "lookbook", "时尚", "单品", "种草")) {
+            return new ShapeSurfaceProfile(
+                    ProjectManifest.LayoutRhythm.WATERFALL,
+                    vibeColor,
+                    List.of("推荐", "通勤", "约会", "旅行", "身材参考"),
+                    List.of("For you", "Workwear", "Date", "Travel", "Fit guide"),
+                    List.of("今日穿搭", "高收藏单品", "通勤公式", "约会灵感"),
+                    List.of("OOTD", "Most saved", "Workwear formula", "Date ideas"),
+                    "穿搭分享社区", "Style-sharing community",
+                    "今天值得继续逛的穿搭内容", "Looks worth opening today",
+                    "先看单品搭配、场景标签和收藏热度，再决定进入详情、收藏或关注作者。",
+                    "Start from outfit pairing, occasion tags, and save heat before opening details, saving, or following creators.",
+                    "推荐瀑布流", "Recommended looks",
+                    "围绕 OOTD、单品拆解、场景穿搭和身材参考持续更新穿搭内容流。",
+                    "Continuously update around OOTD, single-item styling, occasion looks, and body-type references.",
+                    "高收藏", "Most saved",
+                    "热议", "Trending",
+                    "图文/视频", "Photo/Video",
+                    "穿搭话题", "Style topics",
+                    "当前最值得继续逛和收藏的穿搭方向", "The style directions worth browsing and saving now",
+                    "穿搭作者", "Style creator",
+                    "穿搭社区", "Style community",
+                    "穿搭内容", "Outfit post",
+                    "一条值得继续点开的穿搭笔记", "A style post worth opening",
+                    "今日穿搭", "OOTD"
+            );
+        }
+
+        if (!forceWaterfall && containsAny(intent, "共读", "精读", "读书", "阅读", "笔记", "划线", "学习进度", "book club", "reading", "note")) {
             layout = ProjectManifest.LayoutRhythm.LIST;
             return new ShapeSurfaceProfile(
                     layout,
@@ -3795,7 +4128,7 @@ public class UiDesignerAgent {
         String html = """
                 <div x-show="hash === '#__ID__'" class="animate-fade-in pb-8 space-y-6 relative">
                   <!-- AI Hydration Indicator -->
-                  <div class="pointer-events-none sticky top-4 z-30 mb-6 flex items-center gap-2 px-3 py-1.5 w-fit bg-__ACCENT__/90 backdrop-blur shadow-lg border border-__ACCENT__/30 rounded-full">
+                  <div class="pointer-events-none mb-6 flex items-center gap-2 px-3 py-1.5 w-fit bg-__ACCENT__/90 backdrop-blur shadow-lg border border-__ACCENT__/30 rounded-full">
                     <span class="flex h-2 w-2 relative">
                       <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                       <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
@@ -3952,20 +4285,23 @@ public class UiDesignerAgent {
     private String buildFallbackDetailModal(String lang, String homeRouteId) {
         boolean zh = !"EN".equalsIgnoreCase(lang);
         return """
-                <div class="relative bg-white rounded-3xl p-8 max-w-3xl mx-auto shadow-2xl">
+                <div class="relative bg-white rounded-3xl p-8 max-w-4xl mx-auto shadow-2xl">
                   <button @click="closeDetail()" data-lingnow-action="close-detail" class="absolute top-4 right-4 text-slate-400 hover:text-slate-700 text-2xl">&times;</button>
                   <div class="overflow-hidden rounded-2xl bg-slate-100">
-                    <img :src="selectedItem.cover || selectedItem.image || selectedItem.thumbUrl" class="h-72 w-full object-cover" />
+                    <img :src="selectedItem.cover || selectedItem.image || selectedItem.thumbUrl || 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200'" class="h-80 w-full object-cover" />
                   </div>
-                  <div class="mt-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-                    <span x-text="selectedItem.author || selectedItem.作者 || 'LingNow'"></span>
-                    <span>·</span>
-                    <span x-text="selectedItem.time || selectedItem.publishTime || '%s'"></span>
+                  <div class="mt-6 flex items-center gap-4">
+                    <img :src="selectedItem.avatar || selectedItem.authorAvatar || 'https://ui-avatars.com/api/?name=LingNow&background=fef08a&color=111827'" class="h-12 w-12 rounded-full object-cover" />
+                    <div class="min-w-0">
+                      <div class="truncate text-sm font-black text-slate-900" x-text="selectedItem.author || selectedItem.creator || selectedItem.作者 || 'LingNow'"></div>
+                      <div class="mt-1 text-xs text-slate-500"><span x-text="selectedItem.time || selectedItem.publishTime || '%s'"></span><span class="mx-1">·</span><span x-text="selectedItem.location || selectedItem.category || '%s'"></span></div>
+                    </div>
+                    <button class="ml-auto rounded-full bg-rose-50 px-4 py-2 text-xs font-black text-rose-600">__FOLLOW__</button>
                   </div>
                   <h2 class="mt-3 text-3xl font-black text-slate-900" x-text="selectedItem.title || selectedItem.标题 || '%s'"></h2>
                   <p class="mt-4 text-slate-700 leading-relaxed" x-text="selectedItem.content || selectedItem.内容 || selectedItem.description || ''"></p>
                   <div class="mt-6 flex flex-wrap gap-2">
-                    <template x-for="tag in (selectedItem.tags || [])" :key="tag">
+                    <template x-for="tag in ((selectedItem.tags && selectedItem.tags.length) ? selectedItem.tags : ['穿搭', 'OOTD'])" :key="tag">
                       <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600" x-text="'#' + tag"></span>
                     </template>
                   </div>
@@ -3974,13 +4310,43 @@ public class UiDesignerAgent {
                     <div><div class="font-semibold text-slate-900" x-text="selectedItem.collects || selectedItem.saves || '0'"></div><div>%s</div></div>
                     <div><div class="font-semibold text-slate-900" x-text="selectedItem.comments || selectedItem.commentCount || '0'"></div><div>%s</div></div>
                   </div>
+                  <section class="mt-8 rounded-2xl border border-slate-200 p-5">
+                    <div class="flex items-center justify-between">
+                      <h3 class="text-lg font-black text-slate-900">__COMMENTS__</h3>
+                      <span class="text-xs text-slate-500" x-text="detailComments.length + ' __ITEMS__'"></span>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                      <template x-for="comment in detailComments" :key="comment.id">
+                        <article class="rounded-2xl bg-slate-50 p-4">
+                          <div class="flex items-center justify-between gap-3">
+                            <div class="text-sm font-black text-slate-900" x-text="comment.author"></div>
+                            <button @click="startReply(comment)" class="text-xs font-semibold text-rose-500">__REPLY__</button>
+                          </div>
+                          <p class="mt-2 text-sm leading-6 text-slate-600" x-text="comment.content"></p>
+                        </article>
+                      </template>
+                    </div>
+                    <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                      <textarea x-model="draftComment" class="h-24 w-full resize-none bg-transparent text-sm outline-none" placeholder="__COMMENT_PLACEHOLDER__"></textarea>
+                      <div class="mt-3 flex justify-end">
+                        <button @click="submitComment()" data-lingnow-action="submit-comment" class="shell-primary-button rounded-full px-4 py-2 text-sm font-black text-white">__SEND__</button>
+                      </div>
+                    </div>
+                  </section>
                 </div>
                 """.formatted(
                 zh ? "刚刚" : "just now",
+                        zh ? "穿搭社区" : "Style community",
                 zh ? "详情" : "Detail",
                 zh ? "点赞" : "Likes",
                 zh ? "收藏" : "Saves",
-                zh ? "评论" : "Comments");
+                        zh ? "评论" : "Comments")
+                .replace("__FOLLOW__", zh ? "关注作者" : "Follow")
+                .replace("__COMMENTS__", zh ? "评论区" : "Comments")
+                .replace("__ITEMS__", zh ? "条评论" : "comments")
+                .replace("__REPLY__", zh ? "回复" : "Reply")
+                .replace("__COMMENT_PLACEHOLDER__", zh ? "写下你的评论或回复..." : "Write a comment...")
+                .replace("__SEND__", zh ? "发送评论" : "Send");
     }
 
     private String buildWorkflowDetailModal(ProjectManifest manifest, String lang, String homeRouteId) {

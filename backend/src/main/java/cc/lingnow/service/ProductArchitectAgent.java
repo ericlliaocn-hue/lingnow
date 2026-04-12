@@ -200,6 +200,27 @@ public class ProductArchitectAgent {
             gaps.add("Content/social product is missing a utility publish action.");
         }
 
+        boolean hasFeedHome = manifest.getPages() != null && manifest.getPages().stream()
+                .anyMatch(page -> "PRIMARY".equalsIgnoreCase(page.getNavRole())
+                        && containsAny(page.getRoute() + " " + page.getDescription(), "home", "discover", "feed", "首页", "发现", "瀑布流", "版块"));
+        if (contentOrSocial && !hasFeedHome) {
+            gaps.add("Content/social product is missing a primary discovery/feed surface.");
+        }
+
+        boolean hasPersonalPage = manifest.getPages() != null && manifest.getPages().stream()
+                .anyMatch(page -> "PERSONAL".equalsIgnoreCase(page.getNavRole())
+                        || containsAny(page.getRoute() + " " + page.getDescription(), "user", "profile", "me", "主页", "个人"));
+        if (contentOrSocial && !hasPersonalPage) {
+            gaps.add("Content/social product is missing a personal/profile surface.");
+        }
+
+        boolean primaryDetailOnly = manifest.getPages() != null && manifest.getPages().stream()
+                .anyMatch(page -> "PRIMARY".equalsIgnoreCase(page.getNavRole())
+                        && containsAny(page.getRoute() + " " + page.getDescription(), "detail", "详情"));
+        if (contentOrSocial && primaryDetailOnly) {
+            gaps.add("Content/social product promoted a detail overlay into primary navigation.");
+        }
+
         boolean hasCommentFlow = manifest.getTaskFlows() != null && manifest.getTaskFlows().stream()
                 .anyMatch(flow -> containsAny(flow.getDescription(), "comment", "reply", "评论", "回复")
                         || (flow.getSteps() != null && flow.getSteps().stream().anyMatch(step -> containsAny(step, "comment", "reply", "评论", "回复"))));
@@ -243,6 +264,24 @@ public class ProductArchitectAgent {
                     .build());
         }
 
+        if (gaps.contains("Content/social product promoted a detail overlay into primary navigation.")) {
+            manifest.setPages(manifest.getPages().stream()
+                    .map(page -> {
+                        if ("PRIMARY".equalsIgnoreCase(page.getNavRole())
+                                && containsAny(page.getRoute() + " " + page.getDescription(), "detail", "详情")) {
+                            return ProjectManifest.PageSpec.builder()
+                                    .route("/post/:postId")
+                                    .description("帖子详情页，展示完整内容与互动组件，是内容消费的深度入口。")
+                                    .navType("LEAF_DETAIL")
+                                    .navRole("OVERLAY")
+                                    .components(List.of("内容主体区", "作者信息卡", "点赞收藏操作栏", "评论列表", "相关推荐", "举报与分享入口"))
+                                    .build();
+                        }
+                        return page;
+                    })
+                    .collect(Collectors.toCollection(ArrayList::new)));
+        }
+
         if (gaps.contains("Content/social product is missing a utility publish action.")) {
             manifest.getPages().add(ProjectManifest.PageSpec.builder()
                     .route("/publish")
@@ -250,6 +289,33 @@ public class ProductArchitectAgent {
                     .navType("CONTEXT_WIDGET")
                     .navRole("UTILITY")
                     .components(List.of("Title Input", "Content Editor", "Media Upload", "Tag Picker", "Publish CTA"))
+                    .build());
+        }
+
+        if (gaps.contains("Content/social product is missing a primary discovery/feed surface.")) {
+            manifest.getPages().add(0, ProjectManifest.PageSpec.builder()
+                    .route("/home")
+                    .description("首页瀑布流，承载推荐流、关注流与内容发现，是用户进入社区的主入口。")
+                    .navType("NAV_ANCHOR")
+                    .navRole("PRIMARY")
+                    .components(List.of("顶部固定栏", "推荐/关注切换标签", "多列瀑布流卡片", "风格快捷筛选条", "热搜词入口", "下拉加载更多"))
+                    .build());
+            manifest.getPages().add(1, ProjectManifest.PageSpec.builder()
+                    .route("/discover")
+                    .description("发现页，支持搜索、话题筛选与趋势浏览，帮助用户定位感兴趣内容。")
+                    .navType("NAV_ANCHOR")
+                    .navRole("PRIMARY")
+                    .components(List.of("搜索输入框", "热搜推荐区", "筛选面板", "结果瀑布流", "筛选条件标签", "无结果状态提示"))
+                    .build());
+        }
+
+        if (gaps.contains("Content/social product is missing a personal/profile surface.")) {
+            manifest.getPages().add(ProjectManifest.PageSpec.builder()
+                    .route("/user/:userId")
+                    .description("个人主页，展示用户身份、内容资产与关系状态，支持作品集式浏览。")
+                    .navType("NAV_ANCHOR")
+                    .navRole("PERSONAL")
+                    .components(List.of("头像与昵称头图", "个人简介卡", "关注按钮与数据统计", "发布内容标签页", "收藏/喜欢切换", "作品瀑布流列表"))
                     .build());
         }
 

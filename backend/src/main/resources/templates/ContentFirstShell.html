@@ -48,6 +48,9 @@
             hash: window.location.hash || '#pg1',
             detailReturnHash: window.location.hash && window.location.hash !== '#detail' ? window.location.hash : '#pg1',
             selectedItem: null,
+            detailComments: [],
+            draftComment: '',
+            replyTarget: '',
             selectedSlot: null,
             selectedLead: null,
             activeOrder: null,
@@ -125,12 +128,46 @@
             openDetail(item) {
                 this.detailReturnHash = this.hash && this.hash !== '#detail' ? this.hash : (this.detailReturnHash || '#pg1');
                 this.selectedItem = item;
+                const author = item?.author || item?.creator || 'LingNow';
+                this.detailComments = [
+                    { id: 'c1', author: author, content: '这套的比例好稳，短外套真的很加分。', replies: 2 },
+                    { id: 'c2', author: '穿搭灵感收藏夹', content: '想问一下裤子的版型和鞋子链接。', replies: 1 }
+                ];
+                this.draftComment = '';
+                this.replyTarget = '';
                 this.go('#detail');
             },
             closeDetail(fallback = null) {
                 this.selectedItem = null;
+                this.detailComments = [];
+                this.draftComment = '';
+                this.replyTarget = '';
                 const target = fallback || (this.detailReturnHash && this.detailReturnHash !== '#detail' ? this.detailReturnHash : '#pg1');
                 this.go(target);
+            },
+            startReply(comment) {
+                this.replyTarget = comment?.author || '';
+                this.draftComment = this.replyTarget ? `回复 ${this.replyTarget}：` : '';
+            },
+            submitComment() {
+                if (!this.selectedItem) return;
+                const content = String(this.draftComment || '').trim();
+                if (!content) {
+                    this.showToast('请输入评论内容');
+                    return;
+                }
+                this.detailComments.unshift({
+                    id: 'c' + Date.now(),
+                    author: this.viewer?.name || 'LingNow 用户',
+                    content,
+                    replies: 0
+                });
+                const current = Number(this.selectedItem.comments || this.selectedItem.commentCount || 0);
+                this.selectedItem.comments = String(current + 1);
+                this.selectedItem.commentCount = String(current + 1);
+                this.draftComment = '';
+                this.replyTarget = '';
+                this.showToast('评论已发布');
             },
             startInquiry(item = null) {
                 const source = item || this.selectedItem || {};
@@ -334,7 +371,7 @@
             </div>
 
             <div class="flex items-center gap-2">
-                <button @click="viewer ? openComposer('{{PUBLISH_KIND}}', hash) : (authMode = 'login', authOpen = true)"
+                <button @click="{{PUBLISH_ACTION}}"
                         class="shell-primary-button flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition"
                         data-lingnow-action="shell-open-composer">
                     <i class="fa-solid fa-plus"></i>
@@ -366,6 +403,7 @@
                                     <div class="text-sm font-semibold text-slate-900" x-text="viewer.name"></div>
                                     <div class="text-xs text-slate-500">已登录</div>
                                 </div>
+                                {{PERSONAL_LINKS}}
                                 <button @click="logout()"
                                         class="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-slate-600 hover:bg-slate-50">
                                     <i class="fa-solid fa-right-from-bracket"></i>

@@ -346,6 +346,9 @@ public class GenerationService {
         if (manifest == null || manifest.getDesignContract() == null || auditOutcome == null || auditOutcome.getBlockers() == null) {
             return false;
         }
+        if ("CONTENT_FIRST".equalsIgnoreCase(manifest.getDesignContract().getContentMode()) && !auditOutcome.isPassed()) {
+            return true;
+        }
         if (manifest.getDesignContract().getLayoutRhythm() == ProjectManifest.LayoutRhythm.WATERFALL
                 || manifest.getDesignContract().getLayoutRhythm() == ProjectManifest.LayoutRhythm.LIST
                 || manifest.getDesignContract().getLayoutRhythm() == ProjectManifest.LayoutRhythm.THREAD) {
@@ -353,6 +356,10 @@ public class GenerationService {
                 String lower = blocker.toLowerCase();
                 return lower.contains("portal-like internal sidebars")
                         || lower.contains("escaped quote syntax")
+                        || lower.contains("primary views rendered only")
+                        || lower.contains("too sparse")
+                        || lower.contains("raw user prompt")
+                        || lower.contains("internal benchmark")
                         || lower.contains("technical knowledge homepage is leaking")
                         || lower.contains("visual discovery homepage is leaking")
                         || lower.contains("content-first homepage does not expose enough feed cards");
