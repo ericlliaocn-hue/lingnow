@@ -1151,7 +1151,7 @@ public class UiDesignerAgent {
                         </div>
                       </div>
                       <div class="flex flex-wrap gap-3">
-                        <button @click="toggleFollow('@ootd.daily')" :class="isFollowed('@ootd.daily') ? 'shell-soft-button' : 'shell-primary-button text-white'" class="rounded-full px-5 py-3 text-sm font-black transition">__FOLLOW__</button>
+                        <button @click="toggleFollow('@ootd.daily')" :class="isFollowed('@ootd.daily') ? 'shell-soft-button' : 'shell-primary-button text-white'" class="rounded-full px-5 py-3 text-sm font-black transition" x-text="isFollowed('@ootd.daily') ? '__FOLLOWED__' : '__FOLLOW__'"></button>
                         <button class="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">__MESSAGE__</button>
                       </div>
                     </div>
@@ -1191,6 +1191,7 @@ public class UiDesignerAgent {
                 .replace("__TAG_A__", zh ? "通勤穿搭" : "Workwear")
                 .replace("__TAG_B__", zh ? "小个子" : "Petite")
                 .replace("__FOLLOW__", zh ? "关注作者" : "Follow")
+                .replace("__FOLLOWED__", zh ? "已关注" : "Following")
                 .replace("__MESSAGE__", zh ? "发消息" : "Message")
                 .replace("__WORKS__", zh ? "作品集" : "Looks")
                 .replace("__STATS__", zh ? "账号数据" : "Stats")
@@ -3952,7 +3953,7 @@ public class UiDesignerAgent {
                                   <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
                                   <div class="truncate text-[10px] text-slate-500"><span x-text="item.location || '__LOCATION_FALLBACK__'"></span><span class="mx-1">·</span><span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span></div>
                                 </div>
-                                <button @click.stop="toggleFollow(item)" data-lingnow-action="feed-follow" :class="isFollowed(item) ? 'shell-soft-button' : 'shell-primary-button text-white'" class="ml-auto rounded-full px-3 py-1 text-[10px] font-bold transition">__FOLLOW_LABEL__</button>
+                                <button @click.stop="toggleFollow(item)" data-lingnow-action="feed-follow" :class="isFollowed(item) ? 'shell-soft-button' : 'shell-primary-button text-white'" class="ml-auto rounded-full px-3 py-1 text-[10px] font-bold transition" x-text="isFollowed(item) ? '__FOLLOWED_LABEL__' : '__FOLLOW_LABEL__'"></button>
                               </div>
                               <div>
                                 <h3 class="line-clamp-2 text-base font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
@@ -4008,6 +4009,7 @@ public class UiDesignerAgent {
                 .replace("__TOPIC_FALLBACK__", zh ? profile.topicFallbackZh() : profile.topicFallbackEn())
                 .replace("__TIME_FALLBACK__", zh ? "2小时前" : "2h ago")
                 .replace("__FOLLOW_LABEL__", zh ? "关注" : "Follow")
+                .replace("__FOLLOWED_LABEL__", zh ? "已关注" : "Following")
                 .replace("__DESCRIPTION__", description)
                 .replace("__COVER_POOL__", coverPool)
                 .replace("__AVATAR_POOL__", avatarPool)
@@ -4454,7 +4456,7 @@ public class UiDesignerAgent {
                       <div class="truncate text-sm font-black text-slate-900" x-text="selectedItem.author || selectedItem.creator || selectedItem.作者 || 'LingNow'"></div>
                       <div class="mt-1 text-xs text-slate-500"><span x-text="selectedItem.time || selectedItem.publishTime || '%s'"></span><span class="mx-1">·</span><span x-text="selectedItem.location || selectedItem.category || '%s'"></span></div>
                     </div>
-                    <button @click="toggleFollow(selectedItem)" :class="isFollowed(selectedItem) ? 'shell-soft-button' : 'bg-rose-50 text-rose-600'" class="ml-auto rounded-full px-4 py-2 text-xs font-black transition">__FOLLOW__</button>
+                    <button @click="toggleFollow(selectedItem)" :class="isFollowed(selectedItem) ? 'shell-soft-button' : 'bg-rose-50 text-rose-600'" class="ml-auto rounded-full px-4 py-2 text-xs font-black transition" x-text="isFollowed(selectedItem) ? '__FOLLOWED__' : '__FOLLOW__'"></button>
                   </div>
                   <h2 class="mt-3 text-3xl font-black text-slate-900" x-text="selectedItem.title || selectedItem.标题 || '%s'"></h2>
                   <p class="mt-4 text-slate-700 leading-relaxed" x-text="selectedItem.content || selectedItem.内容 || selectedItem.description || ''"></p>
@@ -4471,7 +4473,7 @@ public class UiDesignerAgent {
                   <div class="mt-4 flex flex-wrap gap-3">
                     <button @click="toggleLike(selectedItem)" :class="isLiked(selectedItem) ? 'shell-pill-active text-white' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition">__LIKE__</button>
                     <button @click="toggleSave(selectedItem)" :class="isSaved(selectedItem) ? 'shell-pill-active text-white' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition">__SAVE__</button>
-                    <button @click="toggleFollow(selectedItem)" :class="isFollowed(selectedItem) ? 'shell-soft-button' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition">__FOLLOW_SHORT__</button>
+                    <button @click="toggleFollow(selectedItem)" :class="isFollowed(selectedItem) ? 'shell-soft-button' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition" x-text="isFollowed(selectedItem) ? '__FOLLOWED_SHORT__' : '__FOLLOW_SHORT__'"></button>
                   </div>
                   <section class="mt-8 rounded-2xl border border-slate-200 p-5">
                     <div class="flex items-center justify-between">
@@ -4505,9 +4507,11 @@ public class UiDesignerAgent {
                 zh ? "收藏" : "Saves",
                         zh ? "评论" : "Comments")
                 .replace("__FOLLOW__", zh ? "关注作者" : "Follow")
+                .replace("__FOLLOWED__", zh ? "已关注" : "Following")
                 .replace("__LIKE__", zh ? "点赞" : "Like")
                 .replace("__SAVE__", zh ? "收藏" : "Save")
                 .replace("__FOLLOW_SHORT__", zh ? "关注" : "Follow")
+                .replace("__FOLLOWED_SHORT__", zh ? "已关注" : "Following")
                 .replace("__COMMENTS__", zh ? "评论区" : "Comments")
                 .replace("__ITEMS__", zh ? "条评论" : "comments")
                 .replace("__REPLY__", zh ? "回复" : "Reply")
