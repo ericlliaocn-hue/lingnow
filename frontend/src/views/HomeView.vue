@@ -97,7 +97,6 @@
         {{ t('hero.subtitle') }}
       </p>
 
-      <!-- Central Prompt Box (The Core Insight from alignment) -->
       <div class="w-full max-w-3xl relative group">
         <div
             class="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
@@ -129,7 +128,7 @@
                 <svg fill="none" height="16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                      stroke-width="2" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg">
                   <path
-                      d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                      d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 1 1-2.83-2.83l8.49-8.48"/>
                 </svg>
               </button>
               <button class="p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5"
@@ -196,7 +195,7 @@ const i18n = {
     hero: {
       title_p1: 'Build with the',
       title_p2: 'AI Software Factory',
-      subtitle: 'Scale your software development with an autonomous multi-agent network. Transform ideas into production-ready high-fi products in seconds.',
+      subtitle: 'Turn ideas into products and shippable source code.',
       agentStatus: 'ACTIVE_AGENT_NETWORK',
       placeholder: 'What do you want to build today?',
       generateBtn: 'Generate Now'
@@ -251,7 +250,7 @@ const i18n = {
     hero: {
       title_p1: '用 AI 软件工厂',
       title_p2: '即刻构建您的产品',
-      subtitle: '利用多智能体网络扩展您的开发能力。将创意瞬间转化为工业级高保真产品。',
+      subtitle: '把需求直接生成产品与可交付源码。',
       agentStatus: '专家 Agent 矩阵已就绪',
       placeholder: '您今天想构建什么？',
       generateBtn: '立即生成'
