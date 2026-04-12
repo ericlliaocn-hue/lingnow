@@ -178,6 +178,76 @@ class PrototypeBundleCompilerTest {
         assertTrue(bundle.getMockGraph().getCollections().stream().anyMatch(c -> "document".equals(c.getName())));
     }
 
+    @Test
+    void compilesRecruitingRequirementIntoCandidatePipeline() {
+        ProjectManifest manifest = baseManifest(
+                "recruiting-bundle",
+                "做一个招聘 ATS 系统，支持候选人列表、简历详情、面试安排、流程推进和 offer 管理。"
+        );
+
+        PrototypeBundle bundle = compiler.compile(manifest);
+
+        assertEquals("candidate", bundle.getProductIr().getPrimaryObject());
+        assertTrue(bundle.getProductIr().getInteractionModes().contains("pipeline"));
+        assertTrue(bundle.getExperienceBrief().getInteractionModel().contains("pipeline"));
+    }
+
+    @Test
+    void compilesRealEstateBrokerRequirementIntoListingCommerce() {
+        ProjectManifest manifest = baseManifest(
+                "real-estate-bundle",
+                "做一个房产经纪平台，支持房源列表、地图找房、房源详情、带看安排和经纪人主页。"
+        );
+
+        PrototypeBundle bundle = compiler.compile(manifest);
+
+        assertEquals("listing", bundle.getProductIr().getPrimaryObject());
+        assertTrue(bundle.getProductIr().getInteractionModes().contains("listing"));
+        assertFalse(bundle.getProductIr().getInteractionModes().contains("scheduler"));
+    }
+
+    @Test
+    void compilesNewsroomRequirementIntoEditorialWorkspace() {
+        ProjectManifest manifest = baseManifest(
+                "editorial-bundle",
+                "做一个新闻内容运营平台，支持选题池、稿件编辑、审核发布、专题页和数据看板。"
+        );
+
+        PrototypeBundle bundle = compiler.compile(manifest);
+
+        assertEquals("article", bundle.getProductIr().getPrimaryObject());
+        assertTrue(bundle.getProductIr().getInteractionModes().contains("composer"));
+        assertTrue(bundle.getProductIr().getInteractionModes().contains("review"));
+    }
+
+    @Test
+    void compilesBillingRequirementIntoSubscriptionWorkspace() {
+        ProjectManifest manifest = baseManifest(
+                "billing-bundle",
+                "做一个 SaaS 订阅计费平台，支持套餐管理、账单列表、支付记录、续费提醒和客户详情。"
+        );
+
+        PrototypeBundle bundle = compiler.compile(manifest);
+
+        assertEquals("subscription", bundle.getProductIr().getPrimaryObject());
+        assertTrue(bundle.getExperienceBrief().getInteractionModel().contains("workspace"));
+        assertFalse(bundle.getExperienceBrief().getInteractionModel().contains("pipeline"));
+    }
+
+    @Test
+    void compilesWarehouseRequirementIntoOperationsWorkflow() {
+        ProjectManifest manifest = baseManifest(
+                "warehouse-bundle",
+                "做一个仓储 WMS 系统，支持入库上架、库位管理、拣货波次、出库复核和库存盘点。"
+        );
+
+        PrototypeBundle bundle = compiler.compile(manifest);
+
+        assertEquals("job", bundle.getProductIr().getPrimaryObject());
+        assertTrue(bundle.getProductIr().getInteractionModes().contains("queue"));
+        assertTrue(bundle.getProductIr().getInteractionModes().contains("workflow"));
+    }
+
     private ProjectManifest baseManifest(String id, String intent) {
         ProjectManifest manifest = new ProjectManifest();
         manifest.setId(id);
