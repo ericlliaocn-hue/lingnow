@@ -64,6 +64,8 @@
             profileOpen: false,
             viewer: null,
             authForm: { username: '', password: '' },
+            composerDraft: { title: '', body: '' },
+            pagePostDraft: { title: '', body: '', tags: '', scene: '' },
             searchQuery: '',
             activeCategory: '',
             activeSignal: 'all',
@@ -72,6 +74,9 @@
             toast: '',
             toastTimer: null,
             draftInquiry: { photographer: '', city: '', service: '', budget: '', note: '' },
+            savedItems: {},
+            likedItems: {},
+            followedAuthors: {},
             mockData: {{MOCK_DATA}},
             go(target) {
                 this.hash = target;
@@ -86,6 +91,7 @@
                 this.postDraftKind = kind;
                 this.postTarget = target || this.hash || '#pg1';
                 this.postOpen = true;
+                this.composerDraft = { title: '', body: '' };
                 const openMap = {
                     generic: '已打开新建面板',
                     service: '已打开服务面板',
@@ -105,6 +111,21 @@
                 this.showToast(openMap[kind] || '已打开发布面板');
             },
             submitPost() {
+                const title = String(this.composerDraft?.title || '').trim();
+                const body = String(this.composerDraft?.body || '').trim();
+                if (this.postDraftKind === 'post' && !title) {
+                    this.showToast('请先填写标题');
+                    return;
+                }
+                if (this.postDraftKind === 'post') {
+                    this.insertPublishedPost({
+                        title: title || '新的穿搭笔记',
+                        description: body || '刚刚发布了一条新的穿搭内容。',
+                        content: body || '刚刚发布了一条新的穿搭内容。',
+                        category: this.pagePostDraft?.scene || '今日穿搭',
+                        tags: this.parseDraftTags(this.pagePostDraft?.tags || '今日穿搭,灵感记录')
+                    });
+                }
                 this.postOpen = false;
                 const messageMap = {
                     post: '内容已发布',
@@ -122,8 +143,73 @@
                     product: '商品草稿已保存',
                     workorder: '工单草稿已保存'
                 };
+                this.composerDraft = { title: '', body: '' };
                 this.showToast(messageMap[this.postDraftKind] || '内容已发布');
                 if (this.postTarget) this.go(this.postTarget);
+            },
+            itemId(item) {
+                return String(item?.id || item?.title || item?.name || item?.author || Date.now());
+            },
+            authorKey(item) {
+                if (typeof item === 'string') return item;
+                return String(item?.author || item?.creator || item?.username || '');
+            },
+            formatMetric(value) {
+                const numeric = Math.max(0, Math.round(Number(value) || 0));
+                if (numeric >= 10000) {
+                    const wan = (numeric / 10000).toFixed(numeric >= 100000 ? 0 : 1).replace(/\.0$/, '');
+                    return `${wan}w`;
+                }
+                if (numeric >= 1000) {
+                    const kilo = (numeric / 1000).toFixed(1).replace(/\.0$/, '');
+                    return `${kilo}k`;
+                }
+                return String(numeric);
+            },
+            mutateMetric(item, fields, delta = 1) {
+                if (!item) return;
+                for (const field of fields) {
+                    if (item[field] != null) {
+                        const current = this.parseMetric(item[field]);
+                        item[field] = this.formatMetric(current + delta);
+                    }
+                }
+            },
+            isSaved(item) {
+                return !!this.savedItems[this.itemId(item)];
+            },
+            isLiked(item) {
+                return !!this.likedItems[this.itemId(item)];
+            },
+            isFollowed(item) {
+                const key = this.authorKey(item);
+                return !!this.followedAuthors[key];
+            },
+            toggleSave(item = null) {
+                const target = item || this.selectedItem;
+                if (!target) return;
+                const id = this.itemId(target);
+                const next = !this.savedItems[id];
+                this.savedItems = { ...this.savedItems, [id]: next };
+                this.mutateMetric(target, ['collects', 'saves'], next ? 1 : -1);
+                this.showToast(next ? '已加入收藏' : '已取消收藏');
+            },
+            toggleLike(item = null) {
+                const target = item || this.selectedItem;
+                if (!target) return;
+                const id = this.itemId(target);
+                const next = !this.likedItems[id];
+                this.likedItems = { ...this.likedItems, [id]: next };
+                this.mutateMetric(target, ['likes', 'likeCount'], next ? 1 : -1);
+                this.showToast(next ? '已点赞' : '已取消点赞');
+            },
+            toggleFollow(item = null) {
+                const target = item || this.selectedItem;
+                const key = this.authorKey(target);
+                if (!key) return;
+                const next = !this.followedAuthors[key];
+                this.followedAuthors = { ...this.followedAuthors, [key]: next };
+                this.showToast(next ? `已关注 ${key}` : `已取消关注 ${key}`);
             },
             openDetail(item) {
                 this.detailReturnHash = this.hash && this.hash !== '#detail' ? this.hash : (this.detailReturnHash || '#pg1');
@@ -168,6 +254,63 @@
                 this.draftComment = '';
                 this.replyTarget = '';
                 this.showToast('评论已发布');
+            },
+            parseDraftTags(value) {
+                return String(value || '')
+                    .split(/[，,、\s]+/)
+                    .map(tag => tag.trim())
+                    .filter(Boolean)
+                    .slice(0, 4);
+            },
+            insertPublishedPost(payload = {}) {
+                const viewerName = this.viewer?.name || 'LingNow 用户';
+                const viewerAvatar = this.viewer?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(viewerName)}&background=fef08a&color=111827`;
+                const tags = Array.isArray(payload.tags) && payload.tags.length ? payload.tags : ['今日穿搭'];
+                const item = {
+                    id: 'post-' + Date.now(),
+                    title: payload.title || '新的穿搭笔记',
+                    description: payload.description || payload.content || '刚刚发布了一条新的穿搭内容。',
+                    content: payload.content || payload.description || '刚刚发布了一条新的穿搭内容。',
+                    author: viewerName,
+                    avatar: viewerAvatar,
+                    authorAvatar: viewerAvatar,
+                    location: '刚刚发布',
+                    time: '刚刚',
+                    category: payload.category || '今日穿搭',
+                    mediaType: '图文',
+                    likes: '0',
+                    comments: '0',
+                    collects: '0',
+                    tags,
+                    cover: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200'
+                };
+                const existing = Array.isArray(this.mockData) ? this.mockData : [];
+                this.mockData = [item, ...existing];
+            },
+            savePageDraft() {
+                this.showToast('草稿已保存');
+            },
+            publishPagePost() {
+                const title = String(this.pagePostDraft?.title || '').trim();
+                if (!title) {
+                    this.showToast('请先填写标题');
+                    return;
+                }
+                this.insertPublishedPost({
+                    title,
+                    description: this.pagePostDraft?.body || '刚刚发布了一条新的穿搭内容。',
+                    content: this.pagePostDraft?.body || '刚刚发布了一条新的穿搭内容。',
+                    category: this.pagePostDraft?.scene || '今日穿搭',
+                    tags: this.parseDraftTags(this.pagePostDraft?.tags || '')
+                });
+                this.pagePostDraft = { title: '', body: '', tags: '', scene: '' };
+                this.showToast('发布成功，已加入首页与个人主页');
+                this.go('#pg1');
+            },
+            profileFeed(seedData) {
+                const source = this.feedSource(seedData);
+                if (!Array.isArray(source)) return [];
+                return source.slice(0, 6);
             },
             startInquiry(item = null) {
                 const source = item || this.selectedItem || {};
@@ -290,6 +433,8 @@
                     name: username || 'LingNow 用户',
                     avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(username || 'LingNow')}&background=fef08a&color=111827`
                 };
+                const viewerName = this.viewer.name;
+                this.followedAuthors = { ...this.followedAuthors, [viewerName]: true };
                 this.authOpen = false;
                 this.authMode = 'login';
                 this.profileOpen = false;
@@ -324,6 +469,19 @@
                 if (normalized.includes('发布') || normalized.includes('新建') || normalized.includes('添加') || normalized.includes('评论')) {
                     const kind = normalized.includes('评论') ? 'comment' : 'post';
                     this.openComposer(kind, target);
+                    return;
+                }
+                if (normalized.includes('关注')) {
+                    this.toggleFollow(this.selectedItem || label);
+                    if (target && target !== '#detail') this.go(target);
+                    return;
+                }
+                if (normalized.includes('收藏')) {
+                    this.toggleSave(this.selectedItem);
+                    return;
+                }
+                if (normalized.includes('点赞')) {
+                    this.toggleLike(this.selectedItem);
                     return;
                 }
                 if (normalized.includes('分配') || normalized.includes('指派') || normalized.includes('负责人') || normalized.includes('派单')) {
@@ -441,7 +599,11 @@
             <div @click="postOpen = false" class="absolute inset-0 bg-slate-900/40"></div>
             <div class="relative w-full max-w-lg bg-white rounded-2xl p-6 shadow-2xl">
                 <h3 class="text-lg font-bold mb-4">{{POST_TITLE}}</h3>
+                <input class="shell-field-focus mb-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
+                       placeholder="输入标题"
+                       x-model="composerDraft.title">
                 <textarea class="shell-field-focus w-full h-32 p-3 bg-slate-50 border border-slate-200 rounded-xl mb-4"
+                          x-model="composerDraft.body"
                           placeholder="{{POST_PLACEHOLDER}}"></textarea>
                 <div class="flex gap-2">
                     <button @click="postOpen = false" class="flex-1 py-2 rounded-xl bg-slate-100 font-bold">取消

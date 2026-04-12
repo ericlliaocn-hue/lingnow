@@ -1151,7 +1151,7 @@ public class UiDesignerAgent {
                         </div>
                       </div>
                       <div class="flex flex-wrap gap-3">
-                        <button class="shell-primary-button rounded-full px-5 py-3 text-sm font-black text-white">__FOLLOW__</button>
+                        <button @click="toggleFollow('@ootd.daily')" :class="isFollowed('@ootd.daily') ? 'shell-soft-button' : 'shell-primary-button text-white'" class="rounded-full px-5 py-3 text-sm font-black transition">__FOLLOW__</button>
                         <button class="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">__MESSAGE__</button>
                       </div>
                     </div>
@@ -1160,12 +1160,12 @@ public class UiDesignerAgent {
                     <div class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
                       <h2 class="text-2xl font-black text-slate-900">__WORKS__</h2>
                       <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        <template x-for="item in [
+                        <template x-for="item in profileFeed([
                           {title:'通勤西装 + 直筒裤', cover:'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?q=80&w=1200'},
                           {title:'针织开衫 + 半裙', cover:'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200'},
                           {title:'风衣旅行穿搭', cover:'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200'}
-                        ]" :key="item.title">
-                          <article class="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
+                        ])" :key="item.id || item.title">
+                          <article @click="openDetail(item)" class="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50 transition hover:-translate-y-1 hover:bg-white hover:shadow-lg">
                             <img :src="item.cover" class="aspect-[4/5] w-full object-cover"/>
                             <div class="p-4 text-sm font-semibold text-slate-800" x-text="item.title"></div>
                           </article>
@@ -1210,15 +1210,15 @@ public class UiDesignerAgent {
                   <section class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <div class="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm space-y-5">
                       <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">__UPLOAD__</div>
-                      <input class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__TITLE_PLACEHOLDER__"/>
-                      <textarea class="h-40 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__BODY_PLACEHOLDER__"></textarea>
+                      <input x-model="pagePostDraft.title" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__TITLE_PLACEHOLDER__"/>
+                      <textarea x-model="pagePostDraft.body" class="h-40 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__BODY_PLACEHOLDER__"></textarea>
                       <div class="grid gap-4 md:grid-cols-2">
-                        <input class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__TAG_PLACEHOLDER__"/>
-                        <input class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__SCENE_PLACEHOLDER__"/>
+                        <input x-model="pagePostDraft.tags" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__TAG_PLACEHOLDER__"/>
+                        <input x-model="pagePostDraft.scene" class="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm" placeholder="__SCENE_PLACEHOLDER__"/>
                       </div>
                       <div class="flex gap-3">
-                        <button class="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">__DRAFT__</button>
-                        <button class="shell-primary-button rounded-full px-5 py-3 text-sm font-black text-white">__SUBMIT__</button>
+                        <button @click="savePageDraft()" class="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700">__DRAFT__</button>
+                        <button @click="publishPagePost()" class="shell-primary-button rounded-full px-5 py-3 text-sm font-black text-white">__SUBMIT__</button>
                       </div>
                     </div>
                     <aside class="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -3952,7 +3952,7 @@ public class UiDesignerAgent {
                                   <div class="truncate text-sm font-semibold text-slate-900" x-text="item.author || item.username || item.creator || '__AUTHOR_FALLBACK__'"></div>
                                   <div class="truncate text-[10px] text-slate-500"><span x-text="item.location || '__LOCATION_FALLBACK__'"></span><span class="mx-1">·</span><span x-text="item.time || item.publishTime || '__TIME_FALLBACK__'"></span></div>
                                 </div>
-                                <button @click="handleLooseAction('__FOLLOW_LABEL__')" data-lingnow-action="feed-follow" class="shell-primary-button ml-auto rounded-full px-3 py-1 text-[10px] font-bold text-white">__FOLLOW_LABEL__</button>
+                                <button @click.stop="toggleFollow(item)" data-lingnow-action="feed-follow" :class="isFollowed(item) ? 'shell-soft-button' : 'shell-primary-button text-white'" class="ml-auto rounded-full px-3 py-1 text-[10px] font-bold transition">__FOLLOW_LABEL__</button>
                               </div>
                               <div>
                                 <h3 class="line-clamp-2 text-base font-black text-slate-900" x-text="item.title || item.name || '__CARD_TITLE_FALLBACK__'"></h3>
@@ -4454,7 +4454,7 @@ public class UiDesignerAgent {
                       <div class="truncate text-sm font-black text-slate-900" x-text="selectedItem.author || selectedItem.creator || selectedItem.作者 || 'LingNow'"></div>
                       <div class="mt-1 text-xs text-slate-500"><span x-text="selectedItem.time || selectedItem.publishTime || '%s'"></span><span class="mx-1">·</span><span x-text="selectedItem.location || selectedItem.category || '%s'"></span></div>
                     </div>
-                    <button class="ml-auto rounded-full bg-rose-50 px-4 py-2 text-xs font-black text-rose-600">__FOLLOW__</button>
+                    <button @click="toggleFollow(selectedItem)" :class="isFollowed(selectedItem) ? 'shell-soft-button' : 'bg-rose-50 text-rose-600'" class="ml-auto rounded-full px-4 py-2 text-xs font-black transition">__FOLLOW__</button>
                   </div>
                   <h2 class="mt-3 text-3xl font-black text-slate-900" x-text="selectedItem.title || selectedItem.标题 || '%s'"></h2>
                   <p class="mt-4 text-slate-700 leading-relaxed" x-text="selectedItem.content || selectedItem.内容 || selectedItem.description || ''"></p>
@@ -4467,6 +4467,11 @@ public class UiDesignerAgent {
                     <div><div class="font-semibold text-slate-900" x-text="selectedItem.likes || selectedItem.likeCount || '0'"></div><div>%s</div></div>
                     <div><div class="font-semibold text-slate-900" x-text="selectedItem.collects || selectedItem.saves || '0'"></div><div>%s</div></div>
                     <div><div class="font-semibold text-slate-900" x-text="selectedItem.comments || selectedItem.commentCount || '0'"></div><div>%s</div></div>
+                  </div>
+                  <div class="mt-4 flex flex-wrap gap-3">
+                    <button @click="toggleLike(selectedItem)" :class="isLiked(selectedItem) ? 'shell-pill-active text-white' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition">__LIKE__</button>
+                    <button @click="toggleSave(selectedItem)" :class="isSaved(selectedItem) ? 'shell-pill-active text-white' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition">__SAVE__</button>
+                    <button @click="toggleFollow(selectedItem)" :class="isFollowed(selectedItem) ? 'shell-soft-button' : 'bg-slate-100 text-slate-700'" class="rounded-full px-4 py-2 text-sm font-black transition">__FOLLOW_SHORT__</button>
                   </div>
                   <section class="mt-8 rounded-2xl border border-slate-200 p-5">
                     <div class="flex items-center justify-between">
@@ -4500,6 +4505,9 @@ public class UiDesignerAgent {
                 zh ? "收藏" : "Saves",
                         zh ? "评论" : "Comments")
                 .replace("__FOLLOW__", zh ? "关注作者" : "Follow")
+                .replace("__LIKE__", zh ? "点赞" : "Like")
+                .replace("__SAVE__", zh ? "收藏" : "Save")
+                .replace("__FOLLOW_SHORT__", zh ? "关注" : "Follow")
                 .replace("__COMMENTS__", zh ? "评论区" : "Comments")
                 .replace("__ITEMS__", zh ? "条评论" : "comments")
                 .replace("__REPLY__", zh ? "回复" : "Reply")
